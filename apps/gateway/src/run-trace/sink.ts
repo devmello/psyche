@@ -224,9 +224,16 @@ export class RunTraceSink {
     string,
     { stepId: string; memoryPath?: string; frames?: { first: number; last: number } }
   >();
+  /** The tool each traced call ran, by tool call id: the remote-viewer scrub reads it (bounded). */
+  readonly #toolNames = new Map<string, string>();
 
   constructor(options: RunTraceOptions) {
     this.#o = options;
+  }
+
+  /** The tool a traced call ran, while the sink remembers it (`viewer-scrub.ts`). */
+  toolOf(toolCallId: string): string | undefined {
+    return this.#toolNames.get(toolCallId);
   }
 
   #redact(text: string): string {
@@ -813,7 +820,8 @@ export class RunTraceSink {
       if (o !== undefined) payloadRef.output = o;
     }
     const lastUser = [...ctx.messages].reverse().find((m) => m.role === "user");
-    const asked = lastUser?.parts.find((p) => p.type === "text");
+    // What the owner asked, never context the loop added to the turn (a Memory recall, `turnContext`).
+    const asked = lastUser?.parts.find((p) => p.type === "text" && p.turnContext !== true);
     const inPreview = clip(
       this.#redact(
         `${ctx.messages.length} messages, ${ctx.tools.length} tools${
@@ -929,6 +937,8 @@ export class RunTraceSink {
       this.#reserved.delete(key);
       id = reserved?.stepId ?? this.#newId();
       t.byToolCall.set(event.toolCallId, id);
+      if (this.#toolNames.size >= 5000) this.#toolNames.clear();
+      this.#toolNames.set(event.toolCallId, event.tool);
       const inputPreview =
         event.details?.paramsRedacted === undefined
           ? undefined
