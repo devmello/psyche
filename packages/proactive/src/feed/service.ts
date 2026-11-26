@@ -95,6 +95,11 @@ export type FeedEvent =
   | { event: "feed.updated"; payload: { posts: FeedPost[]; briefingId?: string } };
 
 export interface FeedServiceOptions {
+  /**
+   * Whether the scheduled daily brief (not custom briefings, not a manual `feed.generate`) may
+   * run: Settings → Routines → Daily "Morning brief". Default: always.
+   */
+  dailyBriefOn?: () => boolean;
   db: SqliteDatabase;
   clock: Clock;
   scheduler: SchedulerLike;
@@ -597,6 +602,9 @@ export class FeedService {
   async #runJob(request: LaunchRequest): Promise<LaunchResult> {
     const marker = parseJobMarker(request.automation.prompt);
     const briefing = marker?.job === FEED_BRIEFING_JOB;
+    if (marker?.job === FEED_BRIEF_JOB && this.#o.dailyBriefOn?.() === false) {
+      return { status: "no_reply", summary: "Daily brief is off" };
+    }
     const result = await this.generate(
       briefing ? { briefingId: request.automation.id, instructions: marker?.rest ?? "" } : {},
     );

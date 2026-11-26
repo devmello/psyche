@@ -323,6 +323,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     model,
     fetch: publicFetch(),
     sources: feedSourcesFrom(getSetting(db, "feed.sources")?.value),
+    // The 07:00 Today brief follows Settings → Routines → Daily "Morning brief" (off by default).
+    dailyBriefOn: () => getSetting(db, "daily.brief.enabled")?.value === true,
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload as never),
     // The brief's catch-up lines answer to the owner's agent access when the agent reads Feed.
