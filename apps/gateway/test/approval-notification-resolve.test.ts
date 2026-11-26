@@ -48,7 +48,6 @@ function world() {
       notifier,
       approvers: {
         device: async () => ({ scopes: ["operator.read", "operator.approvals"] }),
-        isOwnerSender: async () => false,
       },
       store: new SqlitePermissionStore(db.sqlite),
       policy: { folders: [{ path: "/Users/owner", mode: "rw" }] },
