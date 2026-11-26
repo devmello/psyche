@@ -40,7 +40,6 @@ import { venueOfHost } from "@psyche/protocol/financial-block";
 import { monotonicFactory } from "ulid";
 import {
   type Binding,
-  bindingFor,
   bindingHash,
   grantKeyHash,
   MACHINE_CARD_KINDS,
@@ -543,7 +542,6 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #failureTimes = new Map<string, number[]>();
   /** The `decidedBy` objects of calls the Gateway vouched for as the owner's own Host app. */
   readonly #localBy = new WeakSet<object>();
-  readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
   /** The last place found for a vanished Settings folder (`folderReconnectOffer`). */
   readonly #reconnectOffers = new Map<

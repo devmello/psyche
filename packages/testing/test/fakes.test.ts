@@ -20,7 +20,6 @@ import {
   findSecrets,
   nextCron,
   parseIsoDuration,
-  SAMPLE_APPROVAL_REQUEST,
 } from "../src/index.ts";
 
 describe("FakeClock and ids", () => {

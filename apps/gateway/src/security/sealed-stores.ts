@@ -1,5 +1,4 @@
 import type { PermissionStore } from "@psyche/permissions";
-import { PsycheError } from "@psyche/protocol";
 import type { StateSeal } from "./state-seal.ts";
 
 /**
