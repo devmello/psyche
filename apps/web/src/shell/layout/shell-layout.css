@@ -120,7 +120,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-reduce-motion="false"])::view-transition-old(.psy-route) {
-    animation-duration: 1ms;
+    animation-duration: var(--duration-route-old-reduced, 1ms);
   }
   :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
     animation-name: psy-route-fade;
@@ -129,7 +129,7 @@
   }
 }
 :root[data-reduce-motion="true"]::view-transition-old(.psy-route) {
-  animation-duration: 1ms;
+  animation-duration: var(--duration-route-old-reduced, 1ms);
 }
 :root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
   animation-name: psy-route-fade;

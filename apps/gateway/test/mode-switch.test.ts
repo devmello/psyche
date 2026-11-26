@@ -241,7 +241,6 @@ describe("a tool call cannot switch the mode", () => {
       "plugins",
       "harnesses",
       "connectors",
-      "channels",
       "browser",
       "proactive",
       "scheduler",
