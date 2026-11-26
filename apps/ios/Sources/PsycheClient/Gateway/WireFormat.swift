@@ -9,10 +9,11 @@ enum WireFormat {
     }
 
     /// Today: "9:12". Earlier this week: "Tue". Otherwise "Mar 4".
-    static func time(_ text: String?, now: Date = .now, calendar: Calendar = .current) -> String {
+    static func time(_ text: String?, now: Date = .now, calendar: Calendar = .current, locale: Locale = .current) -> String {
         guard let date = date(text) else { return "" }
         if calendar.isDate(date, inSameDayAs: now) {
-            return date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute())
+            // Locale-aware hour and minute: 12-hour locales keep the AM/PM day period.
+            return date.formatted(.dateTime.hour().minute().locale(locale))
         }
         if let days = calendar.dateComponents([.day], from: date, to: now).day, days >= 0, days < 6 {
             return date.formatted(.dateTime.weekday(.abbreviated))

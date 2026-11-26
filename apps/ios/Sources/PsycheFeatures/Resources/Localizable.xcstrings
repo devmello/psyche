@@ -59107,73 +59107,73 @@
         }
       }
     },
-    "On your Mac, open Settings → Server & remote access → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows.": {
+    "On your Mac, open Settings → Devices & server → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows.": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On your Mac, open Settings → Server & remote access → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows."
+            "value": "On your Mac, open Settings → Devices & server → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "على جهاز Mac، افتح الإعدادات ← الخادم والوصول عن بُعد ← اقتران جهاز آخر. إذا ذكر أنه لا يوجد عنوان بعد، فعّل «السماح لأجهزة هذه الشبكة» واختر «من هذه الشبكة». ثم امسح الرمز الذي يظهر."
+            "value": "على جهاز Mac، افتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر. إذا ذكر أنه لا يوجد عنوان بعد، فعّل «السماح لأجهزة هذه الشبكة» واختر «من هذه الشبكة». ثم امسح الرمز الذي يظهر."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Server und Fernzugriff → Anderen Computer koppeln. Wenn dort steht, dass es noch keine Adresse gibt, schalte „Computer in diesem Netzwerk zulassen“ ein und wähle „Aus diesem Netzwerk“. Scanne dann den angezeigten Code."
+            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln. Wenn dort steht, dass es noch keine Adresse gibt, schalte „Computer in diesem Netzwerk zulassen“ ein und wähle „Aus diesem Netzwerk“. Scanne dann den angezeigten Code."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En tu Mac, abre Ajustes → Servidor y acceso remoto → Emparejar otro ordenador. Si indica que aún no hay dirección, activa «Permitir ordenadores de esta red» y elige «Desde esta red». Luego escanea el código que muestra."
+            "value": "En tu Mac, abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador. Si indica que aún no hay dirección, activa «Permitir ordenadores de esta red» y elige «Desde esta red». Luego escanea el código que muestra."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur ton Mac, ouvre Réglages → Serveur et accès à distance → Associer un autre ordinateur. S’il indique qu’il n’y a pas encore d’adresse, active « Autoriser les ordinateurs de ce réseau » et choisis « Depuis ce réseau ». Scanne ensuite le code affiché."
+            "value": "Sur ton Mac, ouvre Réglages → Appareils et serveur → Associer un autre ordinateur. S’il indique qu’il n’y a pas encore d’adresse, active « Autoriser les ordinateurs de ce réseau » et choisis « Depuis ce réseau ». Scanne ensuite le code affiché."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → Server & remote access → Pair another computer खोलें। अगर वहाँ लिखा हो कि अभी कोई पता नहीं है, तो “इस नेटवर्क के कंप्यूटर की अनुमति दें” चालू करें और “इस नेटवर्क से” चुनें। फिर दिखाया गया कोड स्कैन करें।"
+            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें। अगर वहाँ लिखा हो कि अभी कोई पता नहीं है, तो “इस नेटवर्क के कंप्यूटर की अनुमति दें” चालू करें और “इस नेटवर्क से” चुनें। फिर दिखाया गया कोड स्कैन करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Server e accesso remoto → Abbina un altro computer. Se dice che non c’è ancora un indirizzo, attiva «Consenti computer su questa rete» e scegli «Da questa rete». Poi scansiona il codice mostrato."
+            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer. Se dice che non c’è ancora un indirizzo, attiva «Consenti computer su questa rete» e scegli «Da questa rete». Poi scansiona il codice mostrato."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac で「設定」→「サーバーとリモートアクセス」→「別のコンピュータとペアリング」を開きます。まだアドレスがないと表示されたら、「このネットワーク上のコンピュータを許可」をオンにして「このネットワークから」を選んでください。そのあと、表示されたコードを読み取ります。"
+            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開きます。まだアドレスがないと表示されたら、「このネットワーク上のコンピュータを許可」をオンにして「このネットワークから」を選んでください。そのあと、表示されたコードを読み取ります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac에서 설정 → 서버 및 원격 액세스 → 다른 컴퓨터 페어링을 엽니다. 아직 주소가 없다고 표시되면 ‘이 네트워크의 컴퓨터 허용’을 켜고 ‘이 네트워크에서’를 선택하세요. 그런 다음 표시된 코드를 스캔하세요."
+            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 엽니다. 아직 주소가 없다고 표시되면 ‘이 네트워크의 컴퓨터 허용’을 켜고 ‘이 네트워크에서’를 선택하세요. 그런 다음 표시된 코드를 스캔하세요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Mac, abra Ajustes → Servidor e acesso remoto → Parear outro computador. Se disser que ainda não há endereço, ative «Permitir computadores desta rede» e escolha «Desta rede». Depois escaneie o código exibido."
+            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador. Se disser que ainda não há endereço, ative «Permitir computadores desta rede» e escolha «Desta rede». Depois escaneie o código exibido."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 Mac 上打开“设置”→“服务器与远程访问”→“与另一台电脑配对”。如果提示还没有地址，请打开“允许此网络上的电脑”并选择“从此网络”。然后扫描它显示的代码。"
+            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”。如果提示还没有地址，请打开“允许此网络上的电脑”并选择“从此网络”。然后扫描它显示的代码。"
           }
         }
       }
@@ -60385,73 +60385,73 @@
         }
       }
     },
-    "On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows.": {
+    "On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows.": {
       "extractionState": "extracted_with_value",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On your Mac, open Settings → Server & remote access → Pair another computer. Then scan the code it shows."
+            "value": "On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows."
           }
         },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "على جهاز Mac، افتح الإعدادات ← الخادم والوصول عن بُعد ← اقتران جهاز آخر. ثم امسح الرمز الذي يظهر."
+            "value": "على جهاز Mac، افتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر. ثم امسح الرمز الذي يظهر."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Server und Fernzugriff → Anderen Computer koppeln. Scanne dann den angezeigten Code."
+            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln. Scanne dann den angezeigten Code."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En tu Mac, abre Ajustes → Servidor y acceso remoto → Emparejar otro ordenador. Luego escanea el código que muestra."
+            "value": "En tu Mac, abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador. Luego escanea el código que muestra."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur ton Mac, ouvre Réglages → Serveur et accès à distance → Associer un autre ordinateur. Scanne ensuite le code affiché."
+            "value": "Sur ton Mac, ouvre Réglages → Appareils et serveur → Associer un autre ordinateur. Scanne ensuite le code affiché."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → Server & remote access → Pair another computer खोलें। फिर दिखाया गया कोड स्कैन करें।"
+            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें। फिर दिखाया गया कोड स्कैन करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Server e accesso remoto → Abbina un altro computer. Poi scansiona il codice mostrato."
+            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer. Poi scansiona il codice mostrato."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac で「設定」→「サーバーとリモートアクセス」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
+            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac에서 설정 → 서버 및 원격 액세스 → 다른 컴퓨터 페어링을 열고, 표시된 코드를 스캔하세요."
+            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고, 표시된 코드를 스캔하세요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "No Mac, abra Ajustes → Servidor e acesso remoto → Parear outro computador. Depois escaneie o código exibido."
+            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador. Depois escaneie o código exibido."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 Mac 上打开“设置”→“服务器与远程访问”→“与另一台电脑配对”，然后扫描它显示的代码。"
+            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描它显示的代码。"
           }
         }
       }
@@ -68025,73 +68025,73 @@
         }
       }
     },
-    "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Server & remote access → Pair another computer on your Mac and scan a new code.": {
+    "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code.": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يجب أن يطلب منك جهاز Mac الموافقة على هذا الهاتف. تأكد من تطابق رمز الأمان. وإن لم يطلب ذلك، فافتح الإعدادات ← الخادم والوصول عن بُعد ← اقتران جهاز آخر على جهاز Mac وامسح رمزًا جديدًا."
+            "value": "يجب أن يطلب منك جهاز Mac الموافقة على هذا الهاتف. تأكد من تطابق رمز الأمان. وإن لم يطلب ذلك، فافتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر على جهاز Mac وامسح رمزًا جديدًا."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dein Mac sollte dich bitten, dieses iPhone zu bestätigen. Prüfe, ob der Sicherheitscode übereinstimmt. Wenn er nicht fragt, öffne auf deinem Mac Einstellungen → Server und Fernzugriff → Anderen Computer koppeln und scanne einen neuen Code."
+            "value": "Dein Mac sollte dich bitten, dieses iPhone zu bestätigen. Prüfe, ob der Sicherheitscode übereinstimmt. Wenn er nicht fragt, öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln und scanne einen neuen Code."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Server & remote access → Pair another computer on your Mac and scan a new code."
+            "value": "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu Mac debería pedirte que apruebes este teléfono. Comprueba que el código de seguridad coincide. Si no lo pide, abre en tu Mac Ajustes → Servidor y acceso remoto → Emparejar otro ordenador y escanea un código nuevo."
+            "value": "Tu Mac debería pedirte que apruebes este teléfono. Comprueba que el código de seguridad coincide. Si no lo pide, abre en tu Mac Ajustes → Dispositivos y servidor → Emparejar otro ordenador y escanea un código nuevo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ton Mac devrait te demander d’approuver ce téléphone. Vérifie que le code de sécurité correspond. S’il ne demande rien, ouvre sur ton Mac Réglages → Serveur et accès à distance → Associer un autre ordinateur et scanne un nouveau code."
+            "value": "Ton Mac devrait te demander d’approuver ce téléphone. Vérifie que le code de sécurité correspond. S’il ne demande rien, ouvre sur ton Mac Réglages → Appareils et serveur → Associer un autre ordinateur et scanne un nouveau code."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपका Mac आपसे इस फ़ोन को मंज़ूरी देने के लिए कहेगा। जाँचें कि सुरक्षा कोड मेल खाता है। अगर वह नहीं पूछता, तो अपने Mac पर सेटिंग्स → Server & remote access → Pair another computer खोलें और नया कोड स्कैन करें।"
+            "value": "आपका Mac आपसे इस फ़ोन को मंज़ूरी देने के लिए कहेगा। जाँचें कि सुरक्षा कोड मेल खाता है। अगर वह नहीं पूछता, तो अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें और नया कोड स्कैन करें।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il Mac dovrebbe chiederti di approvare questo telefono. Controlla che il codice di sicurezza corrisponda. Se non lo chiede, sul Mac apri Impostazioni → Server e accesso remoto → Abbina un altro computer e scansiona un nuovo codice."
+            "value": "Il Mac dovrebbe chiederti di approvare questo telefono. Controlla che il codice di sicurezza corrisponda. Se non lo chiede, sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer e scansiona un nuovo codice."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac がこの iPhone の承認を求めてくるはずです。セキュリティコードが一致しているか確認してください。表示されない場合は、Mac で「設定」→「サーバーとリモートアクセス」→「別のコンピュータとペアリング」を開き、新しいコードを読み取ってください。"
+            "value": "Mac がこの iPhone の承認を求めてくるはずです。セキュリティコードが一致しているか確認してください。表示されない場合は、Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、新しいコードを読み取ってください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac에서 이 iPhone을 승인하라는 메시지가 표시됩니다. 보안 코드가 일치하는지 확인하세요. 메시지가 없으면 Mac에서 설정 → 서버 및 원격 액세스 → 다른 컴퓨터 페어링을 열고 새 코드를 스캔하세요."
+            "value": "Mac에서 이 iPhone을 승인하라는 메시지가 표시됩니다. 보안 코드가 일치하는지 확인하세요. 메시지가 없으면 Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고 새 코드를 스캔하세요."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "O Mac deve pedir que você aprove este iPhone. Confira se o código de segurança é o mesmo. Se ele não pedir, no Mac abra Ajustes → Servidor e acesso remoto → Parear outro computador e escaneie um novo código."
+            "value": "O Mac deve pedir que você aprove este iPhone. Confira se o código de segurança é o mesmo. Se ele não pedir, no Mac abra Ajustes → Dispositivos e servidor → Parear outro computador e escaneie um novo código."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mac 应该会请你批准此 iPhone。请确认安全码一致。如果没有提示，请在 Mac 上打开“设置”→“服务器与远程访问”→“与另一台电脑配对”，然后扫描新的代码。"
+            "value": "Mac 应该会请你批准此 iPhone。请确认安全码一致。如果没有提示，请在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描新的代码。"
           }
         }
       }

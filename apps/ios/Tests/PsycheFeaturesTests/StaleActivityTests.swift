@@ -54,6 +54,15 @@ struct StaleActivityTests {
             ledger: NotifiedLedger(directory: nil), isFixture: true)
     }
 
+    /// Waits for the observer task to act on an event, without a fixed sleep: it polls the outcome, returning as
+    /// soon as it holds. It fails only if the outcome never arrives.
+    private func settle(_ condition: @MainActor () -> Bool) async throws {
+        for _ in 0..<1_000 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
     @Test func aStaleActivityIsStillTrackedAndUpdatedWithAFreshStaleDate() async throws {
         let backend = FixtureBackend()
         let host = StalingHost(stale: ["task_q3"])
@@ -70,10 +79,9 @@ struct StaleActivityTests {
         let host = StalingHost(stale: ["task_q3"])
         let alerts = center(backend, host)
         alerts.start()
-        try await Task.sleep(for: .milliseconds(200))
         try await backend.updateSettings(
             PhoneSettings(notifications: true, liveActivities: false, taskTitlesOnLockScreen: false))
-        try await Task.sleep(for: .milliseconds(300))
+        try await settle { host.ends == ["task_q3"] }
         #expect(host.ends == ["task_q3"])
         #expect(alerts.watching.isEmpty)
     }
