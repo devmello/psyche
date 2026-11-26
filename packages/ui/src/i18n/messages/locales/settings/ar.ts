@@ -130,7 +130,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "الهدوء حتى",
   "settings.notifications.group.approvals": "الموافقات أثناء غيابك",
   "settings.notifications.approvals.hint":
-    "تصل كل الموافقات إلى أجهزتك، والمهمة التي تبدأها في دردشة تسأل في تلك الدردشة. اختر دردشة واحدة تصلها الموافقات أيضًا عندما لا يُرَ أي من أجهزتك لمدة 10 دقائق. تظل المدفوعات تحتاج إلى جهاز Mac أو هاتفك.",
+    "تصل كل الموافقات إلى أجهزتك، والمهمة التي تبدأها في دردشة تسأل في تلك الدردشة. اختر دردشة واحدة تصلها الموافقات أيضًا عندما لا يُرَ أي من أجهزتك لمدة 10 دقائق. تظل المدفوعات تحتاج إلى حاسوبك أو هاتفك.",
   "settings.key.notifications.approvals.awayChannel": "دردشة الغياب",
   "settings.notifications.approvals.none": "لا شيء",
   "settings.notifications.title": "الإشعارات",

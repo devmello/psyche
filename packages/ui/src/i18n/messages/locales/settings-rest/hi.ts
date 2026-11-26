@@ -162,7 +162,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "शांति इस समय तक",
   "settings.notifications.group.approvals": "आपके दूर रहने पर मंज़ूरियाँ",
   "settings.notifications.approvals.hint":
-    "आपके डिवाइस को हर मंज़ूरी मिलती है, और चैट में शुरू किया गया कार्य उसी चैट में पूछता है। एक चैट चुनें जिसे तब भी मंज़ूरियाँ मिलें जब आपका कोई डिवाइस 10 मिनट से न दिखा हो। भुगतान के लिए अब भी आपका Mac या फ़ोन चाहिए।",
+    "आपके डिवाइस को हर मंज़ूरी मिलती है, और चैट में शुरू किया गया कार्य उसी चैट में पूछता है। एक चैट चुनें जिसे तब भी मंज़ूरियाँ मिलें जब आपका कोई डिवाइस 10 मिनट से न दिखा हो। भुगतान के लिए अब भी आपका कंप्यूटर या फ़ोन चाहिए।",
   "settings.key.notifications.approvals.awayChannel": "दूर रहने पर चैट",
   "settings.notifications.approvals.none": "कोई नहीं",
   "settings.notifications.title": "नोटिफ़िकेशन",

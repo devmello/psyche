@@ -124,7 +124,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "免打扰持续到",
   "settings.notifications.group.approvals": "你不在时的批准",
   "settings.notifications.approvals.hint":
-    "所有批准都会发到你的设备;你在聊天中发起的任务会在该聊天中询问。你可以再选一个聊天,在你的设备 10 分钟都没出现时也接收批准。付款仍然需要你的 Mac 或手机。",
+    "所有批准都会发到你的设备;你在聊天中发起的任务会在该聊天中询问。你可以再选一个聊天,在你的设备 10 分钟都没出现时也接收批准。付款仍然需要你的电脑或手机。",
   "settings.key.notifications.approvals.awayChannel": "离开时的聊天",
   "settings.notifications.approvals.none": "无",
   "settings.notifications.title": "通知",

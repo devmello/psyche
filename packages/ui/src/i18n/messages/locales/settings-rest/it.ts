@@ -167,7 +167,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "Silenzio fino alle",
   "settings.notifications.group.approvals": "Approvazioni quando sei via",
   "settings.notifications.approvals.hint":
-    "I tuoi dispositivi ricevono ogni approvazione, e un’attività avviata in una chat chiede in quella chat. Scegli una chat che riceva le approvazioni anche quando nessun dispositivo è stato visto per 10 minuti. I pagamenti richiedono comunque il tuo Mac o il telefono.",
+    "I tuoi dispositivi ricevono ogni approvazione, e un’attività avviata in una chat chiede in quella chat. Scegli una chat che riceva le approvazioni anche quando nessun dispositivo è stato visto per 10 minuti. I pagamenti richiedono comunque il tuo computer o il telefono.",
   "settings.key.notifications.approvals.awayChannel": "Chat per quando sei via",
   "settings.notifications.approvals.none": "Nessuna",
   "settings.notifications.title": "Notifiche",

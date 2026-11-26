@@ -169,7 +169,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "Ruhig bis",
   "settings.notifications.group.approvals": "Freigaben, wenn du weg bist",
   "settings.notifications.approvals.hint":
-    "Deine Geräte bekommen jede Freigabe, und eine Aufgabe, die du in einem Chat startest, fragt in diesem Chat. Wähle einen Chat, der Freigaben auch bekommt, wenn 10 Minuten lang keines deiner Geräte aktiv war. Zahlungen brauchen weiterhin deinen Mac oder dein Handy.",
+    "Deine Geräte bekommen jede Freigabe, und eine Aufgabe, die du in einem Chat startest, fragt in diesem Chat. Wähle einen Chat, der Freigaben auch bekommt, wenn 10 Minuten lang keines deiner Geräte aktiv war. Zahlungen brauchen weiterhin deinen Computer oder dein Handy.",
   "settings.key.notifications.approvals.awayChannel": "Chat für unterwegs",
   "settings.notifications.approvals.none": "Keiner",
   "settings.notifications.title": "Mitteilungen",

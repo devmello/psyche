@@ -165,7 +165,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.notifications.quietHours.end": "종료 시간",
   "settings.notifications.group.approvals": "자리를 비웠을 때의 승인",
   "settings.notifications.approvals.hint":
-    "모든 승인은 기기로 전달되고, 채팅에서 시작한 작업은 그 채팅에서 묻습니다. 기기가 10분 동안 확인되지 않을 때 승인도 받을 채팅을 하나 고를 수 있습니다. 결제는 계속 Mac이나 휴대폰이 필요합니다.",
+    "모든 승인은 기기로 전달되고, 채팅에서 시작한 작업은 그 채팅에서 묻습니다. 기기가 10분 동안 확인되지 않을 때 승인도 받을 채팅을 하나 고를 수 있습니다. 결제는 계속 컴퓨터나 휴대폰이 필요합니다.",
   "settings.key.notifications.approvals.awayChannel": "부재 시 채팅",
   "settings.notifications.approvals.none": "없음",
   "settings.notifications.title": "알림",
