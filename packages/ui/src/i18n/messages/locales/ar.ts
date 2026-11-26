@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ar.ts";
 import { agent } from "./agent/ar.ts";
 import { agentNotes } from "./agent-notes/ar.ts";
+import { appleE2 } from "./apple-e2/ar.ts";
 import { approvalsW3 } from "./approvals-w3/ar.ts";
 import { audit } from "./audit/ar.ts";
 import { automationChat } from "./automation-chat/ar.ts";
@@ -4061,6 +4062,7 @@ export const ar: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

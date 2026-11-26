@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** memory strings not covered elsewhere (ko); merged into `../ko.ts`. */
 export const memoryRest: Partial<Catalogue> = {
   "memory.page.title": "메모리",
-  "memory.page.soul": "Soul",
+  "memory.page.soul": "성격",
   "memory.page.kinds": "표시할 항목",
   "memory.page.kind.everything": "전체",
   "memory.page.kind.people": "사람",

@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** Completed memory strings (de); merged into `../de.ts`. */
 export const memoryRest: Partial<Catalogue> = {
   "memory.page.title": "Gedächtnis",
-  "memory.page.soul": "Seele",
+  "memory.page.soul": "Persönlichkeit",
   "memory.page.kinds": "Was angezeigt wird",
   "memory.page.kind.everything": "Alles",
   "memory.page.kind.people": "Personen",
