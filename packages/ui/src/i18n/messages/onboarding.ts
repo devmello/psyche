@@ -7,9 +7,9 @@ export const onboarding = {
   "onboarding.keyRefused": "The provider refused this key ({reason}). Paste the key again.",
   "onboarding.setupCheck": "Setup check",
   "onboarding.progress": "Onboarding progress",
+  "onboarding.steps": "Steps",
   "onboarding.doneMark": " (done)",
   "onboarding.stepCount": "{n, number} of {total, number}",
-  "onboarding.stepOf": "Step {n, number} of {total, number}:",
   "onboarding.back": "Back",
   "onboarding.skipForNow": "Skip for now",
   "onboarding.openChat": "Open the main chat",
@@ -62,7 +62,7 @@ export const onboarding = {
   "onboarding.permission.asking": "Asking…",
   "onboarding.permission.allow": "Allow",
   "onboarding.connectors.intro":
-    "Decide now which accounts to connect, one at a time. {name} only sees what you connect, and you can add more later in Settings.",
+    "Pick what {name} can help with. Each app asks for permission when you connect it, and you can add more later in Settings.",
   "onboarding.connectors.connected": "Connected ({n, number})",
   "onboarding.connectors.connectedList": "Your accounts",
   "onboarding.connectors.needsPermission": "Needs permission",
@@ -86,6 +86,7 @@ export const onboarding = {
     "{n, plural, =0 {Connect apps} one {Connect # app} other {Connect # apps}}",
   "onboarding.connectors.connecting": "Connecting {name}",
   "onboarding.connectors.accounts": "Accounts",
+  "onboarding.connectors.moreAccounts": "Add a Google, Microsoft or email account",
   "onboarding.connectors.windowsHint":
     "On Windows, {name} reads your mail, calendar and contacts through a Microsoft, Google or IMAP account.",
   "onboarding.model.how": "How should the agent think?",
@@ -117,12 +118,19 @@ export const onboarding = {
     "Psyche just created your vault. Save this key in a password manager or on paper: it is shown only now and is the only way back into the vault after a restore or a lost key slot.",
   "onboarding.model.subscriptionNote":
     "Psyche uses the Claude Code or Codex app already signed in on this Mac, so it needs no API key and stores none. Sign in there first if you haven't.",
-  "onboarding.model.toolCheck": "Tool-calling check",
-  "onboarding.model.runCheck": "Run check",
-  "onboarding.model.checkAgain": "Check again",
+  "onboarding.model.toolCheck": "Connection test",
+  "onboarding.model.otherWays": "Other ways",
+  "onboarding.model.test.passed": "Works",
+  "onboarding.model.test.failed": "Chat only",
+  "onboarding.model.test.running": "Testing…",
+  "onboarding.model.test.untested": "Not tested yet",
+  "onboarding.model.runCheck": "Test it",
+  "onboarding.model.checkAgain": "Test again",
   "onboarding.model.toolCheckFailed":
-    "This model can chat but can't use tools reliably, so it won't act for you. Pick another or continue in chat-only mode.",
+    "This model can chat but may not carry out tasks for you. Pick another or continue in chat-only mode.",
   "onboarding.done.ready": "{name} is ready.",
+  "onboarding.done.notReady": "{name} is not ready to answer yet.",
+  "onboarding.done.notReadyBody": "Fix the Model row below, or do it later in Settings → Models.",
   "onboarding.done.opens": "The main chat opens with {name}'s first message.",
   "onboarding.done.noneYet": "None yet",
   "onboarding.done.accounts": "Accounts",
@@ -181,7 +189,7 @@ export const onboarding = {
   "onboarding.rerun.button": "Run setup again",
   // --- The six steps (docs/design/onboarding-2026.md) ---
   "onboarding.step.you": "You and your agent",
-  "onboarding.step.stuff": "Your stuff",
+  "onboarding.step.stuff": "What should I help with?",
   "onboarding.step.safety": "Safety",
   "onboarding.step.folders": "Folders",
   "onboarding.folders.lead":
@@ -249,8 +257,7 @@ export const onboarding = {
   "onboarding.done.touchIdNot": "Not registered yet",
   "onboarding.done.modelKept": "Unchanged",
   "onboarding.done.try": "Try next",
-  "onboarding.done.try.search":
-    "Ask a question in Search (⌘K). The answer shows where in your life it came from.",
-  "onboarding.done.try.home": "Open Home. Catching up lists what you may have let slide.",
-  "onboarding.done.try.canDo": "Open “What can you do?” in the gear menu for ready-made tasks.",
+  "onboarding.done.try.search": "Ask a question in Search",
+  "onboarding.done.try.home": "Catch up on Home",
+  "onboarding.done.try.chat": "Start a new chat",
 } as const;

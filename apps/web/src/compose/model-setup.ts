@@ -172,7 +172,12 @@ function keyProbeVerdict(
 }
 
 /** Done's model row when the stored key was refused (a failure) or could not be checked. */
-function probeCheck(ref: string, verdict: "refused" | "unchecked", error?: string): SetupCheck {
+function probeCheck(
+  ref: string,
+  verdict: "refused" | "unchecked",
+  error?: string,
+  fromEnv = false,
+): SetupCheck {
   return verdict === "refused"
     ? {
         id: "model",
@@ -185,9 +190,28 @@ function probeCheck(ref: string, verdict: "refused" | "unchecked", error?: strin
         id: "model",
         label: t("web.setup.model"),
         state: "unchecked",
-        detail: t("web.setup.modelNotChecked", { ref }),
+        detail: fromEnv
+          ? t("web.setup.modelEnvNotChecked", { ref })
+          : t("web.setup.modelNotChecked", { ref }),
         fixStep: "model",
       };
+}
+
+/**
+ * A hosted provider whose key the Gateway has but this setup never saved: the key came from the
+ * Gateway's environment (or an earlier setup), not from the Model step.
+ */
+function keyFromEnvironment(
+  provider: ModelsList["providers"][number] | undefined,
+  savedHere: boolean,
+): boolean {
+  return (
+    !savedHere &&
+    provider !== undefined &&
+    provider.keyConfigured &&
+    !provider.local &&
+    !CLI_PROVIDERS.has(provider.id)
+  );
 }
 
 /** The provider can authenticate: local, a stored key, or a signed-in CLI subscription. */
@@ -270,8 +294,9 @@ export async function verifySetup(
         (p) => kept !== undefined && kept.startsWith(`${p.id}/`),
       );
       const keptVerdict = keyProbeVerdict(provider);
+      const keptEnv = keyFromEnvironment(provider, false);
       if (kept !== undefined && providerReady(provider) && keptVerdict !== "ok") {
-        modelCheck = probeCheck(kept, keptVerdict, provider?.probe?.error);
+        modelCheck = probeCheck(kept, keptVerdict, provider?.probe?.error, keptEnv);
       } else if (kept !== undefined && providerReady(provider)) {
         const cli = cliProviderOf(kept);
         modelCheck = {
@@ -280,7 +305,9 @@ export async function verifySetup(
           state: "ok",
           detail:
             cli === null
-              ? t("web.setup.modelOk", { ref: kept })
+              ? keptEnv
+                ? t("web.setup.modelEnvKey", { ref: kept })
+                : t("web.setup.modelOk", { ref: kept })
               : t("web.setup.modelOkCli", { ref: kept, cli: CLI_LABEL[cli] ?? cli }),
         };
       } else if (kept !== undefined) {
@@ -323,6 +350,7 @@ export async function verifySetup(
       // A refusal shows even when the key was cleared after it; "not checked" only matters for a
       // key that is stored.
       const raw = keyProbeVerdict(provider);
+      const fromEnv = keyFromEnvironment(provider, result.model.keyRef != null);
       const verdict = raw === "refused" || (keyed && raw === "unchecked") ? raw : "ok";
       const notReady = (): string => {
         if (cli === null) return t("web.setup.modelSkipped", { ref });
@@ -334,7 +362,7 @@ export async function verifySetup(
       };
       modelCheck =
         verdict !== "ok"
-          ? probeCheck(ref, verdict, provider?.probe?.error)
+          ? probeCheck(ref, verdict, provider?.probe?.error, fromEnv)
           : bound && keyed
             ? {
                 id: "model",
@@ -342,7 +370,9 @@ export async function verifySetup(
                 state: "ok",
                 detail:
                   cli === null
-                    ? t("web.setup.modelOk", { ref })
+                    ? fromEnv
+                      ? t("web.setup.modelEnvKey", { ref })
+                      : t("web.setup.modelOk", { ref })
                     : t("web.setup.modelOkCli", { ref, cli: CLI_LABEL[cli] ?? cli }),
               }
             : {
@@ -350,6 +380,7 @@ export async function verifySetup(
                 label: t("web.setup.model"),
                 state: "warn",
                 detail: keyed ? t("web.setup.modelUnbound", { ref }) : notReady(),
+                ...(keyed ? {} : { fixStep: "model" as const }),
               };
     } catch (err) {
       modelCheck = {

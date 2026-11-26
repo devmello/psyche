@@ -42,5 +42,7 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.pages": "페이지",
   "home.more.brief": "브리핑 설정",
   "home.more.memoryReview": "메모리 검토",
+  "home.quiet":
+    "지금은 처리할 일이 없습니다. 승인, 일일 브리핑, 새로운 아이디어가 여기에 표시됩니다.",
   "home.loadFailed": "{what}을(를) 불러오지 못했습니다.",
 };

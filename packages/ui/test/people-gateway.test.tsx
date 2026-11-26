@@ -186,7 +186,7 @@ describe("Forget and Merge", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "Forget Sam Lee?" });
     expect(
       await within(dialog).findByText(
-        /deletes the card, 5 facts, 3 open loops, 4 interactions and 2 relations/,
+        /deletes the card, 5 facts, 3 things to follow up, 4 interactions and 2 relations/,
       ),
     ).toBeTruthy();
     expect(callsTo("memory.entities.forget")[0]?.params).toEqual({

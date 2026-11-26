@@ -113,6 +113,27 @@ describe.skipIf(!hasGit)("WorkspaceGit (H10)", { timeout: 90_000 }, () => {
     expect(files).not.toContain("memory/imports/raw[1].md");
   });
 
+  it("never commits .psyche/forget.key, and untracks it from a repo that already did", async () => {
+    const { bare, sync } = await setup();
+    if (env === undefined) throw new Error("no env");
+    mkdirSync(join(env.workspace, ".psyche"), { recursive: true });
+    writeFileSync(join(env.workspace, ".psyche", "forget.key"), `${"a".repeat(64)}\n`);
+    await env.store.appendDailyNote({ text: "A note", provenance: "owner" });
+    await sync.init();
+    // An older commit that tracked the key (the bug this guards): the sync removes it.
+    git(env.workspace, "add", "-f", "--", ".psyche/forget.key");
+    git(env.workspace, "commit", "-q", "-m", "older commit");
+    expect(git(env.workspace, "ls-files").split("\n")).toContain(".psyche/forget.key");
+    await sync.sync();
+    expect(git(env.workspace, "ls-files").split("\n")).not.toContain(".psyche/forget.key");
+    expect(git(bare, "ls-tree", "-r", "--name-only", "main").split("\n")).not.toContain(
+      ".psyche/forget.key",
+    );
+    expect(readFileSync(join(env.workspace, ".gitignore"), "utf8")).toContain(".psyche/forget.key");
+    // The key itself stays on this machine.
+    expect(existsSync(join(env.workspace, ".psyche", "forget.key"))).toBe(true);
+  });
+
   it("pulls the owner's edits from another machine, reindexes them, then pushes", async () => {
     const { bare, sync } = await setup();
     if (env === undefined) throw new Error("no env");

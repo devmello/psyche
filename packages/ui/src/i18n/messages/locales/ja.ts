@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/ja.ts";
 import { agentRest } from "./agent-rest/ja.ts";
 import { appleE1 } from "./apple-e1/ja.ts";
+import { appleE2 } from "./apple-e2/ja.ts";
 import { approvalsW3 } from "./approvals-w3/ja.ts";
 import { auditRest } from "./audit-rest/ja.ts";
 import { automationChatRest } from "./automationChat-rest/ja.ts";
@@ -50,6 +51,7 @@ import { overviewShared } from "./overview-shared/ja.ts";
 import { passwordPresence } from "./password-presence/ja.ts";
 import { peopleRest } from "./people-rest/ja.ts";
 import { personDataRest } from "./personData-rest/ja.ts";
+import { planFork } from "./plan-fork/ja.ts";
 import { points } from "./points/ja.ts";
 import { researchRest } from "./research-rest/ja.ts";
 import { scheduledForm } from "./scheduled-form/ja.ts";
@@ -57,6 +59,7 @@ import { scheduledRest } from "./scheduled-rest/ja.ts";
 import { screensRest } from "./screens-rest/ja.ts";
 import { securityState } from "./security-state/ja.ts";
 import { separateDesktop } from "./separate-desktop/ja.ts";
+import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { spaces } from "./spaces/ja.ts";
@@ -361,6 +364,8 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.forgetNothing": "「{subject}」に一致する記憶はありません。",
   "chat.thread.forgetPreview":
     "「{subject}」を忘れると、{claims, plural, other {#件の事実}}と{chunks, plural, other {#件のインデックス済みメモ}}が取り消されます{hasFiles, select, true {（{files}を編集）} other {}}。",
+  "chat.thread.forgetCounts":
+    "人物グラフの{graph, plural, other {#件}}、レビュー待ちの{review, plural, other {#件}}、{lessons, plural, other {#件のレッスンまたはレッスン行}}、{search, plural, other {#件の検索エントリ}}も削除し、保存済みのチャットと実行トレースからもその語を取り除きます。元に戻せません。",
   "chat.thread.forgetConfirm": "忘れる",
   "chat.thread.forgot": "「{subject}」を忘れました。",
   "chat.thread.forgetFailed":
@@ -371,6 +376,7 @@ export const ja: Partial<Catalogue> = {
   "chat.thread.exported": "このスレッドを{format}として書き出しました。",
   "chat.thread.nothingRunning": "このチャットでは何も実行されていません。",
   "chat.thread.stopped": "停止しました。",
+  "chat.stopped.label": "停止しました",
   "chat.runFailed.credential":
     "Psycheは返信できませんでした。モデルのAPIキーがないか、拒否されました。設定 → モデルで追加または修正してください。",
   "chat.runFailed.generic": "Psycheはこの返信を完了できませんでした。",
@@ -478,6 +484,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.scope.trustSiteSubdomains": "このサイトとそのサブドメインで常に許可（{site}）",
   "blocks.approval.scope.hostProgram": "{folder} で {program} を常に許可",
   "blocks.approval.scope.hostProgramExact": "{folder} で {program} をこの引数のときだけ常に許可",
+  "blocks.approval.scope.hostProgramSession": "このチャットでは {folder} 内の {program} を許可",
   "blocks.approval.scope.site": "このサイトで許可",
   "blocks.approval.scope.session": "このセッションで許可",
   "blocks.approval.scope.always": "常に許可",
@@ -495,6 +502,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.status.denied": "拒否済み{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "辞退 — チャットで返信しました",
   "blocks.approval.status.expired": "期限切れ。何も実行されませんでした。",
+  "blocks.approval.expiredLine": "期限切れ · 何も実行されていません",
   "blocks.approval.status.voidedBecause": "無効：{reason}",
   "blocks.approval.status.voided": "無効。引数が変更されました。",
   "blocks.approval.taint": "このターンは信頼されていないコンテンツを読み込みました",
@@ -2268,8 +2276,6 @@ export const ja: Partial<Catalogue> = {
   "settings.model.role.imageHint": "アバターの変更。なしの場合は同梱の生き物を使います",
   "settings.model.addProvider": "プロバイダを追加",
   "settings.model.title": "モデルとプロバイダ",
-  "settings.model.description":
-    "選んだモデルがそのまま使われます。失敗した場合、Psycheは別のモデルに切り替えず、そのことを伝えます。",
   "settings.model.loadLabel": "モデルプロバイダ",
   "settings.model.providers": "プロバイダ",
   "settings.model.listFailed": "Psycheはモデルを一覧できませんでした（{reason}）。",
@@ -2303,13 +2309,10 @@ export const ja: Partial<Catalogue> = {
   "settings.model.runCheckOn": "{name}でツール呼び出しの確認を実行",
   "settings.model.runCheck": "確認を実行",
   "settings.model.roles": "モデルの役割",
-  "settings.model.rolesHint":
-    "各役割は1つのモデルを使います。ツール呼び出しの確認に不合格のモデルはチャットのみです。",
   "settings.model.none": "なし",
   "settings.model.choose": "モデルを選択",
   "settings.model.chatOnlyOption": "{name}（チャットのみ）",
   "settings.model.local": "ローカルモデル",
-  "settings.model.localHint": "OllamaまたはLM Studioで、このMac上でモデルを実行します。",
   "settings.model.err.use": "Psycheは{name}を使用できませんでした（{reason}）。",
   "settings.model.err.probe": "Psycheはエンドポイントを確認できませんでした（{reason}）。",
   "settings.model.err.check": "Psycheは確認を実行できませんでした（{reason}）。",
@@ -2362,9 +2365,6 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "{recipients} へ（{account}から）",
   "settings.permissions.subject.calendarNamed": "カレンダー{id}",
   "settings.permissions.subject.calendar": "カレンダー",
-  "settings.permissions.title": "権限",
-  "settings.permissions.description":
-    "自動で実行されるもの、先に確認するもの、決して行わないもの。",
   "settings.permissions.loadLabel": "権限",
   "settings.permissions.defaultModeTitle": "新しいスレッドのデフォルトモード",
   "settings.permissions.execReview": "自動モードで安全なターミナルコマンドをレビュアーに承認させる",
@@ -2861,8 +2861,8 @@ export const ja: Partial<Catalogue> = {
     "プロバイダがこのキーを拒否しました（{reason}）。キーをもう一度貼り付けてください。",
   "onboarding.setupCheck": "セットアップの確認",
   "onboarding.progress": "初期設定の進捗",
+  "onboarding.steps": "ステップ",
   "onboarding.doneMark": "（完了）",
-  "onboarding.stepOf": "ステップ{n, number}/{total, number}：",
   "onboarding.back": "戻る",
   "onboarding.skipForNow": "今はスキップ",
   "onboarding.openChat": "メインチャットを開く",
@@ -2915,7 +2915,7 @@ export const ja: Partial<Catalogue> = {
   "onboarding.permission.asking": "確認中…",
   "onboarding.permission.allow": "許可",
   "onboarding.connectors.intro":
-    "接続するアカウントを1つずつ決めましょう。{name}に見えるのは接続したものだけで、後から設定で追加できます。",
+    "{name} に手伝ってもらうことを選んでください。各アプリは接続するときに許可を求めます。あとから設定で追加できます。",
   "onboarding.connectors.connected": "接続済み（{n, number}）",
   "onboarding.connectors.connectedList": "あなたのアカウント",
   "onboarding.connectors.needsPermission": "許可が必要",
@@ -2962,12 +2962,20 @@ export const ja: Partial<Catalogue> = {
     "Psycheは保管庫を作成しました。このキーをパスワードマネージャか紙に保存してください。表示されるのは今だけで、復元後やキースロットを失った後に保管庫に戻る唯一の手段です。",
   "onboarding.model.subscriptionNote":
     "PsycheはこのMacでサインイン済みのClaude CodeまたはCodexアプリを使用するため、APIキーは不要で、保存もしません。まだの場合は、先にそちらでサインインしてください。",
-  "onboarding.model.toolCheck": "ツール呼び出しの確認",
-  "onboarding.model.runCheck": "確認を実行",
-  "onboarding.model.checkAgain": "再確認",
+  "onboarding.model.toolCheck": "接続テスト",
+  "onboarding.model.otherWays": "ほかの方法",
+  "onboarding.model.test.passed": "問題なし",
+  "onboarding.model.test.failed": "チャットのみ",
+  "onboarding.model.test.running": "テスト中…",
+  "onboarding.model.test.untested": "未テスト",
+  "onboarding.model.runCheck": "テストする",
+  "onboarding.model.checkAgain": "もう一度テスト",
   "onboarding.model.toolCheckFailed":
-    "このモデルはチャットはできますが、ツールを確実に使えないため、あなたの代わりに行動できません。別のモデルを選ぶか、チャットのみのモードで続行してください。",
+    "このモデルはチャットはできますが、タスクを実行できない場合があります。別のモデルを選ぶか、チャットのみで続けてください。",
   "onboarding.done.ready": "{name}の準備ができました。",
+  "onboarding.done.notReady": "{name} はまだ応答できません。",
+  "onboarding.done.notReadyBody":
+    "下の「モデル」の行を修正するか、あとで設定 → モデルから行ってください。",
   "onboarding.done.opens": "メインチャットが{name}の最初のメッセージとともに開きます。",
   "onboarding.done.noneYet": "まだありません",
   "onboarding.done.accounts": "アカウント",
@@ -3633,8 +3641,11 @@ export const ja: Partial<Catalogue> = {
     "{ref}：プロバイダがキーを拒否しました（{error}）。キーは保持されませんでした。",
   "web.setup.modelNotChecked":
     "{ref}：キーは保存されましたが、確認のためにプロバイダへ接続できませんでした。",
+  "web.setup.modelEnvKey": "環境にあるキーを使用しています（{ref}）。",
+  "web.setup.modelEnvNotChecked":
+    "環境にあるキーを使用していますが（{ref}）、確認のためにプロバイダへ接続できませんでした。",
   "web.setup.modelSkipped":
-    "{ref}：キーが追加されていないため、チャットはまだ応答しません。設定 → モデルで追加してください。",
+    "キーを追加してください：{ref} にはまだキーがないため、チャットは応答しません。設定 → モデルで追加できます。",
   "web.gate.loading": "Psycheを起動中",
   "web.gate.error": "セットアップが完了しているか確認できませんでした。",
   "web.gate.retry": "もう一度試す",
@@ -4029,6 +4040,9 @@ export const ja: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
@@ -4037,6 +4051,7 @@ export const ja: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

@@ -1,9 +1,17 @@
 import type { GraphLoop } from "@psyche/protocol";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { type ReactElement, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { GroupedList } from "../components/page.tsx";
+import { Button } from "../components/ui/button.tsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
@@ -19,14 +27,16 @@ import type { EntityRef, LoopView } from "./types.ts";
 
 /**
  * Memory → People (docs/memory/people-and-projects-2026.md §6.5): a searchable
- * list with filter chips (People, Projects, Suggestions, Waiting on). It is the People chip's body
- * on the Memory page, where a row opens the item's page (`/memory?entity=<id>`); without an
+ * list with a filter (People, Projects, Suggestions, Waiting on). On the Memory page it is the
+ * People body: the filter is one pop-up (Everyone, Suggestions, Waiting on) under the toolbar's
+ * People | Projects | Work control, so there is only one segmented control. A row opens the
+ * item's page (`/memory?entity=<id>`) or, in a split view, selects it; without an
  * `onOpenEntity` a row opens the card in a sheet over the list.
  */
 
 type Filter = "people" | "projects" | "suggestions" | "waiting";
 const FILTERS: readonly Filter[] = ["people", "projects", "suggestions", "waiting"];
-/** On the Memory page Projects has its own segment, so the chips drop it. */
+/** On the Memory page Projects has its own segment, so the filter drops it. */
 const PAGE_FILTERS: readonly Filter[] = ["people", "suggestions", "waiting"];
 
 /** A loop row's view, with names from the graph's people and projects. */
@@ -54,6 +64,8 @@ export interface PeopleSheetSectionProps {
   page?: boolean;
   /** Opens a row's page in the host (Memory) instead of the card sheet over the list. */
   onOpenEntity?: (id: string) => void;
+  /** The row of this entity is highlighted (a split view's selection). */
+  selectedId?: string | null;
   /** The host's own search field (Memory's toolbar): the section draws none and follows this. */
   query?: string;
 }
@@ -63,6 +75,7 @@ export function PeopleSheetSection({
   now = Date.now(),
   page = false,
   onOpenEntity,
+  selectedId = null,
   query,
 }: PeopleSheetSectionProps): ReactElement {
   const call = useCall();
@@ -182,6 +195,7 @@ export function PeopleSheetSection({
               entity={e}
               now={now}
               brief={page}
+              selected={selectedId === e.id}
               onOpen={(x) => (onOpenEntity ? onOpenEntity(x.id) : setOpen(x.id))}
             />
           ))}
@@ -221,16 +235,44 @@ export function PeopleSheetSection({
           />
         </div>
       )}
-      <SegmentedRadio
-        label={t("people.sheet.show")}
-        value={filter}
-        onChange={setFilter}
-        className="self-start"
-        options={(page ? PAGE_FILTERS : FILTERS).map((f) => ({
-          value: f,
-          label: t(`people.sheet.filter.${f}`),
-        }))}
-      />
+      {page ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label={t("people.sheet.show")}
+                className="self-start text-label-secondary"
+              />
+            }
+          >
+            {filter === "people" ? t("memory.page.people.all") : t(`people.sheet.filter.${filter}`)}
+            <ChevronDown aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuRadioGroup value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+              {PAGE_FILTERS.map((f) => (
+                <DropdownMenuRadioItem key={f} value={f}>
+                  {f === "people" ? t("memory.page.people.all") : t(`people.sheet.filter.${f}`)}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <SegmentedRadio
+          label={t("people.sheet.show")}
+          value={filter}
+          onChange={setFilter}
+          className="self-start"
+          options={FILTERS.map((f) => ({
+            value: f,
+            label: t(`people.sheet.filter.${f}`),
+          }))}
+        />
+      )}
       <GroupedList>{body}</GroupedList>
 
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>

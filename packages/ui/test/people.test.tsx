@@ -243,7 +243,7 @@ describe("EntityRow", () => {
     if (sam === undefined) throw new Error("fixture");
     render(<EntityRow entity={sam} now={STORY_NOW} onOpen={onOpen} />);
     const row = screen.getByRole("button", { name: /Sam Lee/ });
-    expect(row.textContent).toMatch(/Acme · last talked .+ · 2 open loops/);
+    expect(row.textContent).toMatch(/Acme · last talked .+ · 2 to follow up/);
     await user.click(row);
     expect(onOpen).toHaveBeenCalledWith(sam);
   });
@@ -307,7 +307,7 @@ describe("Search with people and projects", () => {
     expect(groups[2]).toMatch(/^Threads/);
     const people = screen.getAllByRole("group")[0] as HTMLElement;
     expect(within(people).getByRole("option", { name: /Sam Lee/ })).toBeTruthy();
-    expect(within(people).getByText(/Acme · last talked .+ · 2 open loops/)).toBeTruthy();
+    expect(within(people).getByText(/Acme · last talked .+ · 2 to follow up/)).toBeTruthy();
     expect(
       within(screen.getAllByRole("group")[1] as HTMLElement).getByText("Kitchen remodel"),
     ).toBeTruthy();

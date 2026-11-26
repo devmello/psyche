@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/it.ts";
 import { agentRest } from "./agent-rest/it.ts";
 import { appleE1 } from "./apple-e1/it.ts";
+import { appleE2 } from "./apple-e2/it.ts";
 import { approvalsW3 } from "./approvals-w3/it.ts";
 import { auditRest } from "./audit-rest/it.ts";
 import { automationChatRest } from "./automation-chat-rest/it.ts";
@@ -50,6 +51,7 @@ import { overviewShared } from "./overview-shared/it.ts";
 import { passwordPresence } from "./password-presence/it.ts";
 import { peopleRest } from "./people-rest/it.ts";
 import { personDataRest } from "./person-data-rest/it.ts";
+import { planFork } from "./plan-fork/it.ts";
 import { points } from "./points/it.ts";
 import { researchRest } from "./research-rest/it.ts";
 import { scheduledForm } from "./scheduled-form/it.ts";
@@ -57,6 +59,7 @@ import { scheduledRest } from "./scheduled-rest/it.ts";
 import { screensRest } from "./screens-rest/it.ts";
 import { securityState } from "./security-state/it.ts";
 import { separateDesktop } from "./separate-desktop/it.ts";
+import { settingsDrill } from "./settings-drill/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
 import { spaces } from "./spaces/it.ts";
@@ -358,6 +361,8 @@ export const it: Partial<Catalogue> = {
   "chat.thread.forgetNothing": 'Nessun ricordo corrisponde a "{subject}".',
   "chat.thread.forgetPreview":
     'Dimenticare "{subject}" ritira {claims, plural, one {# affermazione} other {# affermazioni}} e {chunks, plural, one {# nota indicizzata} other {# note indicizzate}}{hasFiles, select, true {, modificando {files}} other {}}.',
+  "chat.thread.forgetCounts":
+    "Elimina anche {graph, plural, one {# elemento} other {# elementi}} dal tuo grafo delle persone, {review, plural, one {# elemento} other {# elementi}} in attesa di revisione, {lessons, plural, one {# lezione o riga di lezione} other {# lezioni o righe di lezione}} e {search, plural, one {# voce di ricerca} other {# voci di ricerca}}, e toglie le parole dalle chat salvate e dalle tracce di esecuzione. È permanente.",
   "chat.thread.forgetConfirm": "Dimentica",
   "chat.thread.forgot": 'Dimenticato "{subject}".',
   "chat.thread.forgetFailed":
@@ -368,6 +373,7 @@ export const it: Partial<Catalogue> = {
   "chat.thread.exported": "Thread esportato come {format}.",
   "chat.thread.nothingRunning": "Niente è in esecuzione in questa chat.",
   "chat.thread.stopped": "Interrotto.",
+  "chat.stopped.label": "Interrotto",
   "chat.runFailed.credential":
     "Psyche non è riuscito a rispondere: la chiave API del modello manca o è stata rifiutata. Aggiungila o correggila in Impostazioni → Modelli.",
   "chat.runFailed.generic": "Psyche non è riuscito a completare questa risposta.",
@@ -474,6 +480,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.scope.hostProgram": "Consenti sempre {program} in {folder}",
   "blocks.approval.scope.hostProgramExact":
     "Consenti sempre {program} con questi argomenti esatti in {folder}",
+  "blocks.approval.scope.hostProgramSession": "Consenti {program} in {folder} per questa chat",
   "blocks.approval.scope.site": "Consenti per questo sito",
   "blocks.approval.scope.session": "Consenti per questa sessione",
   "blocks.approval.scope.always": "Consenti sempre",
@@ -491,6 +498,7 @@ export const it: Partial<Catalogue> = {
   "blocks.approval.status.denied": "Negato{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.declinedInChat": "Rifiutato: hai risposto in chat",
   "blocks.approval.status.expired": "Scaduto. Non è stato fatto nulla.",
+  "blocks.approval.expiredLine": "Scaduta · non è stato fatto nulla",
   "blocks.approval.status.voidedBecause": "Annullato: {reason}",
   "blocks.approval.status.voided": "Annullato. Gli argomenti sono cambiati.",
   "blocks.approval.taint": "questo turno ha letto contenuti non attendibili",
@@ -2291,8 +2299,6 @@ export const it: Partial<Catalogue> = {
   "settings.model.role.imageHint": "Modifiche all’avatar; con Nessuno si usano le creature incluse",
   "settings.model.addProvider": "Aggiungi un fornitore",
   "settings.model.title": "Modello e fornitori",
-  "settings.model.description":
-    "Il modello che scegli viene usato così com’è. Se non funziona, Psyche te lo dice invece di ripiegare su un altro.",
   "settings.model.loadLabel": "i fornitori di modelli",
   "settings.model.providers": "Fornitori",
   "settings.model.listFailed": "Psyche non è riuscito a elencare i modelli ({reason}).",
@@ -2327,13 +2333,10 @@ export const it: Partial<Catalogue> = {
   "settings.model.runCheckOn": "Esegui il controllo della chiamata degli strumenti su {name}",
   "settings.model.runCheck": "Esegui controllo",
   "settings.model.roles": "Ruoli dei modelli",
-  "settings.model.rolesHint":
-    "Ogni ruolo usa un modello. I modelli che non superano il controllo della chiamata degli strumenti sono solo chat.",
   "settings.model.none": "Nessuno",
   "settings.model.choose": "Scegli un modello",
   "settings.model.chatOnlyOption": "{name} (solo chat)",
   "settings.model.local": "Modelli locali",
-  "settings.model.localHint": "Esegui i modelli su questo Mac con Ollama o LM Studio.",
   "settings.model.err.use": "Psyche non è riuscito a usare {name} ({reason}).",
   "settings.model.err.probe": "Psyche non è riuscito a controllare l’endpoint ({reason}).",
   "settings.model.err.check": "Psyche non è riuscito a eseguire il controllo ({reason}).",
@@ -2387,9 +2390,6 @@ export const it: Partial<Catalogue> = {
   "settings.permissions.subject.emailFrom": "a {recipients} da {account}",
   "settings.permissions.subject.calendarNamed": "calendario {id}",
   "settings.permissions.subject.calendar": "calendario",
-  "settings.permissions.title": "Permessi",
-  "settings.permissions.description":
-    "Che cosa viene eseguito da solo, che cosa chiede prima e che cosa non accade mai.",
   "settings.permissions.loadLabel": "i permessi",
   "settings.permissions.defaultModeTitle": "Modalità di default per i nuovi thread",
   "settings.permissions.execReview":
@@ -2896,8 +2896,8 @@ export const it: Partial<Catalogue> = {
     "Il fornitore ha rifiutato questa chiave ({reason}). Incolla di nuovo la chiave.",
   "onboarding.setupCheck": "Verifica della configurazione",
   "onboarding.progress": "Avanzamento della configurazione",
+  "onboarding.steps": "Passaggi",
   "onboarding.doneMark": " (fatto)",
-  "onboarding.stepOf": "Passo {n, number} di {total, number}:",
   "onboarding.back": "Indietro",
   "onboarding.skipForNow": "Salta per ora",
   "onboarding.openChat": "Apri la chat principale",
@@ -2951,7 +2951,7 @@ export const it: Partial<Catalogue> = {
   "onboarding.permission.asking": "Richiesta in corso…",
   "onboarding.permission.allow": "Consenti",
   "onboarding.connectors.intro":
-    "Decidi ora quali account collegare, uno alla volta. {name} vede solo ciò che colleghi, e puoi aggiungerne altri più tardi nelle Impostazioni.",
+    "Scegli con cosa può aiutarti {name}. Ogni app chiede il permesso quando la colleghi, e puoi aggiungerne altre più tardi in Impostazioni.",
   "onboarding.connectors.connected": "Collegati ({n, number})",
   "onboarding.connectors.connectedList": "Account collegati",
   "onboarding.connectors.needsPermission": "Richiede un permesso",
@@ -2999,12 +2999,20 @@ export const it: Partial<Catalogue> = {
     "Psyche ha appena creato la tua cassaforte. Salva questa chiave in un gestore di password o su carta: viene mostrata solo adesso ed è l’unico modo per rientrare nella cassaforte dopo un ripristino o la perdita di uno slot di chiave.",
   "onboarding.model.subscriptionNote":
     "Psyche usa l’app Claude Code o Codex a cui hai già eseguito l’accesso su questo Mac, quindi non richiede né memorizza alcuna chiave API. Se non l’hai ancora fatto, accedi prima lì.",
-  "onboarding.model.toolCheck": "Controllo della chiamata degli strumenti",
-  "onboarding.model.runCheck": "Esegui controllo",
-  "onboarding.model.checkAgain": "Controlla di nuovo",
+  "onboarding.model.toolCheck": "Test di connessione",
+  "onboarding.model.otherWays": "Altre opzioni",
+  "onboarding.model.test.passed": "Funziona",
+  "onboarding.model.test.failed": "Solo chat",
+  "onboarding.model.test.running": "Test in corso…",
+  "onboarding.model.test.untested": "Non ancora provato",
+  "onboarding.model.runCheck": "Prova",
+  "onboarding.model.checkAgain": "Riprova",
   "onboarding.model.toolCheckFailed":
-    "Questo modello può chattare ma non usa gli strumenti in modo affidabile, quindi non agirà per te. Scegline un altro oppure continua in modalità solo chat.",
+    "Questo modello sa chattare ma potrebbe non svolgere compiti per te. Sceglinene un altro o continua in modalità solo chat.",
   "onboarding.done.ready": "{name} è pronto.",
+  "onboarding.done.notReady": "{name} non è ancora pronto a rispondere.",
+  "onboarding.done.notReadyBody":
+    "Sistema la riga Modello qui sotto, oppure fallo più tardi in Impostazioni → Modelli.",
   "onboarding.done.opens": "La chat principale si apre con il primo messaggio di {name}.",
   "onboarding.done.noneYet": "Ancora nessuno",
   "onboarding.done.accounts": "Account",
@@ -3673,8 +3681,11 @@ export const it: Partial<Catalogue> = {
     "{ref}: il provider ha rifiutato la chiave ({error}). La chiave non è stata conservata.",
   "web.setup.modelNotChecked":
     "{ref}: la chiave è salvata, ma il provider non era raggiungibile per verificarla.",
+  "web.setup.modelEnvKey": "Usa una chiave del tuo ambiente ({ref}).",
+  "web.setup.modelEnvNotChecked":
+    "Usa una chiave del tuo ambiente ({ref}), ma il provider non era raggiungibile per verificarla.",
   "web.setup.modelSkipped":
-    "{ref}: nessuna chiave aggiunta, quindi la chat non risponderà ancora. Aggiungine una in Impostazioni → Modelli.",
+    "Aggiungi una chiave: {ref} non ha ancora una chiave, quindi la chat non risponderà. Aggiungine una in Impostazioni → Modelli.",
   "web.gate.loading": "Avvio di Psyche",
   "web.gate.error": "Psyche non è riuscito a verificare se la configurazione è completata.",
   "web.gate.retry": "Riprova",
@@ -4072,6 +4083,9 @@ export const it: Partial<Catalogue> = {
   ...points,
   // Approvals wave W3 (card choices, Allowed list)
   ...approvalsW3,
+  ...settingsDrill,
+  // Fork a plan (docs/design/fork-a-plan-2026.md §9)
+  ...planFork,
   ...desktopSimple,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
@@ -4080,6 +4094,7 @@ export const it: Partial<Catalogue> = {
   ...separateDesktop,
   // Windows variants of the sandbox PC, voice keys and platform terms
   ...windowsPlatform202611,
+  ...appleE2,
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,

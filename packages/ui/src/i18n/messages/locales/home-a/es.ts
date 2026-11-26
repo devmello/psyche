@@ -17,6 +17,8 @@ export const homeA: Partial<Catalogue> = {
   "home.more.pages": "Páginas",
   "home.more.brief": "Ajustes del resumen",
   "home.more.memoryReview": "Revisión de la memoria",
+  "home.quiet":
+    "Nada te necesita ahora mismo. Las aprobaciones, tu resumen diario y las ideas nuevas aparecerán aquí.",
   "home.loadFailed": "No se pudo cargar {what}.",
   "people.page.title": "Personas",
   "people.page.count": "{n, plural, one {# persona} other {# personas}}",

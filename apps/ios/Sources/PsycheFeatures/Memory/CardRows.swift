@@ -129,3 +129,55 @@ struct PaperStack<Content: View>: View {
         }
     }
 }
+
+/// Wording for the small gray lines under Memory rows. Times the Gateway wrote ("18:40", "6:40 pm") are shown the
+/// way the phone is set (12 or 24 hour), and evidence sources get a sentence ("From your calendar, confirmed").
+enum MemoryText {
+    /// Rewrites every clock time in `text` with the system time formatter for `locale`. Text without a clock time,
+    /// and numbers that are not a valid time ("99:99"), come back unchanged.
+    static func localizingTimes(_ text: String, locale: Locale = .autoupdatingCurrent, calendar: Calendar = .autoupdatingCurrent) -> String {
+        guard text.contains(":"),
+            let regex = try? NSRegularExpression(pattern: #"(?<![\d:])(\d{1,2}):(\d{2})(?!\d)(?:\s?([AaPp])\.?[Mm]\.?)?"#)
+        else { return text }
+        let ns = text as NSString
+        var out = text
+        for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
+            guard var hour = Int(ns.substring(with: match.range(at: 1))), let minute = Int(ns.substring(with: match.range(at: 2))), minute < 60 else { continue }
+            if match.range(at: 3).location != NSNotFound {
+                guard (1...12).contains(hour) else { continue }
+                let pm = ns.substring(with: match.range(at: 3)).lowercased() == "p"
+                hour = hour % 12 + (pm ? 12 : 0)
+            }
+            guard hour < 24, let date = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date(timeIntervalSinceReferenceDate: 0)) else { continue }
+            let formatted = date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar))
+            guard let range = Range(match.range, in: out) else { continue }
+            out.replaceSubrange(range, with: formatted)
+        }
+        return out
+    }
+
+    /// "calendar" becomes "From your calendar"; "mail Nov 2" becomes "From your mail, Nov 2"; a trailing
+    /// "confirmed" stays as a clause. File names and anything unrecognised pass through untouched.
+    static func evidence(_ parts: [String], confirmed: Bool = false) -> String {
+        var pieces = parts.map { localizingTimes($0) }
+        if let first = parts.first {
+            let words = first.split(separator: " ", maxSplits: 1).map(String.init)
+            if let word = words.first, let sentence = sourceSentence(word.lowercased()) {
+                pieces[0] = words.count > 1 ? "\(sentence), \(localizingTimes(words[1]))" : sentence
+            }
+        }
+        if confirmed { pieces.append(String(localized: "confirmed", bundle: .module)) }
+        return pieces.joined(separator: ", ")
+    }
+
+    private static func sourceSentence(_ source: String) -> String? {
+        switch source {
+        case "calendar": String(localized: "From your calendar", bundle: .module)
+        case "mail": String(localized: "From your mail", bundle: .module)
+        case "messages": String(localized: "From your messages", bundle: .module)
+        case "chat": String(localized: "From a chat", bundle: .module)
+        case "memory": String(localized: "From memory", bundle: .module)
+        default: nil
+        }
+    }
+}

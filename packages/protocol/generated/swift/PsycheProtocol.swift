@@ -932,9 +932,12 @@
 //   let memoryFileInfo = try? JSONDecoder().decode(MemoryFileInfo.self, from: jsonData)
 //   let memoryFilesListParams = try? JSONDecoder().decode(MemoryFilesListParams.self, from: jsonData)
 //   let memoryFilesListResult = try? JSONDecoder().decode(MemoryFilesListResult.self, from: jsonData)
+//   let memoryForgetCounts = try? JSONDecoder().decode(MemoryForgetCounts.self, from: jsonData)
 //   let memoryForgetLearnedParams = try? JSONDecoder().decode(MemoryForgetLearnedParams.self, from: jsonData)
 //   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
+//   let memoryForgetPreviewParams = try? JSONDecoder().decode(MemoryForgetPreviewParams.self, from: jsonData)
+//   let memoryForgetPreviewResult = try? JSONDecoder().decode(MemoryForgetPreviewResult.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
 //   let memoryGitSyncGetParams = try? JSONDecoder().decode(MemoryGitSyncGetParams.self, from: jsonData)
 //   let memoryGitSyncGetResult = try? JSONDecoder().decode(MemoryGitSyncGetResult.self, from: jsonData)
@@ -1097,6 +1100,7 @@
 //   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
+//   let needsMACReason = try? JSONDecoder().decode(NeedsMACReason.self, from: jsonData)
 //   let nightShiftApplyItem = try? JSONDecoder().decode(NightShiftApplyItem.self, from: jsonData)
 //   let nightShiftApplyParams = try? JSONDecoder().decode(NightShiftApplyParams.self, from: jsonData)
 //   let nightShiftApplyResult = try? JSONDecoder().decode(NightShiftApplyResult.self, from: jsonData)
@@ -1230,6 +1234,8 @@
 //   let planForksListResult = try? JSONDecoder().decode(PlanForksListResult.self, from: jsonData)
 //   let planForksRetryBranchParams = try? JSONDecoder().decode(PlanForksRetryBranchParams.self, from: jsonData)
 //   let planForksRetryBranchResult = try? JSONDecoder().decode(PlanForksRetryBranchResult.self, from: jsonData)
+//   let planForksStagedParams = try? JSONDecoder().decode(PlanForksStagedParams.self, from: jsonData)
+//   let planForksStagedResult = try? JSONDecoder().decode(PlanForksStagedResult.self, from: jsonData)
 //   let planForksSuggestParams = try? JSONDecoder().decode(PlanForksSuggestParams.self, from: jsonData)
 //   let planForksSuggestResult = try? JSONDecoder().decode(PlanForksSuggestResult.self, from: jsonData)
 //   let planForksTakeParams = try? JSONDecoder().decode(PlanForksTakeParams.self, from: jsonData)
@@ -4613,6 +4619,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let deviceOnly: Bool
     public let expiresAt: String
     public let fromLesson: FromLesson?
+    public let grantHint: GrantHint?
     public let grantID: String?
     public let grantKey: String
     public let id: String
@@ -4643,6 +4650,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case deviceOnly = "deviceOnly"
         case expiresAt = "expiresAt"
         case fromLesson = "fromLesson"
+        case grantHint = "grantHint"
         case grantID = "grantId"
         case grantKey = "grantKey"
         case id = "id"
@@ -4666,7 +4674,7 @@ public struct ApprovalRequest: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
+    public init(bindingHash: String, decidedAt: String? = nil, decidedBy: DecidedByClass? = nil, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, fromLesson: FromLesson? = nil, grantHint: GrantHint? = nil, grantID: String? = nil, grantKey: String, id: String, invalidatedReason: String? = nil, kind: ApprovalKind, machine: ComputerMachineRef? = nil, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, riskClass: RiskClass? = nil, scopeGranted: GrantScope? = nil, scopesOffered: [GrantScope], setAside: Bool? = nil, sideEffect: SideEffect? = nil, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]? = nil, target: Target? = nil, targetKind: TargetKind? = nil) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -4674,6 +4682,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.deviceOnly = deviceOnly
         self.expiresAt = expiresAt
         self.fromLesson = fromLesson
+        self.grantHint = grantHint
         self.grantID = grantID
         self.grantKey = grantKey
         self.id = id
@@ -4738,6 +4747,25 @@ public struct FromLesson: Codable, Sendable {
         self.because = because
         self.feedbackID = feedbackID
         self.lessonID = lessonID
+    }
+}
+
+// MARK: - GrantHint
+public struct GrantHint: Codable, Sendable {
+    public let count: Int
+    public let days: Int
+    public let scope: GrantScope
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case days = "days"
+        case scope = "scope"
+    }
+
+    public init(count: Int, days: Int, scope: GrantScope) {
+        self.count = count
+        self.days = days
+        self.scope = scope
     }
 }
 
@@ -4867,16 +4895,26 @@ public enum TargetKind: String, Codable, Sendable {
 public struct ApprovalResult: Codable, Sendable {
     public let answerToken: String?
     public let approval: ApprovalRequest
+    public let needsMAC: NeedsMACReason?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approval = "approval"
+        case needsMAC = "needsMac"
     }
 
-    public init(answerToken: String? = nil, approval: ApprovalRequest) {
+    public init(answerToken: String? = nil, approval: ApprovalRequest, needsMAC: NeedsMACReason? = nil) {
         self.answerToken = answerToken
         self.approval = approval
+        self.needsMAC = needsMAC
     }
+}
+
+public enum NeedsMACReason: String, Codable, Sendable {
+    case macOnly = "mac_only"
+    case pairedAfter = "paired_after"
+    case payment = "payment"
+    case tooLong = "too_long"
 }
 
 // MARK: - ApprovalUpdatedPayload
@@ -5034,13 +5072,16 @@ public struct ApprovalsApproveWithTouchIDResult: Codable, Sendable {
 // MARK: - ApprovalsGetParams
 public struct ApprovalsGetParams: Codable, Sendable {
     public let approvalID: String
+    public let wantToken: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
+        case wantToken = "wantToken"
     }
 
-    public init(approvalID: String) {
+    public init(approvalID: String, wantToken: Bool? = nil) {
         self.approvalID = approvalID
+        self.wantToken = wantToken
     }
 }
 
@@ -10054,6 +10095,7 @@ public struct ChatBlockPayload: Codable, Sendable {
 // MARK: - Block
 public struct Block: Codable, Sendable {
     public let md: String?
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: BlockType
     /// One-line status shown in the transcript
@@ -10109,6 +10151,7 @@ public struct Block: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
         case level1 = "level1"
@@ -10160,8 +10203,9 @@ public struct Block: Codable, Sendable {
         case branchID = "branchId"
     }
 
-    public init(md: String? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
+    public init(md: String? = nil, noteAction: NoteAction? = nil, noteKey: String? = nil, type: BlockType, level1: String? = nil, status: ToolCallStatus? = nil, tool: String? = nil, toolCallID: String? = nil, planID: String? = nil, items: [ItemElement]? = nil, approvalID: String? = nil, inputRequestID: String? = nil, artifactID: String? = nil, preview: String? = nil, libraryItemID: String? = nil, id: String? = nil, kind: BlockKind? = nil, source: String? = nil, title: String? = nil, url: String? = nil, receiptID: String? = nil, taskID: String? = nil, actions: [WrapUpAction]? = nil, ask: String? = nil, recap: String? = nil, cited: [String]? = nil, answer: String? = nil, factIDS: [String]? = nil, facts: [LifeFactHit]? = nil, model: ModelEnum? = nil, passageIDS: [String]? = nil, passages: [LifeAnswerPassage]? = nil, question: String? = nil, compactionID: String? = nil, droppedPins: [String]? = nil, keptPins: [String]? = nil, replaced: Replaced? = nil, summary: CompactionSummary? = nil, tokensAfter: Int? = nil, tokensBefore: Int? = nil, trigger: BlockTrigger? = nil, feedbackID: String? = nil, lessonID: String? = nil, messageID: String? = nil, statement: String? = nil, proposal: DailyWorkflowProposal? = nil, route: String? = nil, goal: String? = nil, widgetID: String? = nil, forkID: String? = nil, branchID: String? = nil) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
         self.level1 = level1
@@ -10517,6 +10561,26 @@ public enum BlockKind: String, Codable, Sendable {
 public enum ModelEnum: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
+}
+
+// MARK: - NoteAction
+public struct NoteAction: Codable, Sendable {
+    public let kind: NoteActionKind
+    public let messageID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case messageID = "messageId"
+    }
+
+    public init(kind: NoteActionKind, messageID: String) {
+        self.kind = kind
+        self.messageID = messageID
+    }
+}
+
+public enum NoteActionKind: String, Codable, Sendable {
+    case retryLastMessage = "retry_last_message"
 }
 
 // MARK: - LifeAnswerPassage
@@ -23075,19 +23139,121 @@ public struct MemoryForgetParams: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryForgetPreviewParams
+public struct MemoryForgetPreviewParams: Codable, Sendable {
+    public let subject: String
+
+    public enum CodingKeys: String, CodingKey {
+        case subject = "subject"
+    }
+
+    public init(subject: String) {
+        self.subject = subject
+    }
+}
+
+// MARK: - MemoryForgetPreviewResult
+public struct MemoryForgetPreviewResult: Codable, Sendable {
+    public let counts: MemoryForgetCounts
+    public let files: [String]
+    public let total: Int
+    public let uncounted: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
+        case files = "files"
+        case total = "total"
+        case uncounted = "uncounted"
+    }
+
+    public init(counts: MemoryForgetCounts, files: [String], total: Int, uncounted: [String]) {
+        self.counts = counts
+        self.files = files
+        self.total = total
+        self.uncounted = uncounted
+    }
+}
+
+/// Per store: Markdown files and lines, claims, chunks, graph entities, facts, relations,
+/// loops, interactions and citations, other graph text, review items, quarantine rows,
+/// lessons and their lines, feedback events and search documents.
+// MARK: - MemoryForgetCounts
+public struct MemoryForgetCounts: Codable, Sendable {
+    public let chunks: Int
+    public let claims: Int
+    public let feedback: Int
+    public let graphCitations: Int
+    public let graphEdges: Int
+    public let graphEntities: Int
+    public let graphFacts: Int
+    public let graphInteractions: Int
+    public let graphLoops: Int
+    public let graphOther: Int
+    public let lessonLines: Int
+    public let lessons: Int
+    public let markdownFiles: Int
+    public let markdownLines: Int
+    public let quarantine: Int
+    public let reviewItems: Int
+    public let searchDocs: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case claims = "claims"
+        case feedback = "feedback"
+        case graphCitations = "graphCitations"
+        case graphEdges = "graphEdges"
+        case graphEntities = "graphEntities"
+        case graphFacts = "graphFacts"
+        case graphInteractions = "graphInteractions"
+        case graphLoops = "graphLoops"
+        case graphOther = "graphOther"
+        case lessonLines = "lessonLines"
+        case lessons = "lessons"
+        case markdownFiles = "markdownFiles"
+        case markdownLines = "markdownLines"
+        case quarantine = "quarantine"
+        case reviewItems = "reviewItems"
+        case searchDocs = "searchDocs"
+    }
+
+    public init(chunks: Int, claims: Int, feedback: Int, graphCitations: Int, graphEdges: Int, graphEntities: Int, graphFacts: Int, graphInteractions: Int, graphLoops: Int, graphOther: Int, lessonLines: Int, lessons: Int, markdownFiles: Int, markdownLines: Int, quarantine: Int, reviewItems: Int, searchDocs: Int) {
+        self.chunks = chunks
+        self.claims = claims
+        self.feedback = feedback
+        self.graphCitations = graphCitations
+        self.graphEdges = graphEdges
+        self.graphEntities = graphEntities
+        self.graphFacts = graphFacts
+        self.graphInteractions = graphInteractions
+        self.graphLoops = graphLoops
+        self.graphOther = graphOther
+        self.lessonLines = lessonLines
+        self.lessons = lessons
+        self.markdownFiles = markdownFiles
+        self.markdownLines = markdownLines
+        self.quarantine = quarantine
+        self.reviewItems = reviewItems
+        self.searchDocs = searchDocs
+    }
+}
+
 // MARK: - MemoryForgetResult
 public struct MemoryForgetResult: Codable, Sendable {
+    public let counts: MemoryForgetCounts?
     public let files: [String]
     public let removedChunkIDS: [String]
     public let retractedClaimIDS: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
         case files = "files"
         case removedChunkIDS = "removedChunkIds"
         case retractedClaimIDS = "retractedClaimIds"
     }
 
-    public init(files: [String], removedChunkIDS: [String], retractedClaimIDS: [String]) {
+    public init(counts: MemoryForgetCounts? = nil, files: [String], removedChunkIDS: [String], retractedClaimIDS: [String]) {
+        self.counts = counts
         self.files = files
         self.removedChunkIDS = removedChunkIDS
         self.retractedClaimIDS = retractedClaimIDS
@@ -24514,19 +24680,53 @@ public struct MemoryResetResult: Codable, Sendable {
     public let claims: Int
     public let dryRun: Bool
     public let files: [String]
+    public let graph: Graph?
 
     public enum CodingKeys: String, CodingKey {
         case chunks = "chunks"
         case claims = "claims"
         case dryRun = "dryRun"
         case files = "files"
+        case graph = "graph"
     }
 
-    public init(chunks: Int, claims: Int, dryRun: Bool, files: [String]) {
+    public init(chunks: Int, claims: Int, dryRun: Bool, files: [String], graph: Graph? = nil) {
         self.chunks = chunks
         self.claims = claims
         self.dryRun = dryRun
         self.files = files
+        self.graph = graph
+    }
+}
+
+// MARK: - Graph
+public struct Graph: Codable, Sendable {
+    public let citations: Int
+    public let edges: Int
+    public let entities: Int
+    public let facts: Int
+    public let interactions: Int
+    public let loops: Int
+    public let quarantine: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case citations = "citations"
+        case edges = "edges"
+        case entities = "entities"
+        case facts = "facts"
+        case interactions = "interactions"
+        case loops = "loops"
+        case quarantine = "quarantine"
+    }
+
+    public init(citations: Int, edges: Int, entities: Int, facts: Int, interactions: Int, loops: Int, quarantine: Int) {
+        self.citations = citations
+        self.edges = edges
+        self.entities = entities
+        self.facts = facts
+        self.interactions = interactions
+        self.loops = loops
+        self.quarantine = quarantine
     }
 }
 
@@ -29364,6 +29564,35 @@ public struct PlanForksRetryBranchResult: Codable, Sendable {
 
     public init(branch: PlanForkBranch) {
         self.branch = branch
+    }
+}
+
+// MARK: - PlanForksStagedParams
+public struct PlanForksStagedParams: Codable, Sendable {
+    public let branchID: String
+    public let forkID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case branchID = "branchId"
+        case forkID = "forkId"
+    }
+
+    public init(branchID: String, forkID: String) {
+        self.branchID = branchID
+        self.forkID = forkID
+    }
+}
+
+// MARK: - PlanForksStagedResult
+public struct PlanForksStagedResult: Codable, Sendable {
+    public let items: [StagedAction]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [StagedAction]) {
+        self.items = items
     }
 }
 
@@ -40752,17 +40981,20 @@ public struct TerminalSessionWriteParams: Codable, Sendable {
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
+    public let noteAction: NoteAction?
     public let noteKey: String?
     public let type: TextBlockType
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
+        case noteAction = "noteAction"
         case noteKey = "noteKey"
         case type = "type"
     }
 
-    public init(md: String, noteKey: String? = nil, type: TextBlockType) {
+    public init(md: String, noteAction: NoteAction? = nil, noteKey: String? = nil, type: TextBlockType) {
         self.md = md
+        self.noteAction = noteAction
         self.noteKey = noteKey
         self.type = type
     }

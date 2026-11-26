@@ -2,15 +2,9 @@ import type { Catalogue } from "../../index.ts";
 
 /** connectors-page strings (ar); merged into `../ar.ts`. */
 export const connectorsPage: Partial<Catalogue> = {
-  "settings.connectors.page.description":
-    "التطبيقات والأدوات التي يستطيع {persona} استخدامها. يسأل كل منها قبل أن يتصرف، ما لم تقل غير ذلك.",
   "settings.connectors.page.needsYou": "بحاجة إليك",
   "settings.connectors.page.connected": "متصل",
   "settings.connectors.page.onThisMac": "على هذا الـ Mac",
-  "settings.connectors.page.addMore": "إضافة المزيد",
-  "settings.connectors.page.addMore.hint":
-    "البريد والتقويم والملاحظات وأدوات جاهزة. يسأل كل منها قبل أن يتصرف.",
-  "settings.connectors.page.addMore.browse": "تصفّح الكل",
   "settings.connectors.page.status.paused": "متوقف مؤقتًا",
   "settings.connectors.page.status.notWorking": "لا يعمل",
   "settings.connectors.page.status.signInExpired": "انتهت صلاحية تسجيل الدخول",

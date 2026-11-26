@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { insertDevice } from "@psyche/db";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -15,9 +16,15 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-const call = (identity: Partial<Call["identity"]>): Call => ({ identity }) as unknown as Call;
+const call = (identity: Partial<Call["identity"]>): Call =>
+  ({ identity, conn: { peer: { origin: null } } }) as unknown as Call;
 const desktop = call({ role: "client", desktopShell: true });
-const remote = call({ role: "client" });
+// The owner's paired iPhone (owner decision 2026-11-25): allowed, but still scrubbed.
+const remote = call({
+  role: "client",
+  deviceId: "dev_phone",
+  scopes: ["operator.read", "operator.write"],
+});
 
 /** The mounted `memory.entities.*` methods, as the Gateway serves them to a connection. */
 async function world() {
@@ -31,6 +38,16 @@ async function world() {
     clock: new FakeClock(Date.parse("2026-11-04T12:00:00Z")),
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider: FakeModelProvider.script([]), model: "fake/model" },
+  });
+  insertDevice(composed.gateway.context.db, {
+    id: "dev_phone",
+    name: "iPhone",
+    platform: "ios",
+    role: "client",
+    publicKey: Buffer.alloc(32, 7),
+    scopes: ["operator.read", "operator.write"],
+    pairedAt: "2026-11-04T12:00:00.000Z",
+    deviceFamily: "ios",
   });
   const graph = composed.people.graph;
   const ava = graph.createEntity({ kind: "person", name: "Ava Stone" }).id;

@@ -22,6 +22,7 @@ export type CommandName =
   | "new"
   | "btw"
   | "fork"
+  | "compare"
   | "schedule"
   | "incognito"
   | "forget"
@@ -81,6 +82,7 @@ export const COMMANDS: readonly CommandInfo[] = [
   command("new", "none"),
   command("btw", "required"),
   command("fork", "optional"),
+  command("compare", "optional"),
   command("schedule", "required"),
   command("incognito", "optional"),
   command("forget", "required"),

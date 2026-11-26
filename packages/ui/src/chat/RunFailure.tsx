@@ -24,10 +24,11 @@ export function isContextLimitFailure(error: string): boolean {
 export function failureAnchors(
   messages: readonly Message[],
   runs: readonly Run[],
+  status: Run["status"] = "failed",
 ): Map<string, Run[]> {
   const anchors = new Map<string, Run[]>();
   for (const run of runs) {
-    if (run.status !== "failed") continue;
+    if (run.status !== status) continue;
     const own = messages.filter((m) => m.runId === run.id).at(-1);
     const until = run.endedAt ?? run.startedAt;
     const before = messages.filter((m) => m.createdAt <= until).at(-1);

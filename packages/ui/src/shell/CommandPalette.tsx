@@ -10,6 +10,7 @@ import { t } from "../i18n/core.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { memoryHref } from "../memory-page/kinds.ts";
 import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
+import { useForkChatTarget } from "../plan-fork/data.ts";
 import { usePoints } from "../points/PointsContext.tsx";
 import { LIBRARY_SECTIONS } from "../screens/library/library-items.ts";
 import { recentHits } from "../screens/search/recent-hits.ts";
@@ -383,8 +384,20 @@ export function CommandPalette({
   const spaceActions = useSpacePaletteActions(open, onNavigate);
   // Psyche points (docs/design/psyche-points-2026.md §6.2): offered only where it can run.
   const points = usePoints();
+  // Fork a plan (docs/design/fork-a-plan-2026.md §5.1): offered while a chat is open.
+  const forkChat = useForkChatTarget();
   const kitActions: PaletteAction[] = [
     ...spaceActions,
+    ...(forkChat !== null
+      ? [
+          {
+            id: "fork-plan",
+            label: t("planFork.palette.label"),
+            keywords: t("planFork.palette.keywords"),
+            run: () => forkChat.start(),
+          },
+        ]
+      : []),
     ...(points.available
       ? [
           {
