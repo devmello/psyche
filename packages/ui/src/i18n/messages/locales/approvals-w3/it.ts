@@ -10,7 +10,7 @@ export const approvalsW3: Partial<Catalogue> = {
   "approvals.effect.write": "Modifica qualcosa",
   "approvals.effect.read": "Legge informazioni",
   "approvals.effect.none": "Guarda soltanto",
-  "approvals.effect.untrusted": "Dopo aver letto contenuti non attendibili",
+  "approvals.effect.untrusted": "Psyche ha prima letto qualcosa dall’esterno",
   "approvals.expired": "Scaduta. Non è stato fatto nulla. Richiedila se la vuoi ancora.",
   "approvals.void.changed":
     "Questo è cambiato prima della tua risposta, quindi è stato messo da parte. Non è stato fatto nulla.",

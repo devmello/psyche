@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { actionErrors } from "./action-errors/hi.ts";
 import { agentRest } from "./agent-rest/hi.ts";
 import { appleD } from "./apple-d/hi.ts";
+import { appleB } from "./apple-b/hi.ts";
 import { appleE1 } from "./apple-e1/hi.ts";
 import { appleE2 } from "./apple-e2/hi.ts";
 import { approvalsW3 } from "./approvals-w3/hi.ts";
@@ -430,8 +431,8 @@ export const hi: Partial<Catalogue> = {
   "blocks.details.none": "कोई नहीं",
   "blocks.details.argumentsList": "आर्ग्युमेंट: {args}",
   "blocks.details.command": "कमांड",
-  "blocks.details.in": "यहाँ",
-  "blocks.details.envNames": "Env नाम",
+  "blocks.details.in": "फ़ोल्डर",
+  "blocks.details.envNames": "एनवायरनमेंट वेरिएबल",
   "blocks.details.runs": "चलता है",
   "blocks.details.runsOnHost": "आपके Mac पर, सैंडबॉक्स के बाहर",
   "blocks.details.to": "प्रति",
@@ -3897,6 +3898,7 @@ export const hi: Partial<Catalogue> = {
   // Fork a plan (docs/design/fork-a-plan-2026.md §9)
   ...planFork,
   ...desktopSimple,
+  ...appleB,
   ...appleE1,
   // Gateway-authored notices (inbox notifications, security alerts)
   ...notices,

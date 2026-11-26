@@ -10,7 +10,7 @@ export const approvalsW3: Partial<Catalogue> = {
   "approvals.effect.write": "会更改某些内容",
   "approvals.effect.read": "会读取信息",
   "approvals.effect.none": "只是查看",
-  "approvals.effect.untrusted": "在读取不可信内容之后",
+  "approvals.effect.untrusted": "Psyche 先读取了外部内容",
   "approvals.expired": "已过期，未执行任何操作。如果仍需要，请重新提出。",
   "approvals.void.changed": "在你回复之前内容已变化，因此被搁置，未执行任何操作。",
   "approvals.void.runCancelled": "任务已停止，因此已取消，未执行任何操作。",
