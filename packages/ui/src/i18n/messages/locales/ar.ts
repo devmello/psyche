@@ -66,6 +66,7 @@ import { settingsDrill } from "./settings-drill/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
+import { simplifyB9 } from "./simplify-b9/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
@@ -3955,6 +3956,7 @@ export const ar: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB9,
   ...desktopDialog,
   ...friction,
   ...update,

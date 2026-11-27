@@ -209,3 +209,11 @@ export function applyFilters(
       now - Date.parse(i.createdAt) <= window,
   );
 }
+
+/**
+ * A section's heading. Artifacts read "Made by {persona}" (S36): the owner knows who made it,
+ * not what an artifact is.
+ */
+export function sectionLabel(spec: { id: LibrarySection; label: string }, persona: string): string {
+  return spec.id === "artifacts" ? t("simplifyB9.library.madeBy", { name: persona }) : spec.label;
+}

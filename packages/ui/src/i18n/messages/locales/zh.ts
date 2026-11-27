@@ -66,6 +66,7 @@ import { settingsDrill } from "./settings-drill/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
+import { simplifyB9 } from "./simplify-b9/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
 import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
@@ -3830,6 +3831,7 @@ export const zh: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB9,
   ...desktopDialog,
   ...friction,
   ...update,
