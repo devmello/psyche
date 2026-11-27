@@ -1,9 +1,4 @@
-import type {
-  MemoryRecallStatus,
-  MemoryStoreStatus,
-  MethodResult,
-  ThreadListEntry,
-} from "@psyche/protocol";
+import type { MemoryStoreStatus, MethodResult, ThreadListEntry } from "@psyche/protocol";
 import { MEMORY_REVIEW_ROUTE } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useState } from "react";
@@ -89,24 +84,6 @@ export function storeText(s: MemoryStoreStatus): string {
   if (s.state === "ready") return t("settings.data.encryptMemory.on");
   if (s.state === "pending") return t("settings.data.encryptMemory.pending");
   return t("settings.data.encryptMemory.unavailable", { why: s.reason ?? "" });
-}
-
-/** One line saying how memory recall works now. */
-export function recallStatusText(r: MemoryRecallStatus): string {
-  if (r.state === "semantic")
-    return t("settings.data.recallState.semantic", {
-      vectors: r.vectors ?? 0,
-      chunks: Math.max(r.chunks ?? 0, r.vectors ?? 0),
-    });
-  if (r.state === "text_only")
-    return t(
-      r.fallback === "model_missing"
-        ? "settings.data.recallState.modelMissing"
-        : r.fallback === "cloud_not_allowed"
-          ? "settings.data.recallState.cloudBlocked"
-          : "settings.data.recallState.textOnly",
-    );
-  return t("settings.data.recallState.off");
 }
 
 /** Settings → Memory → Remembering & learning: pause, recall and the teaching loop. */
@@ -201,8 +178,6 @@ export function MemoryControlsPanel({
 
 export interface MemoryStoreGroupsProps extends SettingsFormProps {
   persona: string;
-  /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
-  recall?: MemoryRecallStatus;
   /** Where memory lives (`memory.status.store`): the "Encrypt memory" switch and its state. */
   store?: MemoryStoreStatus;
   onEncryptMemory?: (on: boolean) => void;
@@ -210,46 +185,17 @@ export interface MemoryStoreGroupsProps extends SettingsFormProps {
 }
 
 /**
- * How memory is recalled, and (once the Gateway reports where memory lives) whether it is
- * encrypted on disk. Shown under Advanced on the Memory page.
+ * Whether memory is encrypted on disk, once the Gateway reports where it lives. (The old recall-mode
+ * radio, Markdown or embeddings, is retired: owner decision 2026-11-25.) Shown under Advanced on the Memory page.
  */
 export function MemoryStoreGroups({
-  values,
-  onChange,
   persona,
-  recall,
   store,
   onEncryptMemory,
   busy = false,
 }: MemoryStoreGroupsProps): ReactElement {
   return (
     <>
-      <Group title={t("memoryAdvanced.recall")}>
-        <RadioField<"markdown" | "embeddings">
-          label={t("settings.key.memory.recall.mode")}
-          description={t("settings.data.recallModeHint")}
-          value={values["memory.recall.mode"] === "embeddings" ? "embeddings" : "markdown"}
-          settingKey="memory.recall.mode"
-          onChange={(v) => onChange("memory.recall.mode", v)}
-          options={[
-            {
-              value: "markdown",
-              label: t("settings.data.recallMode.markdown"),
-              hint: t("settings.data.recallMode.markdownHint"),
-            },
-            {
-              value: "embeddings",
-              label: t("settings.data.recallMode.embeddings"),
-              hint: t("settings.data.recallMode.embeddingsHint"),
-            },
-          ]}
-        />
-        {recall !== undefined && recall.mode === "embeddings" ? (
-          <p role="status" className="text-callout text-label-secondary">
-            {recallStatusText(recall)}
-          </p>
-        ) : null}
-      </Group>
       {store === undefined ? null : (
         <Group title={t("memoryAdvanced.encryption")}>
           <SwitchField

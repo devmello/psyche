@@ -100,7 +100,7 @@ describe("Controls nothing reads are gone (settings-2026 §6)", () => {
     "the %s page shows none of them",
     async (page) => {
       setup(<SettingsScreen defaultSection={page} />);
-      await screen.findByRole("heading", { level: 2 });
+      await screen.findAllByRole("heading", { level: 2 });
       await new Promise((r) => setTimeout(r, 300));
       for (const key of unread)
         expect(document.querySelector(`[data-setting-key="${key}"]`), key).toBeNull();
