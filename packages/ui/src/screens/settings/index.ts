@@ -10,7 +10,6 @@ export {
   ACCENT_PRESETS,
   AppearancePanel,
   AppearanceSection,
-  ThemePreview,
 } from "./AppearanceSection.tsx";
 export {
   BrowserPanel,

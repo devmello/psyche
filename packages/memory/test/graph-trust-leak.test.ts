@@ -223,6 +223,26 @@ describe("setFact trust rules (memory wave 2A)", () => {
     });
   });
 
+  it("counts the facts the migration moved that still wait, none without a backup", () => {
+    expect(em.reviewCounts().movedPending).toBe(0);
+    env.db.sqlite
+      .prepare(
+        `INSERT INTO graph_facts (id, entity_id, attribute, value, provenance, confidence, valid_from,
+           recorded_at, created_at, updated_at) VALUES ('leak', ?, 'next_step', 'send the deck',
+           'untrusted', 0.4, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z',
+           '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
+      )
+      .run(sam);
+    env.db.sqlite.exec(
+      readFileSync(join(DEFAULT_MIGRATIONS_DIR, "202611250900_memory_trust-leak.sql"), "utf8"),
+    );
+    // A pending fact written after the migration is not one it moved.
+    set("city", "NYC", "untrusted", ["int_1"]);
+    expect(em.reviewCounts()).toMatchObject({ pending: 2, movedPending: 1 });
+    em.decide("leak", "confirm");
+    expect(em.reviewCounts()).toMatchObject({ pending: 1, movedPending: 0 });
+  });
+
   it("the owner can still replace an agent or untrusted value", () => {
     set("employer", "Acme", "agent");
     const owner = set("employer", "Initech", "owner");

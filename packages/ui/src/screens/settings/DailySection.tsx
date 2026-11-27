@@ -16,6 +16,7 @@ import { useSlots } from "../../slots.tsx";
 import { AutomationDraftCard } from "../scheduled/AutomationDraftCard.tsx";
 import { TimeRow } from "./MailMeetingsSection.tsx";
 import {
+  Advanced,
   bool,
   ErrorNotice,
   Group,
@@ -150,6 +151,11 @@ export function runNowMessage(r: { started: boolean; outcome?: unknown }): strin
 export interface NightShiftGroupProps extends Pick<SettingsFormProps, "values" | "onChange"> {
   onTryNow?: () => void;
   onOpenFiles?: () => void;
+  /**
+   * "rest" is the switch and Try it now; "advanced" is the window, domains, budget, expiry and
+   * notification. Default: both, as one group.
+   */
+  part?: "rest" | "advanced" | "all";
 }
 
 /** The "Night shift" group of Settings → Daily. */
@@ -158,7 +164,10 @@ export function NightShiftGroup({
   onChange,
   onTryNow,
   onOpenFiles,
+  part = "all",
 }: NightShiftGroupProps): ReactElement {
+  const showRest = part !== "advanced";
+  const showAdvanced = part !== "rest";
   const d = NIGHT_SHIFT_DEFAULTS;
   const on = bool(values, "nightShift.enabled", d["nightShift.enabled"]);
   const start = str(values, "nightShift.window.start", d["nightShift.window.start"]);
@@ -173,92 +182,101 @@ export function NightShiftGroup({
   };
   return (
     <Group title={t("settings.nightShift.group")} description={t("settings.nightShift.groupHint")}>
-      <SwitchField
-        label={t("settings.key.nightShift.enabled")}
-        description={t("settings.nightShift.enabled.hint", { start, end })}
-        settingKey="nightShift.enabled"
-        checked={on}
-        onChange={(v) => {
-          onChange("nightShift.enabled", v);
-          if (v) onChange("nightShift.consentedAt", new Date().toISOString());
-        }}
-      />
-      <TimeRow
-        label={t("settings.nightShift.window.start")}
-        value={start}
-        disabled={!on}
-        onCommit={(v) => commitTime("nightShift.window.start", v)}
-      />
-      <TimeRow
-        label={t("settings.nightShift.window.end")}
-        value={end}
-        disabled={!on}
-        onCommit={(v) => commitTime("nightShift.window.end", v)}
-      />
-      {windowError ? (
-        <p role="alert" className="text-callout text-destructive">
-          {t("settings.nightShift.window.short")}
-        </p>
-      ) : null}
-      <p className="text-body text-label-primary">{t("settings.nightShift.domains")}</p>
-      {NIGHT_DOMAINS.map((domain) => (
+      {showRest ? (
         <SwitchField
-          key={domain}
-          label={t(`settings.key.nightShift.domains.${domain}`)}
-          {...(domain === "files"
-            ? {
-                description: (
-                  <>
-                    {t("settings.nightShift.files.hint")}{" "}
-                    {onOpenFiles ? (
-                      <button
-                        type="button"
-                        className="cursor-default text-accent-11 hover:underline"
-                        onClick={onOpenFiles}
-                      >
-                        {t("settings.nightShift.files.link")}
-                      </button>
-                    ) : null}
-                  </>
-                ),
-              }
-            : {})}
-          settingKey={`nightShift.domains.${domain}`}
-          checked={bool(values, `nightShift.domains.${domain}`, true)}
-          disabled={!on}
-          onChange={(v) => onChange(`nightShift.domains.${domain}`, v)}
+          label={t("settings.key.nightShift.enabled")}
+          description={t("settings.nightShift.enabled.hint", { start, end })}
+          settingKey="nightShift.enabled"
+          checked={on}
+          onChange={(v) => {
+            onChange("nightShift.enabled", v);
+            if (v) onChange("nightShift.consentedAt", new Date().toISOString());
+          }}
         />
-      ))}
-      <BudgetRow
-        value={num(values, "nightShift.budgetUsd", d["nightShift.budgetUsd"])}
-        disabled={!on}
-        onCommit={(v) => onChange("nightShift.budgetUsd", v)}
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="night-shift-expiry" className="min-w-0 flex-1 text-body text-label-primary">
-          {t("settings.nightShift.expiry")}
-        </label>
-        <NativeSelect
-          id="night-shift-expiry"
-          value={expiry}
-          disabled={!on}
-          onChange={(e) => onChange("nightShift.expiryDays", Number(e.target.value))}
-        >
-          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <option key={n} value={String(n)}>
-              {t("settings.nightShift.expiry.days", { n })}
-            </option>
+      ) : null}
+      {showAdvanced ? (
+        <>
+          <TimeRow
+            label={t("settings.nightShift.window.start")}
+            value={start}
+            disabled={!on}
+            onCommit={(v) => commitTime("nightShift.window.start", v)}
+          />
+          <TimeRow
+            label={t("settings.nightShift.window.end")}
+            value={end}
+            disabled={!on}
+            onCommit={(v) => commitTime("nightShift.window.end", v)}
+          />
+          {windowError ? (
+            <p role="alert" className="text-callout text-destructive">
+              {t("settings.nightShift.window.short")}
+            </p>
+          ) : null}
+          <p className="text-body text-label-primary">{t("settings.nightShift.domains")}</p>
+          {NIGHT_DOMAINS.map((domain) => (
+            <SwitchField
+              key={domain}
+              label={t(`settings.key.nightShift.domains.${domain}`)}
+              {...(domain === "files"
+                ? {
+                    description: (
+                      <>
+                        {t("settings.nightShift.files.hint")}{" "}
+                        {onOpenFiles ? (
+                          <button
+                            type="button"
+                            className="cursor-default text-accent-11 hover:underline"
+                            onClick={onOpenFiles}
+                          >
+                            {t("settings.nightShift.files.link")}
+                          </button>
+                        ) : null}
+                      </>
+                    ),
+                  }
+                : {})}
+              settingKey={`nightShift.domains.${domain}`}
+              checked={bool(values, `nightShift.domains.${domain}`, true)}
+              disabled={!on}
+              onChange={(v) => onChange(`nightShift.domains.${domain}`, v)}
+            />
           ))}
-        </NativeSelect>
-      </div>
-      <SwitchField
-        label={t("settings.key.nightShift.notify")}
-        settingKey="nightShift.notify"
-        checked={bool(values, "nightShift.notify", true)}
-        disabled={!on}
-        onChange={(v) => onChange("nightShift.notify", v)}
-      />
-      {onTryNow ? (
+          <BudgetRow
+            value={num(values, "nightShift.budgetUsd", d["nightShift.budgetUsd"])}
+            disabled={!on}
+            onCommit={(v) => onChange("nightShift.budgetUsd", v)}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="night-shift-expiry"
+              className="min-w-0 flex-1 text-body text-label-primary"
+            >
+              {t("settings.nightShift.expiry")}
+            </label>
+            <NativeSelect
+              id="night-shift-expiry"
+              value={expiry}
+              disabled={!on}
+              onChange={(e) => onChange("nightShift.expiryDays", Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <option key={n} value={String(n)}>
+                  {t("settings.nightShift.expiry.days", { n })}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <SwitchField
+            label={t("settings.key.nightShift.notify")}
+            settingKey="nightShift.notify"
+            checked={bool(values, "nightShift.notify", true)}
+            disabled={!on}
+            onChange={(v) => onChange("nightShift.notify", v)}
+          />
+        </>
+      ) : null}
+      {showRest && onTryNow ? (
         <Button type="button" size="sm" variant="secondary" disabled={!on} onClick={onTryNow}>
           {t("settings.nightShift.tryNow")}
         </Button>
@@ -588,62 +606,70 @@ export function DailyPanel({
             </Button>
           ) : null}
         </Group>
-        <Group
-          title={t("settings.daily.group.delivery")}
-          description={t("settings.daily.group.deliveryHint")}
-        >
-          <SwitchField
-            label={t("settings.key.daily.notify")}
-            description={t("settings.daily.notify.hint")}
-            settingKey="daily.notify"
-            checked={flag(values, "daily.notify")}
-            onChange={(v) => onChange("daily.notify", v)}
-          />
-        </Group>
-        <Group title={t("settings.daily.group.keepAwake")}>
-          <SwitchField
-            label={t("settings.key.scheduled.keepAwake")}
-            description={t("settings.daily.keepAwake.hint")}
-            settingKey="scheduled.keepAwake"
-            checked={bool(values, "scheduled.keepAwake", false)}
-            onChange={(v) => onChange("scheduled.keepAwake", v)}
-          />
-        </Group>
-        <Group title={t("settings.daily.group.followups")}>
-          <SwitchField
-            label={t("settings.key.daily.followups.enabled")}
-            settingKey="daily.followups.enabled"
-            checked={followupsOn}
-            onChange={(v) => onChange("daily.followups.enabled", v)}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <label
-              htmlFor="daily-sensitivity"
-              className="min-w-0 flex-1 text-body text-label-primary"
-            >
-              {t("settings.daily.sensitivity")}
-            </label>
-            <NativeSelect
-              id="daily-sensitivity"
-              value={sens}
-              disabled={!followupsOn}
-              onChange={(e) => onChange("daily.followups.sensitivity", e.target.value)}
-            >
-              {SENSITIVITIES.map((s) => (
-                <option key={s} value={s}>
-                  {t(`settings.daily.sensitivity.${s}`)}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-        </Group>
         <NightShiftGroup
+          part="rest"
           values={values}
           onChange={onChange}
           {...(onTryNightShift ? { onTryNow: onTryNightShift } : {})}
-          {...(onOpenFiles ? { onOpenFiles } : {})}
         />
-        {children}
+        <Advanced>
+          <Group
+            title={t("settings.daily.group.delivery")}
+            description={t("settings.daily.group.deliveryHint")}
+          >
+            <SwitchField
+              label={t("settings.key.daily.notify")}
+              description={t("settings.daily.notify.hint")}
+              settingKey="daily.notify"
+              checked={flag(values, "daily.notify")}
+              onChange={(v) => onChange("daily.notify", v)}
+            />
+          </Group>
+          <Group title={t("settings.daily.group.keepAwake")}>
+            <SwitchField
+              label={t("settings.key.scheduled.keepAwake")}
+              description={t("settings.daily.keepAwake.hint")}
+              settingKey="scheduled.keepAwake"
+              checked={bool(values, "scheduled.keepAwake", false)}
+              onChange={(v) => onChange("scheduled.keepAwake", v)}
+            />
+          </Group>
+          <Group title={t("settings.daily.group.followups")}>
+            <SwitchField
+              label={t("settings.key.daily.followups.enabled")}
+              settingKey="daily.followups.enabled"
+              checked={followupsOn}
+              onChange={(v) => onChange("daily.followups.enabled", v)}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <label
+                htmlFor="daily-sensitivity"
+                className="min-w-0 flex-1 text-body text-label-primary"
+              >
+                {t("settings.daily.sensitivity")}
+              </label>
+              <NativeSelect
+                id="daily-sensitivity"
+                value={sens}
+                disabled={!followupsOn}
+                onChange={(e) => onChange("daily.followups.sensitivity", e.target.value)}
+              >
+                {SENSITIVITIES.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`settings.daily.sensitivity.${s}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          </Group>
+          <NightShiftGroup
+            part="advanced"
+            values={values}
+            onChange={onChange}
+            {...(onOpenFiles ? { onOpenFiles } : {})}
+          />
+          {children}
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );
@@ -702,63 +728,82 @@ export function DailySection(): ReactElement {
             }
           />
         </Group>
-        <Group
-          title={t("settings.daily.group.automations")}
-          description={t("settings.daily.group.automationsHint")}
-        >
-          <AutomationsPanel
-            automations={(autos.data?.automations ?? []).filter(isUserAutomation)}
-            templates={templates.data?.templates ?? []}
-            draft={draft}
-            parseError={parseError}
-            busy={busy}
-            onParse={(text) => {
-              setBusy(true);
-              setParseError(null);
-              call("daily.automations.parse", { text })
-                .then((r) => {
-                  if (r.draft) setDraft(r.draft);
-                  else
-                    setParseError(
-                      r.error === "no_model"
-                        ? t("daily.automations.noModel")
-                        : t("daily.automations.parseFailed"),
-                    );
-                })
-                .catch((err: unknown) => setParseError(describeError(err)))
-                .finally(() => setBusy(false));
-            }}
-            onConfirm={() => {
-              if (!draft) return;
-              setBusy(true);
-              call("daily.automations.confirm", { draft })
-                .then(() => {
-                  setDraft(null);
-                  toast.success(t("daily.automations.created"));
-                  reloadAutos();
-                })
-                .catch((err: unknown) => fail("daily.automations.createFailed", err))
-                .finally(() => setBusy(false));
-            }}
-            onCancelDraft={() => setDraft(null)}
-            onToggle={(a) =>
-              void call("automations.update", { automationId: a.id, enabled: !a.enabled })
-                .then(() => reloadAutos())
-                .catch((err: unknown) => fail("daily.automations.failed", err))
-            }
-            onEdit={(a, patch) =>
-              void call("automations.update", { automationId: a.id, ...patch })
-                .then(() => reloadAutos())
-                .catch((err: unknown) => fail("daily.automations.failed", err))
-            }
-            onDelete={(a) =>
-              void call("automations.delete", { automationId: a.id })
-                .then(() => reloadAutos())
-                .catch((err: unknown) => fail("daily.automations.failed", err))
-            }
-            {...(navigate ? { onOpenScheduled: () => navigate("/scheduled") } : {})}
-          />
-        </Group>
+        {navigate ? (
+          <Group title={t("settings.daily.group.automations")}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="min-w-0 flex-1 text-callout text-label-secondary">
+                {t("daily.automations.count", {
+                  n: (autos.data?.automations ?? []).filter(isUserAutomation).length,
+                })}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => navigate("/scheduled")}
+              >
+                {t("daily.automations.manage")}
+              </Button>
+            </div>
+          </Group>
+        ) : (
+          <Group
+            title={t("settings.daily.group.automations")}
+            description={t("settings.daily.group.automationsHint")}
+          >
+            <AutomationsPanel
+              automations={(autos.data?.automations ?? []).filter(isUserAutomation)}
+              templates={templates.data?.templates ?? []}
+              draft={draft}
+              parseError={parseError}
+              busy={busy}
+              onParse={(text) => {
+                setBusy(true);
+                setParseError(null);
+                call("daily.automations.parse", { text })
+                  .then((r) => {
+                    if (r.draft) setDraft(r.draft);
+                    else
+                      setParseError(
+                        r.error === "no_model"
+                          ? t("daily.automations.noModel")
+                          : t("daily.automations.parseFailed"),
+                      );
+                  })
+                  .catch((err: unknown) => setParseError(describeError(err)))
+                  .finally(() => setBusy(false));
+              }}
+              onConfirm={() => {
+                if (!draft) return;
+                setBusy(true);
+                call("daily.automations.confirm", { draft })
+                  .then(() => {
+                    setDraft(null);
+                    toast.success(t("daily.automations.created"));
+                    reloadAutos();
+                  })
+                  .catch((err: unknown) => fail("daily.automations.createFailed", err))
+                  .finally(() => setBusy(false));
+              }}
+              onCancelDraft={() => setDraft(null)}
+              onToggle={(a) =>
+                void call("automations.update", { automationId: a.id, enabled: !a.enabled })
+                  .then(() => reloadAutos())
+                  .catch((err: unknown) => fail("daily.automations.failed", err))
+              }
+              onEdit={(a, patch) =>
+                void call("automations.update", { automationId: a.id, ...patch })
+                  .then(() => reloadAutos())
+                  .catch((err: unknown) => fail("daily.automations.failed", err))
+              }
+              onDelete={(a) =>
+                void call("automations.delete", { automationId: a.id })
+                  .then(() => reloadAutos())
+                  .catch((err: unknown) => fail("daily.automations.failed", err))
+              }
+            />
+          </Group>
+        )}
       </DailyPanel>
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

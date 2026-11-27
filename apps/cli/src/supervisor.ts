@@ -647,7 +647,12 @@ export async function scheduledTaskInput(
       node: bundledNode,
       serviceHost,
       program: bundledNode,
-      args: ["--max-semi-space-size=4", "--disable-warning=ExperimentalWarning", gateway],
+      args: [
+        "--max-semi-space-size=4",
+        "--disable-warning=ExperimentalWarning",
+        "--disable-warning=DEP0040",
+        gateway,
+      ],
       psycheHome: s.home,
       userId,
       taskName,

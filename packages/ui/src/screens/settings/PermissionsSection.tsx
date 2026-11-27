@@ -257,12 +257,14 @@ export function PermissionsPanel({
             onChange={(v) => onChange("permissions.mode", v)}
           ></RadioField>
           {/* A sealed security setting: turning it on asks, turning it off applies at once. */}
-          <SwitchField
-            label={t("settings.permissions.execReview")}
-            description={t("settings.permissions.execReviewHint")}
-            checked={execReviewInAuto(values)}
-            onChange={(on) => onChange("permissions.policy", policyWithExecReview(values, on))}
-          />
+          <Advanced description={t("simplify.b7.permissions.advancedHint")}>
+            <SwitchField
+              label={t("settings.permissions.execReview")}
+              description={t("settings.permissions.execReviewHint")}
+              checked={execReviewInAuto(values)}
+              onChange={(on) => onChange("permissions.policy", policyWithExecReview(values, on))}
+            />
+          </Advanced>
         </Group>
 
         {/* Where the agent may reach: each row opens its pane one level deeper. */}
@@ -300,7 +302,6 @@ export function PermissionsPanel({
             rows.map((c) => {
               const changed = toolsListChanged(c);
               const key = `permissions.connectors.${c.id}`;
-              const hash = c.config.toolsListHash;
               return (
                 <div key={c.id} className="flex flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-2 px-1">
@@ -314,15 +315,11 @@ export function PermissionsPanel({
                         })}
                       </span>
                     </h4>
-                    {c.type === "mcp" ? (
-                      changed ? (
-                        <StatusChip tone="danger">
-                          <ShieldOff className="size-3" aria-hidden="true" />{" "}
-                          {t("settings.permissions.grantsRevoked")}
-                        </StatusChip>
-                      ) : (
-                        <StatusChip tone="success">{t("settings.permissions.hashOk")}</StatusChip>
-                      )
+                    {c.type === "mcp" && changed ? (
+                      <StatusChip tone="danger">
+                        <ShieldOff className="size-3" aria-hidden="true" />{" "}
+                        {t("settings.permissions.grantsRevoked")}
+                      </StatusChip>
                     ) : null}
                   </div>
                   <ActionMatrix
@@ -335,16 +332,6 @@ export function PermissionsPanel({
                     <p className="px-1 text-callout text-label-primary">
                       {t("settings.permissions.toolsChanged", { name: c.label })}
                     </p>
-                  ) : null}
-                  {c.type === "mcp" && typeof hash === "string" ? (
-                    <details className="px-1 text-callout text-label-secondary">
-                      <summary className="w-fit cursor-default select-none hover:text-label-primary">
-                        {t("settings.browser.details")}
-                      </summary>
-                      <p className="mt-1 truncate font-mono">
-                        {t("settings.permissions.hash", { hash: hash.slice(0, 19) })}
-                      </p>
-                    </details>
                   ) : null}
                   <SettingHint settingKey={key} />
                 </div>

@@ -251,7 +251,7 @@ export const PSYCHED_CMD = [
   "rem A 4 MB young generation keeps an idle Gateway near 200 MB instead of about 330 MB.",
   "setlocal",
   WIN_COMPILE_CACHE,
-  '"%~dp0runtime\\node.exe" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "%~dp0app\\apps\\gateway\\dist\\main.mjs" %*',
+  '"%~dp0runtime\\node.exe" --max-semi-space-size=4 --disable-warning=ExperimentalWarning --disable-warning=DEP0040 "%~dp0app\\apps\\gateway\\dist\\main.mjs" %*',
   "exit /b %ERRORLEVEL%",
   "",
 ].join("\r\n");
@@ -261,7 +261,7 @@ export const PSYCHE_CMD = [
   "rem The psyche CLI from the Psyche install, on the same runtime as psyched.",
   "setlocal",
   WIN_COMPILE_CACHE,
-  '"%~dp0runtime\\node.exe" --disable-warning=ExperimentalWarning "%~dp0app\\apps\\cli\\dist\\main.mjs" %*',
+  '"%~dp0runtime\\node.exe" --disable-warning=ExperimentalWarning --disable-warning=DEP0040 "%~dp0app\\apps\\cli\\dist\\main.mjs" %*',
   "exit /b %ERRORLEVEL%",
   "",
 ].join("\r\n");
@@ -271,6 +271,7 @@ export function psychedNodeArgs(bundle) {
   return [
     "--max-semi-space-size=4",
     "--disable-warning=ExperimentalWarning",
+    "--disable-warning=DEP0040",
     join(bundle, "app", "apps", "gateway", "dist", "main.mjs"),
   ];
 }

@@ -272,32 +272,43 @@ describe("old /settings/<id> routes", () => {
 });
 
 describe("Appearance", () => {
-  it("writes appearance.* keys and previews the generated scales with WCAG ratios", async () => {
+  it("writes appearance.* keys from the theme and accent swatches", async () => {
     const { gateway } = setup({ defaultSection: "appearance" });
     await userEvent.click(await screen.findByRole("radio", { name: "Dark" }));
     await waitFor(() => expect(settingValue(gateway(), "appearance.theme")).toBe("dark"));
-    await userEvent.click(screen.getByRole("radio", { name: "Blue" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Teal" }));
     await waitFor(() =>
-      expect(settingValue(gateway(), "appearance.accentSeed")).toBe("oklch(0.6 0.19 255)"),
+      expect(settingValue(gateway(), "appearance.accentSeed")).toBe("oklch(0.62 0.12 185)"),
     );
-    expect(
-      within(screen.getByRole("list", { name: "Light accent scale" })).getAllByRole("listitem"),
-    ).toHaveLength(12);
-    expect(
-      within(screen.getByRole("list", { name: "Dark gray scale" })).getAllByRole("listitem"),
-    ).toHaveLength(12);
-    const light = screen.getByRole("list", { name: "Light contrast (WCAG 2)" });
-    expect(within(light).getByText(/Accent 11 on 2/)).toBeTruthy();
     await userEvent.click(screen.getByRole("switch", { name: "High contrast" }));
     await waitFor(() => expect(settingCall(gateway(), "appearance.contrast")).toBeTruthy());
   });
 
-  it("rejects an unreadable custom color without writing it", async () => {
-    const { gateway } = setup({ defaultSection: "appearance" });
-    const input = await screen.findByRole("textbox", { name: "Custom color" });
-    await userEvent.type(input, "not a color{Enter}");
-    expect(screen.getByText(/Psyche can't read that color/)).toBeTruthy();
-    expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
+  it("has no custom color field and no contrast table", async () => {
+    setup({ defaultSection: "appearance" });
+    await screen.findByRole("radiogroup", { name: "Accent color" });
+    expect(screen.queryByRole("textbox", { name: "Custom color" })).toBeNull();
+    expect(screen.queryByText("Contrast check")).toBeNull();
+    expect(screen.queryByText("Fine-tune colors")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Light accent scale" })).toBeNull();
+    // Gray family and text direction stay reachable.
+    expect(screen.getByRole("radio", { name: "Sand" })).toBeTruthy();
+  });
+
+  it("renders a legacy custom accent without a crash and selects no swatch", async () => {
+    const panel = render(
+      <AppearancePanel
+        values={{ "appearance.accentSeed": "oklch(0.92 0.18 100)" }}
+        onChange={vi.fn()}
+      />,
+    );
+    const group = within(panel.container).getByRole("radiogroup", { name: "Accent color" });
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.some((r) => r.getAttribute("aria-checked") === "true")).toBe(false);
+    const violet = render(
+      <AppearancePanel values={{ "appearance.accentSeed": "#6e56cf" }} onChange={vi.fn()} />,
+    );
+    expect(within(violet.container).getAllByRole("radio").length).toBeGreaterThan(0);
   });
 
   it("turns translucent controls off and on; there is no reduce-transparency switch (#608)", async () => {
@@ -385,7 +396,8 @@ describe("Permissions", () => {
         | undefined;
       expect(matrix?.mcp__notion__search).toBe("deny");
     });
-    expect(screen.getByText("tools/list hash ok")).toBeTruthy();
+    // S28: no "hash ok" chip; only a changed tool list shows a chip (below).
+    expect(screen.queryByText("tools/list hash ok")).toBeNull();
   });
 
   it("leaves Apple apps' actions to their Connectors card, reached from the note", async () => {
@@ -1216,7 +1228,10 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
   it("draws each accent swatch as one radio", async () => {
     setup({ defaultSection: "appearance" });
     const group = await screen.findByRole("radiogroup", { name: "Accent color" });
-    expect(within(group).getAllByRole("radio").length).toBe(8);
+    const names = within(group)
+      .getAllByRole("radio")
+      .map((r) => r.closest("label")?.textContent);
+    expect(names).toEqual(["Ink", "Teal", "Green", "Mauve"]);
   });
 });
 

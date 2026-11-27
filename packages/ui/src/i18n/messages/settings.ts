@@ -998,7 +998,7 @@ export const settings = {
   "settings.computerUse.openSystemSettings": "Open System Settings",
   "settings.computerUse.fullDiskAccess.name": "Full Disk Access",
   "settings.computerUse.fullDiskAccess.why":
-    "lets {persona} read your Messages. macOS has no prompt for it: add Psyche Helper to the list.",
+    "lets {persona} read your Messages. macOS has no prompt for it: add Psyche (Helper) to the list, then restart it.",
   "settings.computerUse.fullDiskAccess.open": "Open Full Disk Access in System Settings",
   "settings.computerUse.appsHint": "How far Psyche may go in each app.",
   "settings.computerUse.apps": "Apps",

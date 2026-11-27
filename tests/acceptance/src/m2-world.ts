@@ -1,19 +1,12 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AutomationInput, ChannelType, ToolResult } from "@psyche/protocol";
+import type { AutomationInput, ToolResult } from "@psyche/protocol";
 import { parseSchedule } from "../../../packages/scheduler/src/schedule.ts";
-import { VOICE_NOTE_PROFILES } from "../../../packages/speech/src/transcode/formats.ts";
 import { FakeScheduler } from "../../../packages/testing/src/fakes/FakeScheduler.ts";
 import { FakeTaskEngine } from "../../../packages/testing/src/fakes/FakeTaskEngine.ts";
 import type { Stack, StackOverrides } from "../../../packages/testing/src/scenarios/stack.ts";
 import type { Json } from "../../../packages/testing/src/scenarios/types.ts";
-import type {
-  ToolCtx,
-  ToolImpl,
-  ToolInfo,
-  World,
-} from "../../../packages/testing/src/scenarios/world.ts";
+import type { ToolCtx, ToolImpl, World } from "../../../packages/testing/src/scenarios/world.ts";
 import {
   detectFormFields,
   type FilledCopy,
@@ -32,9 +25,6 @@ import {
  *   (packages/viewers detectFormFields, prepareFilledCopy) on the fixture PDF; `gmail.send`
  *   flattens a filled copy on send with `finalizeFilledCopy` (refused if the reviewed bytes
  *   changed) and records the pipeline's `fillReceipt`, then sends through the World's own fake.
- * - V6 messaging: `messages.read` / `messages.send` over fixtures/threads.json, `speech.transcribe`
- *   from the fixture transcripts, `speech.voice_note` encoded per channel with the real
- *   VOICE_NOTE_PROFILES (CAF for iMessage).
  * - V8 subscriptions: a `gmail.search` that honours `newer_than:<n>d` and keywords (the World's
  *   own looks at the last five days of the inbox only); agent-core's real `task.start` built-in
  *   over a FakeTaskEngine.
@@ -51,13 +41,9 @@ export interface M2State {
   tasks: FakeTaskEngine;
   scheduler: TzScheduler | undefined;
   filled: Map<string, FilledCopy & { sourceName: string }>;
-  messagesSent: Json[];
-  voiceNotes: Json[];
   /** Fill receipts the send recorded (V5). */
   fillReceipts: string[];
 }
-
-const sha256 = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
 
 /**
  * A FakeScheduler with the real scheduler's cron semantics in the automation's timezone, which
@@ -102,8 +88,6 @@ export function m2Overrides(scenario: string): { overrides: StackOverrides; stat
     tasks: new FakeTaskEngine(),
     scheduler: undefined,
     filled: new Map(),
-    messagesSent: [],
-    voiceNotes: [],
     fillReceipts: [],
   };
   const overrides: StackOverrides = {
@@ -240,29 +224,6 @@ function impls(
       host,
       ...(allowedBy === undefined ? {} : { allowedBy }),
     });
-  const approvedBy = async (ctx: ToolCtx) => {
-    if (ctx.approvalId === undefined) return undefined;
-    const ap = await world.broker().get(ctx.approvalId);
-    return ap?.status === "approved" ? `approval:${ap.id}` : undefined;
-  };
-  const receipt = async (
-    info: ToolInfo,
-    ctx: ToolCtx,
-    refs: Record<string, string>,
-    verified: boolean,
-  ) =>
-    (
-      await world.broker().recordReceipt({
-        kind: info.receiptKind ?? info.name,
-        outcome: "ok",
-        summary: `${info.name} ${Object.values(refs).join(" ")}`,
-        taskId: ctx.taskId ?? null,
-        toolCallId: ctx.callId,
-        approvalId: ctx.approvalId ?? null,
-        externalRefs: refs,
-        payload: { evaluator: { verdict: verified ? "verified" : "failed" } },
-      })
-    ).id;
   const base = world.impls();
 
   // --- V5: documents -------------------------------------------------------------------------
@@ -366,93 +327,6 @@ function impls(
     },
   };
 
-  // --- V6: messages and voice notes ----------------------------------------------------------
-
-  interface Thread {
-    id: string;
-    channel: ChannelType;
-    account: string;
-    contact: string;
-    name: string;
-    messages: (Json & { id: string; from: string })[];
-  }
-  const threads = () => fixture<{ threads: Thread[] }>("threads.json").threads;
-  const messages: Record<string, ToolImpl> = {
-    "messages.read": async (_i, a, ctx) => {
-      // By handle, or by the contact's name as Messages resolves it from Contacts.
-      const who = String(a.contact ?? "").toLowerCase();
-      const t = threads().find(
-        (x) =>
-          x.channel === a.channel &&
-          x.account === a.account &&
-          (x.contact.toLowerCase() === who ||
-            (who.length >= 3 && x.name.toLowerCase().includes(who))),
-      );
-      if (t === undefined) return fail("no such conversation");
-      const recent = t.messages.slice(-Number(a.limit ?? 20));
-      taint(
-        ctx,
-        recent.filter((m) => m.from !== "owner").map((m) => `message:${m.from}`),
-      );
-      return ok(
-        {
-          conversation: { id: t.id, channel: t.channel, with: { name: t.name, handle: t.contact } },
-          messages: recent.map(({ transcript: _t, ...m }) => m),
-        },
-        "untrusted",
-      );
-    },
-    "speech.transcribe": async (_i, a, ctx) => {
-      for (const t of threads()) {
-        const m = t.messages.find((x) => x.id === a.chatMessageId);
-        const att = m?.attachment as Json | undefined;
-        if (m === undefined || att === undefined || att.id !== a.voiceNoteId) continue;
-        taint(ctx, [`message:${m.from}`]);
-        return ok(
-          { text: m.transcript, language: "en", durationSec: att.durationSec },
-          "untrusted",
-        );
-      }
-      return fail("voice note not found");
-    },
-    "speech.voice_note": async (_i, a) => {
-      const profile = VOICE_NOTE_PROFILES[a.channel as ChannelType];
-      if (profile === undefined) return fail(`no voice-note profile for ${String(a.channel)}`);
-      const text = String(a.text);
-      const itemId = id("aud");
-      const filename = `Voice note.${profile.extension}`;
-      const words = text.split(/\s+/).filter(Boolean).length;
-      const item = {
-        id: itemId,
-        kind: "audio",
-        name: filename,
-        mime: profile.mime,
-        sha256: sha256(`${profile.container}:${text}`),
-        origin: "agent",
-        tags: ["voice_note"],
-      };
-      world.library.push(item);
-      state.voiceNotes.push({ ...item, text, channel: a.channel });
-      return ok({
-        libraryItemId: itemId,
-        filename,
-        mime: profile.mime,
-        durationSec: Math.max(1, Math.round(words / 2.5)),
-      });
-    },
-    "messages.send": async (info, a, ctx) => {
-      const by = await approvedBy(ctx);
-      for (const to of (a.to as string[] | undefined) ?? [])
-        net(ctx, "connector", `${String(a.channel)}:${to}`, by);
-      const guid = id("imsg");
-      const record = { guid, ...structuredClone(a) };
-      state.messagesSent.push(record);
-      world.outbound.push(structuredClone(a));
-      const receiptId = await receipt(info, ctx, { messageGuid: guid }, true);
-      return { ...ok({ messageGuid: guid }), receiptId };
-    },
-  };
-
   // --- V8: a mail search over months, not days -----------------------------------------------
 
   const search: Record<string, ToolImpl> = {
@@ -495,8 +369,6 @@ function impls(
   switch (scenario) {
     case "v5-permission-slip":
       return documents;
-    case "v6-messages-voice-note":
-      return messages;
     case "v8-subscription-audit":
       return search;
     case "v9-weekly-review":

@@ -215,7 +215,16 @@
           "kind": "exec",
           "status": "failed",
           "callRef": "c_v10_run_fail",
-          "note": "The test fails before the fix."
+          "modes": ["scripted"],
+          "note": "The test fails before the fix. Scripted only: a live model may read the code, fix it and then run the test (see the live check below)."
+        },
+        {
+          "type": "receipt",
+          "severity": "hard",
+          "kind": "exec",
+          "status": "succeeded",
+          "modes": ["live"],
+          "note": "Live only: a passing test run after the edit. Whether the run came before the edit is not required, since a good model may read the code and fix it first."
         },
         {
           "type": "tool_called",

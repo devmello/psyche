@@ -1,5 +1,6 @@
 import type { QuarantineAction, QuarantineItem, ReviewItem } from "@psyche/protocol";
 import { type ReactElement, type ReactNode, useState } from "react";
+import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { undoDeadline } from "./hooks.ts";
@@ -62,13 +63,28 @@ export function MemoryReviewPanel({
       </div>
       <div role="tabpanel">
         {tab === "review" ? (
-          <ReviewList
-            items={pending}
-            busy={busy}
-            onAct={onAct}
-            onActGroup={onActGroup}
-            emptyText={t("memoryReview.empty.review")}
-          />
+          <>
+            {pending.length > 1 ? (
+              <div className="flex justify-end px-3 pb-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  data-testid="review-confirm-everything"
+                  onClick={() => onActGroup(pending, "confirm")}
+                >
+                  {t("memoryReview.confirmEverything", { n: pending.length })}
+                </Button>
+              </div>
+            ) : null}
+            <ReviewList
+              items={pending}
+              busy={busy}
+              onAct={onAct}
+              onActGroup={onActGroup}
+              emptyText={t("memoryReview.empty.review")}
+            />
+          </>
         ) : tab === "recent" ? (
           <ReviewList
             items={recent.filter((i) => undoDeadline(i, now) !== undefined)}

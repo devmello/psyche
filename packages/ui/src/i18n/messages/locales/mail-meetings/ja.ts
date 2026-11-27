@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "メールと会議",
   "settings.mail.title": "メールと会議",
   "settings.mail.description":
-    "Wrenがメールとカレンダーで行うことを設定します。下書きの保存と操作の提案のみを行い、あなたの承認なしに送信、共有、承諾、辞退はしません。",
+    "{persona}がメールとカレンダーで行うことを設定します。下書きの保存と操作の提案のみを行い、あなたの承認なしに送信、共有、承諾、辞退はしません。",
   "settings.mail.quietHours": "おやすみ時間は「通知」で設定します。",
   "settings.mail.loadFailed": "メールと会議の設定を読み込めませんでした。",
 
@@ -30,7 +30,7 @@ export const mailMeetings: Partial<Catalogue> = {
   // Master switches
   "settings.mail.paused.hint": "オンに戻すまで、メールと会議のすべてのジョブを停止します。",
   "settings.mail.readOnly.hint":
-    "ダイジェストと準備は引き続き届きます。Wrenは操作を提案せず、下書きも作成しません。",
+    "ダイジェストと準備は引き続き届きます。{persona}は操作を提案せず、下書きも作成しません。",
 
   // Accounts
   "settings.mail.accounts.none":
@@ -59,7 +59,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   // Writing style
   "settings.mail.voice.learn.hint":
-    "Wrenは送信済みメールのうち、引用部分や署名を除いたあなたの文章だけを読みます。プロファイルはこのMacのmail/VOICE.mdに保存されます。",
+    "{persona}は送信済みメールのうち、引用部分や署名を除いたあなたの文章だけを読みます。プロファイルはこのMacのmail/VOICE.mdに保存されます。",
   "settings.mail.voice.profile": "文体プロファイル",
   "settings.mail.voice.view": "表示",
   "settings.mail.voice.edit": "編集",
@@ -98,7 +98,7 @@ export const mailMeetings: Partial<Catalogue> = {
     "音声を追加するまで何も行いません。ボイスメモ、ファイル、開始した録音が対象です。",
   "settings.mail.notes.folder": "録音フォルダ",
   "settings.mail.notes.folder.hint":
-    "Wrenが読み取れるフォルダです。「ファイルアクセス」で許可してください。",
+    "{persona}が読み取れるフォルダです。「ファイルアクセス」で許可してください。",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "文字起こしのエンドポイント",
   "settings.mail.transcribe.endpoint.hint":
@@ -122,7 +122,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.poll.active": "操作中",
   "settings.mail.poll.idle": "それ以外のとき",
   "settings.mail.poll.hint":
-    "Wrenが新着メールを確認する頻度です。短くするとバッテリーを多く消費します。",
+    "{persona}が新着メールを確認する頻度です。短くするとバッテリーを多く消費します。",
 
   // Setting-key labels (docs/ui-audit.md: a raw key never shows at level 1)
   "settings.key.workflows.paused": "メールと会議のワークフローをすべて一時停止",
