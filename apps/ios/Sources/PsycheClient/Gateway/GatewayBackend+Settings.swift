@@ -113,7 +113,6 @@ struct PhoneSettingsStore: Sendable {
         var notifications: Bool?
         var liveActivities: Bool?
         var taskTitlesOnLockScreen: Bool?
-        var stayConnectedWhileRunning: Bool?
         var shareLocation: Bool?
     }
 
@@ -125,7 +124,6 @@ struct PhoneSettingsStore: Sendable {
         return PhoneSettings(
             notifications: stored.notifications ?? d.notifications, liveActivities: stored.liveActivities ?? d.liveActivities,
             taskTitlesOnLockScreen: stored.taskTitlesOnLockScreen ?? d.taskTitlesOnLockScreen,
-            stayConnectedWhileRunning: stored.stayConnectedWhileRunning ?? d.stayConnectedWhileRunning,
             shareLocation: stored.shareLocation ?? d.shareLocation)
     }
 
@@ -135,7 +133,7 @@ struct PhoneSettingsStore: Sendable {
         let stored = Stored(
             notifications: settings.notifications, liveActivities: settings.liveActivities,
             taskTitlesOnLockScreen: settings.taskTitlesOnLockScreen,
-            stayConnectedWhileRunning: settings.stayConnectedWhileRunning, shareLocation: settings.shareLocation)
+            shareLocation: settings.shareLocation)
         try JSONEncoder().encode(stored).write(
             to: directory.appendingPathComponent(Self.fileName),
             options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

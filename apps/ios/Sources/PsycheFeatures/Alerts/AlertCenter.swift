@@ -261,9 +261,6 @@ public final class AlertCenter {
         }
     }
 
-    /// Seconds Psyche has kept itself awake today, for Settings.
-    public func awakeSecondsToday() async -> TimeInterval { await awake?.secondsToday() ?? 0 }
-
     /// Starts watching the backend's events. Safe to call again; the shell calls it once the phone is paired.
     public func start() {
         guard observer == nil, !retired else { return }
@@ -313,7 +310,7 @@ public final class AlertCenter {
 
     private func loadSettings() async {
         if let loaded = try? await store.settings() { settings = loaded }
-        awake?.setSwitch(settings.stayConnectedWhileRunning && liveActivitiesOn)
+        awake?.setSwitch(liveActivitiesOn)
     }
 
     var liveActivitiesOn: Bool { settings.notifications && settings.liveActivities }

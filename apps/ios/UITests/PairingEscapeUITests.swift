@@ -62,7 +62,7 @@ final class PairingEscapeUITests: PsycheUITestCase {
 
     func testDemoCanBeLeftFromSettings() {
         launch("unpaired")
-        let demo = app.buttons["Try it without a Mac"]
+        let demo = app.buttons["Try the demo"]
         waitFor(demo)
         demo.tap()
         openSettings()

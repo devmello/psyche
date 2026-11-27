@@ -96,7 +96,7 @@ final class StatesUITests: PsycheUITestCase {
     func testUnpairedShowsPairingAndTryItEntersTheApp() {
         launch("unpaired")
         waitFor(app.staticTexts["Pair with your Mac"].firstMatch)
-        let tryIt = app.buttons["Try it without a Mac"]
+        let tryIt = app.buttons["Try the demo"]
         waitFor(tryIt)
         tryIt.tap()
         waitFor(tab("Chat"), 10)
