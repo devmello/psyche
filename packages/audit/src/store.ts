@@ -375,7 +375,7 @@ function seekOffset(fd: number, size: number, seq: number): number {
 function seekExact(fd: number, size: number, seq: number): number {
   let offset = seekOffset(fd, size, seq);
   for (const raw of forwardLines(fd, size, offset, SEEK_WINDOW * 4)) {
-    const p = parseLine(raw);
+    const p = parseLine(raw, undefined);
     if (p.ok && p.entry.seq >= seq) return offset;
     offset += Buffer.byteLength(raw, "utf8") + 1;
   }
