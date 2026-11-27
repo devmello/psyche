@@ -28,9 +28,19 @@ export function thumbnailKind(item: LibraryItem): Kind | null {
 let running = 0;
 const waiting: (() => void)[] = [];
 
-/** Runs `job` once fewer than two renders are in flight. */
-async function limited<T>(job: () => Promise<T>): Promise<T> {
-  if (running >= MAX_CONCURRENT) await new Promise<void>((resolve) => waiting.push(resolve));
+/**
+ * Runs `job` once fewer than two renders are in flight. A job that waited is dropped when
+ * `wanted` says its tile has gone (scrolled away and released) before its turn came.
+ */
+async function limited<T>(job: () => Promise<T>, wanted: () => boolean): Promise<T> {
+  if (running >= MAX_CONCURRENT) {
+    await new Promise<void>((resolve) => waiting.push(resolve));
+    if (!wanted()) {
+      // Hand the turn to the next waiter; this job never reads its file.
+      waiting.shift()?.();
+      throw new Error("thumbnail no longer wanted");
+    }
+  }
   running += 1;
   try {
     return await job();
@@ -102,14 +112,17 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 
 /** One shared object URL per file version; `release` revokes it with the last user. */
-function acquire(call: GatewayCall, item: LibraryItem, kind: Kind): CacheEntry {
+export function acquire(call: GatewayCall, item: LibraryItem, kind: Kind): CacheEntry {
   const key = `${item.id}:${item.sha256}`;
   let entry = cache.get(key);
   if (entry === undefined) {
     const make = kind === "pdf" ? pdfThumbnail : imageThumbnail;
     const created: CacheEntry = {
       refs: 0,
-      url: limited(() => make(call, item)).then((blob) => URL.createObjectURL(blob)),
+      url: limited(
+        () => make(call, item),
+        () => created.refs > 0,
+      ).then((blob) => URL.createObjectURL(blob)),
     };
     // A failure must not stay cached: the tile falls back and a later mount may retry.
     created.url.catch(() => {
@@ -122,7 +135,7 @@ function acquire(call: GatewayCall, item: LibraryItem, kind: Kind): CacheEntry {
   return entry;
 }
 
-function release(item: LibraryItem, entry: CacheEntry): void {
+export function release(item: LibraryItem, entry: CacheEntry): void {
   entry.refs -= 1;
   if (entry.refs > 0) return;
   const key = `${item.id}:${item.sha256}`;
