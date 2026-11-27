@@ -5,7 +5,8 @@
  */
 export const simplifyB6 = {
   "simplify.b6.nav.server": "Devices",
-  "simplify.b6.search.description": "Switch on the places you want Psyche to search.",
+  "simplify.b6.search.description":
+    "Switch on the places you want Psyche to search. Memory learns from them too, unless you opt out in Memory.",
   "simplify.b6.search.options": "Options",
   "simplify.b6.search.skip": "What to leave out",
   "simplify.b6.memory.reviewRules": "Review rules",
