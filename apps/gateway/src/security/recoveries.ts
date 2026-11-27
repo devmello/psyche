@@ -47,6 +47,7 @@ const INBOX_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 /** `tick()` rescans the inbox and the due recoveries at least this often, whatever data_version says. */
 const BACKSTOP_MS = 30_000;
 /** How often `tick()` prunes old inbox rows. */
+const STRICT_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 const PRUNE_EVERY_MS = 60 * 60 * 1000;
 
 const SCOPES = new Set<string>((DeviceScope as unknown as { enum: string[] }).enum);
@@ -159,15 +160,18 @@ export class SecurityRecoveries {
     // A clock that stepped back must not postpone the backstop.
     const stale = nowMs - this.#lastScan >= BACKSTOP_MS || nowMs < this.#lastScan;
     if (dv !== this.#lastDv || stale) {
-      // Read before scanning: a commit that lands meanwhile moves it again for the next tick.
-      this.#lastDv = dv;
-      this.#lastScan = nowMs;
+      // Read before scanning, recorded only after it worked: a commit that lands meanwhile moves
+      // it again, and a scan that threw (SQLITE_BUSY) is retried on the next tick.
       this.processInbox({ prune: false });
       if (nowMs - this.#lastPrune >= PRUNE_EVERY_MS || nowMs < this.#lastPrune) {
         this.#lastPrune = nowMs;
         this.prune();
       }
+      this.applyDue();
       this.#refreshNextDue();
+      this.#lastDv = dv;
+      this.#lastScan = nowMs;
+      return;
     }
     if (this.#nextDue !== null && nowMs >= this.#nextDue) {
       this.applyDue();
@@ -175,12 +179,23 @@ export class SecurityRecoveries {
     }
   }
 
+  /**
+   * The earliest time a waiting recovery may be due. Rows are read as the database has them,
+   * sealed or not, and anything that is not a strict ISO time counts as due now: `applyDue` then
+   * runs every tick and skips it, as it always did, so a planted row cannot postpone the real ones.
+   */
   #refreshNextDue(): void {
-    const row = this.#d.db.sqlite
-      .prepare("SELECT MIN(not_before) AS t FROM security_recoveries WHERE status = 'waiting'")
-      .get() as { t: string | null };
-    const ms = row.t === null ? Number.NaN : Date.parse(row.t);
-    this.#nextDue = Number.isNaN(ms) ? null : ms;
+    const rows = this.#d.db.sqlite
+      .prepare("SELECT not_before AS t FROM security_recoveries WHERE status = 'waiting'")
+      .all() as { t: unknown }[];
+    let min: number | null = null;
+    for (const { t } of rows) {
+      const ms =
+        typeof t === "string" && STRICT_ISO.test(t) ? Date.parse(t) : Number.NEGATIVE_INFINITY;
+      const v = Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+      if (min === null || v < min) min = v;
+    }
+    this.#nextDue = min;
   }
 
   /** Drops inbox rows older than the retention window. */

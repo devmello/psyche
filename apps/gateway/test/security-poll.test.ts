@@ -112,4 +112,69 @@ describe("security poll tick", () => {
     };
     expect(s.status).toBe("applied");
   });
+
+  it("planted waiting rows with unparseable not_before cannot stop a genuine recovery applying", async () => {
+    const { d, rec, seal } = await setup();
+    cliInsert("g1");
+    seal.ensure();
+    rec.tick();
+    const f = openDb(dbPath, { migrate: false });
+    const at = new Date(clock).toISOString();
+    for (const [id, nb] of [
+      ["p1", ""],
+      ["p2", "+275760-09-13T00:00:00.000Z"],
+      ["p3", " 9999"],
+    ] as const) {
+      f.sqlite
+        .prepare(
+          "INSERT INTO security_recoveries (id, op, params, status, seen_at, not_before, created_at, updated_at) VALUES (?, 'seal.reset', '{}', 'waiting', ?, ?, ?, ?)",
+        )
+        .run(id, at, nb, at, at);
+    }
+    // A broken ledger makes the seal untrusted: the planted rows stay, and only vouched-for
+    // recoveries may apply.
+    f.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    f.close();
+    seal.ensure();
+    expect(seal.status().status).toBe("untrusted");
+    expect(
+      d.sqlite.prepare("SELECT COUNT(*) FROM security_recoveries WHERE id LIKE 'p%'").pluck().get(),
+    ).toBe(3);
+    const genuine = () =>
+      d.sqlite
+        .prepare("SELECT status FROM security_recoveries WHERE id NOT IN ('p1', 'p2', 'p3')")
+        .pluck()
+        .get();
+    expect(genuine()).toBe("waiting");
+    clock += DELAY - 1;
+    seal.ensure();
+    rec.tick();
+    expect(genuine()).toBe("waiting");
+    clock += 1001;
+    seal.ensure();
+    rec.tick();
+    expect(genuine()).toBe("applied");
+  });
+
+  it("a scan that throws is retried on the next tick, not at the backstop", async () => {
+    const { d, rec } = await setup();
+    rec.tick();
+    cliInsert("r3");
+    const real = d.sqlite.prepare.bind(d.sqlite);
+    let thrown = false;
+    d.sqlite.prepare = ((sql: string) => {
+      if (!thrown && /FROM security_requests WHERE status = 'new'/.test(sql)) {
+        thrown = true;
+        throw new Error("SQLITE_BUSY");
+      }
+      return real(sql);
+    }) as typeof d.sqlite.prepare;
+    expect(() => rec.tick()).toThrow(/SQLITE_BUSY/);
+    clock += 1000;
+    rec.tick();
+    const row = d.sqlite.prepare("SELECT status FROM security_requests WHERE id='r3'").get() as {
+      status: string;
+    };
+    expect(row.status).not.toBe("new");
+  });
 });
