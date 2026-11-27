@@ -15,6 +15,7 @@ import { computerWatch } from "./computer-watch/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
 import { desktopMenu } from "./desktop-menu/pt.ts";
 import { desktopSimple } from "./desktop-simple/pt.ts";
+import { desktopTray } from "./desktop-tray/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { friction } from "./friction/pt.ts";
 import { galleryA } from "./gallery-a/pt.ts";
@@ -3901,6 +3902,7 @@ export const pt: Partial<Catalogue> = {
   ...nightShift,
   ...keepAwake,
   ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

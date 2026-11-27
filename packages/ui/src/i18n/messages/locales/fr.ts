@@ -19,6 +19,7 @@ import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
 import { desktopMenu } from "./desktop-menu/fr.ts";
 import { desktopSimple } from "./desktop-simple/fr.ts";
+import { desktopTray } from "./desktop-tray/fr.ts";
 import { everythingRest } from "./everything-rest/fr.ts";
 import { final202611 } from "./final-2026-11/fr.ts";
 import { friction } from "./friction/fr.ts";
@@ -3972,6 +3973,7 @@ export const fr: Partial<Catalogue> = {
   ...nightShift,
   ...keepAwake,
   ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

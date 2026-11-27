@@ -24,6 +24,7 @@ import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
 import { desktopMenu } from "./desktop-menu/zh.ts";
 import { desktopSimple } from "./desktop-simple/zh.ts";
+import { desktopTray } from "./desktop-tray/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { friction } from "./friction/zh.ts";
@@ -3826,6 +3827,7 @@ export const zh: Partial<Catalogue> = {
   ...nightShift,
   ...keepAwake,
   ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,
