@@ -34,7 +34,13 @@ final class ThreadListModel {
         self.store = store
     }
 
-    func load() async {
+    /// Reads the first page of chats, and of archived chats unless `includeArchived` is false (an event-driven
+    /// refresh skips the archive when its section is not showing).
+    func load() async { await reload(includeArchived: true) }
+
+    /// `load`, optionally leaving the archive alone. A separate name keeps `model.load` usable as a plain `() async`
+    /// function value (the views pass it as a retry action).
+    func reload(includeArchived: Bool) async {
         if phase.value == nil { phase = .loading }
         do {
             let page = try await store.threadPage(cursor: nil)
@@ -47,7 +53,7 @@ final class ThreadListModel {
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
-        await loadArchived()
+        if includeArchived { await loadArchived() }
     }
 
     /// Reads the first archived page again. A failure keeps the list already shown, and older pages stay.
@@ -111,12 +117,30 @@ final class ThreadListModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.threads), .resynced: await load()
+            case .changed(.threads): reloadSoon()
+            case .resynced: await load()
             case .chat(.status(let id, let status, let kind)):
                 // An empty status means the run ended: the row's own text (time, "Waiting for you") comes from the Gateway.
-                if status.isEmpty { await load() } else { patch(id) { $0.status = status; $0.statusKind = kind } }
+                if status.isEmpty { reloadSoon() } else { patch(id) { $0.status = status; $0.statusKind = kind } }
             default: break
             }
+        }
+    }
+
+    /// How long a burst of `threads` events must be quiet before the list is read again. Every committed
+    /// message emits one, so a multi-tool reply used to cause a fetch per message.
+    @ObservationIgnored var reloadDelay: Duration = .milliseconds(400)
+    @ObservationIgnored private var reloadTask: Task<Void, Never>?
+
+    /// A trailing debounce: each call restarts the wait, and one reload follows the last. The archive is read
+    /// again only while its section has rows on screen; actions that move chats in or out of it reload it directly.
+    private func reloadSoon() {
+        reloadTask?.cancel()
+        reloadTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: self.reloadDelay)
+            guard !Task.isCancelled else { return }
+            await self.reload(includeArchived: !self.archived.isEmpty)
         }
     }
 
@@ -235,6 +259,10 @@ final class ThreadModel {
     /// The Gateway's own word on this thread's chat run (`run.updated`); nil until one arrives, and after a
     /// terminal state. Keeps Stop up while a run waits on an approval.
     private(set) var runState: RunUpdate.State?
+    /// True from the moment this phone sends a message until a reply or the Gateway's own status replaces it. The
+    /// thread's `status` stays empty meanwhile: the words come from `displayStatus`, localized, never from a
+    /// string compared against.
+    private(set) var thinking = false
     private var refreshingHeader = false
     private let store: any PsycheBackend
     private var drafts: [String: MessageDraft] = [:]
@@ -245,6 +273,14 @@ final class ThreadModel {
     init(id: String, store: any PsycheBackend) {
         self.id = id
         self.store = store
+    }
+
+    /// The status words for the title line and the working row: the Gateway's text, or "Thinking" while only
+    /// this phone's placeholder is up.
+    var displayStatus: String {
+        let status = phase.value?.status ?? ""
+        if status.isEmpty, thinking { return String(localized: "Thinking", bundle: .module) }
+        return status
     }
 
     /// True while Psyche is working on this thread, which swaps Send for Stop.
@@ -259,7 +295,10 @@ final class ThreadModel {
     func load() async {
         if phase.value == nil { phase = .loading }
         do {
-            phase = .loaded(Self.refreshed(try await store.thread(id: id), keeping: phase.value))
+            let fresh = Self.refreshed(try await store.thread(id: id), keeping: phase.value)
+            // A read of the thread replaces the placeholder with the Gateway's own word on the run.
+            if fresh.statusKind != .running || !fresh.status.isEmpty { thinking = false }
+            phase = .loaded(fresh)
             revision += 1
             runState = nil
         } catch {
@@ -419,9 +458,9 @@ final class ThreadModel {
             upsert(
                 .file(
                     id: "\(draft.clientID)-file\(index)", title: file.name, fileType: file.fileType,
-                    detail: "Attached", libraryID: file.id, isArtifact: false))
+                    detail: String(localized: "Attached", bundle: .module), libraryID: file.id, isArtifact: false))
         }
-        setStatus("Thinking", .running)
+        beginThinking()
         sentCount += 1
         deliver(draft)
     }
@@ -429,7 +468,7 @@ final class ThreadModel {
     func retry(_ messageID: String) {
         guard let draft = drafts[messageID] else { return }
         delivery[messageID] = nil
-        setStatus("Thinking", .running)
+        beginThinking()
         deliver(draft)
     }
 
@@ -440,6 +479,7 @@ final class ThreadModel {
                 if sent.delivery == .queued { delivery[draft.clientID] = .queued }
             } catch {
                 delivery[draft.clientID] = .failed(error.localizedDescription)
+                thinking = false
                 setStatus("", .neutral)
             }
         }
@@ -591,7 +631,8 @@ final class ThreadModel {
         if case .sendResult(_, let messageID, let failure) = event {
             if let failure {
                 delivery[messageID] = .failed(failure)
-                if case .loaded(var thread) = phase, thread.status == "Thinking" {
+                if thinking, case .loaded(var thread) = phase {
+                    thinking = false
                     thread.status = ""
                     thread.statusKind = .neutral
                     phase = .loaded(thread)
@@ -628,7 +669,7 @@ final class ThreadModel {
                     break
                 }
             }
-            if case .assistant(_, _, false) = item { Self.endThinking(&thread) }
+            if case .assistant(_, _, false) = item { endThinking(&thread) }
             Self.upsert(item, into: &thread)
         case .delta, .queue, .sendResult:
             break
@@ -638,8 +679,9 @@ final class ThreadModel {
             {
                 thread.items[index] = .assistant(id: id, text: current, streaming: false)
             }
-            Self.endThinking(&thread)
+            endThinking(&thread)
         case .status(_, let status, let kind):
+            thinking = false
             thread.status = status
             thread.statusKind = kind
         case .run:
@@ -658,10 +700,11 @@ final class ThreadModel {
         guard case .loaded(var thread) = phase else { return }
         if Self.isTerminal(update.state) {
             runState = nil
-            if thread.statusKind == .running || thread.status == "Thinking" {
+            if thread.statusKind == .running || thinking {
                 thread.status = ""
                 thread.statusKind = .neutral
             }
+            thinking = false
             for index in thread.items.indices {
                 if case .assistant(let id, let text, true) = thread.items[index] {
                     thread.items[index] = .assistant(id: id, text: text, streaming: false)
@@ -670,7 +713,8 @@ final class ThreadModel {
         } else {
             runState = update.state
             if update.state == .running, thread.statusKind != .running {
-                thread.status = "Thinking"
+                thinking = true
+                thread.status = ""
                 thread.statusKind = .running
             }
         }
@@ -680,8 +724,9 @@ final class ThreadModel {
 
     /// "Thinking" is this phone's own placeholder from sending; a finished reply ends it. A real run status
     /// from the Gateway (`.status`) is left alone.
-    private static func endThinking(_ thread: inout ChatThread) {
-        if thread.status == "Thinking" {
+    private func endThinking(_ thread: inout ChatThread) {
+        if thinking {
+            thinking = false
             thread.status = ""
             thread.statusKind = .neutral
         }
@@ -702,8 +747,12 @@ final class ThreadModel {
         let deltas = pendingDeltas
         pendingDeltas = [:]
         guard case .loaded(var thread) = phase else { return }
+        // Take the thread out of `phase` first: while `phase` still holds it, the first write to `items` copies the
+        // whole array on every flush (about every 16 ms). Nothing renders between these lines.
+        phase = .idle
         for (itemID, text) in deltas {
-            if let index = thread.items.firstIndex(where: { $0.id == itemID }),
+            // The streaming reply is at or near the end, so search from there.
+            if let index = thread.items.lastIndex(where: { $0.id == itemID }),
                 case .assistant(let id, let current, _) = thread.items[index]
             {
                 thread.items[index] = .assistant(id: id, text: current + text, streaming: true)
@@ -718,6 +767,11 @@ final class ThreadModel {
         Self.upsert(item, into: &thread)
         phase = .loaded(thread)
         revision += 1
+    }
+
+    private func beginThinking() {
+        thinking = true
+        setStatus("", .running)
     }
 
     private func setStatus(_ status: String, _ kind: ChatThreadSummary.Status) {

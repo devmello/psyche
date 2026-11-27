@@ -42,20 +42,36 @@ struct FadeByLineRenderer: TextRenderer {
 struct StreamingText: View {
     let text: AttributedString
     @State private var clock = LineClock()
+    /// The text whose last line has finished fading. While `text` equals it nothing animates, so the display-rate
+    /// timeline is dropped for plain text: a stream that pauses (a tool call, a slow token) costs no frames. A new
+    /// token makes them differ again in the same pass, so the timeline is back before the new line is first drawn.
+    @State private var settled: AttributedString?
     private let motion = MotionContext()
     /// Opacity only: a new line never moves or scales (spec §4.6).
     private let duration: TimeInterval = PsycheMotion.Duration.medium
 
     var body: some View {
-        if motion.reduced {
+        if motion.reduced || settled == text {
             Text(text)
         } else {
             TimelineView(.animation) { timeline in
                 Text(text)
                     .textRenderer(FadeByLineRenderer(clock: clock, now: timeline.date, duration: duration))
             }
+            // Restarts on every text change; the wait covers the fade plus a frame of slack, so the last
+            // frame drawn is the fully faded one.
+            .task(id: text) {
+                try? await Task.sleep(for: .seconds(duration + StreamingFadeRules.slack))
+                guard !Task.isCancelled else { return }
+                settled = text
+            }
         }
     }
+}
+
+enum StreamingFadeRules {
+    /// Extra time after the fade before the timeline stops.
+    static let slack: TimeInterval = 0.1
 }
 
 /// The still caret at the end of streaming text. Nothing blinks.
