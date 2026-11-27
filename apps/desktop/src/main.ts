@@ -111,7 +111,6 @@ import {
   integrityText,
   pidsOfExecutable,
 } from "./main/bundle-integrity.ts";
-import { dialogWords, loadDialogWords } from "./main/dialog-words.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { DictationService, dictationSettingsUrl } from "./main/dictation/service.ts";
@@ -141,6 +140,7 @@ import {
   requireVerified,
 } from "./main/integrity-gate.ts";
 import { LoginItem, squirrelLayout } from "./main/login-item.ts";
+import { loadMainLocale, loadMainWords, mainWords } from "./main/main-i18n.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { PasskeyHost } from "./main/passkey-host.ts";
 import { createPasskeyWindow } from "./main/passkey-window.ts";
@@ -802,7 +802,7 @@ const permissions = createPermissions({
     if (!Notification.isSupported()) return false;
     new Notification({
       title: "Psyche",
-      body: dialogWords()("desktop.dialog.notificationsOn"),
+      body: mainWords()("desktop.dialog.notificationsOn"),
     }).show();
     return true;
   },
@@ -968,7 +968,7 @@ function requireBrowser(): BrowserHost {
  * where this app sends its signed handshake (security §10: never an address a page chose).
  */
 async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain"> {
-  const t = await loadDialogWords();
+  const t = await loadMainWords();
   const os = hostWords().os;
   const opts =
     c.kind === "addLan"
@@ -1086,7 +1086,7 @@ function registerIpc(): void {
       home,
       {
         refuse: async (title, body) => {
-          const t = await loadDialogWords();
+          const t = await loadMainWords();
           await show({
             type: "warning",
             message: title,
@@ -1662,7 +1662,7 @@ function registerIpc(): void {
       });
     },
     confirm: async (plan) => {
-      const t = await loadDialogWords();
+      const t = await loadMainWords();
       const box = await dialog.showMessageBox({
         type: "warning",
         buttons: [
@@ -1722,7 +1722,7 @@ function registerIpc(): void {
           });
         },
         confirm: async (plan) => {
-          const t = await loadDialogWords();
+          const t = await loadMainWords();
           const box = await dialog.showMessageBox({
             type: "warning",
             buttons: [
@@ -1739,7 +1739,7 @@ function registerIpc(): void {
           return box.response === 1;
         },
         showManualSteps: async (detail) => {
-          const t = await loadDialogWords();
+          const t = await loadMainWords();
           await dialog.showMessageBox({
             type: "info",
             message: t("desktop.dialog.manualStepsTitle"),
@@ -1934,7 +1934,7 @@ function registerIpc(): void {
     const title =
       typeof r.title === "string" ? str(IPC.dialogPickFolder, r.title, "title", 120) : undefined;
     const win = windows?.main();
-    const t = await loadDialogWords();
+    const t = await loadMainWords();
     const opts = {
       properties: ["openDirectory", "createDirectory"] as ("openDirectory" | "createDirectory")[],
       title: title ?? t("desktop.dialog.shareFolderTitle"),
@@ -2115,13 +2115,13 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
-  void loadDialogWords();
+  await loadMainLocale();
   // The signature check runs behind the first window. Until it settles the TCC-backed features
   // stay blocked (fail closed): the helper, Ask about screen and dictation wait on it.
   const gate = createIntegrityGate(startupIntegrity, (m) => console.warn(m));
   integrity = gate;
   if (gatewaysFileProblem !== undefined) {
-    const t = await loadDialogWords();
+    const t = await loadMainWords();
     await dialog.showMessageBox({
       type: "warning",
       message: t("desktop.dialog.gatewaysFileTitle"),
@@ -2561,7 +2561,7 @@ void app.whenReady().then(async () => {
     prepareRestart: () =>
       requireGateway().call("gateway.prepareUpdate", { waitMs: 10_000, timeoutMs: 60_000 }),
     confirmTakeover: async (other) => {
-      const t = await loadDialogWords();
+      const t = await loadMainWords();
       const opts = {
         type: "question" as const,
         buttons: [t("desktop.dialog.keepOtherCopy"), t("desktop.dialog.useThisCopy")],
@@ -2736,7 +2736,7 @@ void app.whenReady().then(async () => {
  */
 function sayStillRunningOnce(): void {
   if (quittingEntirely || !firstCloseToTray(join(baseUserData, "closed-to-tray"))) return;
-  const t = dialogWords();
+  const t = mainWords();
   const title = t("desktop.dialog.stillRunningTitle");
   const body = t("desktop.dialog.stillRunningBody");
   if (Notification.isSupported()) {

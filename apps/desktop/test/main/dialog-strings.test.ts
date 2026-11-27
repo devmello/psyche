@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { getLocale: () => "de" } }));
 
-import { dialogWords, loadDialogWords } from "../../src/main/dialog-words.ts";
+import { loadMainWords, mainWords } from "../../src/main/main-i18n.ts";
 
 /**
  * A native dialog or notification shows words the owner reads, so they come from `desktop.dialog.*`
@@ -81,17 +81,17 @@ describe("the guard that keeps dialog strings in the catalogue", () => {
 
 describe("dialog words follow the system language", () => {
   it("are English until a language is loaded", () => {
-    expect(dialogWords()("desktop.dialog.notificationsOn")).toBe("Notifications are on.");
+    expect(mainWords()("desktop.dialog.notificationsOn")).toBe("Notifications are on.");
   });
 
   it("read the system language once it is loaded (the tray's locale)", async () => {
-    const words = await loadDialogWords("de");
+    const words = await loadMainWords("de");
     expect(words("desktop.dialog.notificationsOn")).toBe("Mitteilungen sind aktiviert.");
-    expect(dialogWords()("desktop.dialog.cancel")).toBe("Abbrechen");
+    expect(mainWords()("desktop.dialog.cancel")).toBe("Abbrechen");
   });
 
   it("fill the host words from the OS", async () => {
-    const words = await loadDialogWords("de");
+    const words = await loadMainWords("de");
     expect(words("desktop.dialog.stopTitle", { os: "macos" })).toBe(
       "Psyche auf diesem Mac beenden?",
     );
