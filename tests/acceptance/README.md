@@ -4,11 +4,11 @@
 
 ```
 offline/   scenarios.test.ts     V1, V2, V3, V4, V7 through S18's scripted runner; known failures stay tracked by issue
-           scenarios-m2.test.ts  V5, V6, V8, V9 (scenarios-m2/) through the same runner, plus fake-side checks
+           scenarios-m2.test.ts  v5-permission-slip, v8-subscription-audit, v9-weekly-review (scenarios-m2/) through the same runner, plus fake-side checks
            scenarios-m2-format.test.ts  the M2 scenario files pass S18's validator
            scenarios-m3.test.ts  V10 (scenarios-m3/) with the real coding tools over a fixture repository
            injection.test.ts     the injection corpus in balanced, manual and auto on the reference and INT-2 stacks
-           resumability.test.ts  the happy paths killed at seeded random points on the real stack (25 for V1, V2, V7; 28 for V3 to V10)
+           resumability.test.ts  the happy paths killed at seeded random points on the real stack (25 for v1-inbox-triage, v2-calendar-planning, v7-research-brief; 20 for v3-shopping, v4-travel, v5-permission-slip, v8-subscription-audit, v10-coding-helper; v9-weekly-review is not swept)
 scenarios-m2/                    the Milestone 2 scenarios in S18's format (README there: provisional tools, decisions, findings)
 scenarios-m3/                    the Milestone 3 scenarios (V10)
 perf/      budgets.test.ts       Gateway boot and first delta, browser snapshot, memory search (scripted provider)
@@ -17,7 +17,7 @@ a11y/      main-flows.test.tsx   axe-core, keyboard operation and reduced motion
 live/      driver.ts             live-mode driver over S18's scenario Stack: real model, same fakes and clock
            driver.test.ts        the driver's plumbing, checked in CI with the scripted provider
            scenarios.live.test.ts  the live gates (PSYCHE_LIVE_TESTS=1)
-           setup.ts              the scenario list (V1 to V10) and each one's fakes, placeholders and extra checks
+           setup.ts              the scenario list (the ids are the directory names, such as `v1-inbox-triage`) and each one's fakes, placeholders and extra checks
            answers.ts            owner answers to `ask_user` questions and the one follow-up per step
            tool-specs.ts         descriptions and schemas a live model needs for the scenario tools
 src/       scenario-scripts.ts   scenario.json → resumability scripts, tools and policy
@@ -41,7 +41,7 @@ Results land in `out/acceptance/*.json` (git-ignored). The scorecard is regenera
 
 ## Live gates
 
-One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3). The default scenario list is all ten: V1, V2, V3, V4 and V7 from tests/scenarios, V5, V6, V8 and V9 from `scenarios-m2/` with their fakes, and V10 from `scenarios-m3/` (`live/setup.ts`). Run them one at a time with `PSYCHE_LIVE_SCENARIOS=<id>` to keep partial results.
+One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3). The default scenario list is nine ids: `v1-inbox-triage`, `v2-calendar-planning`, `v3-shopping`, `v4-travel` and `v7-research-brief` from tests/scenarios; `v5-permission-slip`, `v8-subscription-audit` and `v9-weekly-review` from `scenarios-m2/` with their fakes; and `v10-coding-helper` from `scenarios-m3/` (`live/setup.ts`). `v6-messages-voice-note` was retired. Run them one at a time with `PSYCHE_LIVE_SCENARIOS=<id>` (comma-separated directory names) to keep partial results.
 
 Before the first run the suite sends the provider one tiny request. A refused key or an unreachable model fails there with the provider's reason (credentials redacted), and the reason is recorded in the model's report so the scorecard can say why nothing ran.
 
@@ -53,15 +53,16 @@ PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=ollama/qwen3.5:9b pnpm --filter @psyche/accepta
 pnpm --filter @psyche/acceptance-tests offline -- --scorecard-only   # fold the live reports into SCORECARD.md
 ```
 
-| Variable | Meaning |
-| --- | --- |
-| `PSYCHE_LIVE_TESTS=1` | opt in; without it the live file is skipped |
-| `PSYCHE_MODEL=<provider>/<model>` | `anthropic`, `openai`, `google`, `openrouter` or `ollama` |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY` | the hosted provider's key (read by `modelSetupFromEnv`, never model-visible) |
-| `PSYCHE_OLLAMA_URL` | a non-default Ollama (default `http://127.0.0.1:11434`) |
-| `PSYCHE_UTILITY_MODEL` | utility model ref (default: the primary) |
-| `PSYCHE_LIVE_REPEATS` | runs per scenario (default 3) |
-| `PSYCHE_LIVE_SCENARIOS` | comma-separated scenario ids (default all ten) |
+| Variable                                                                                    | Meaning                                                                                                        |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `PSYCHE_LIVE_TESTS=1`                                                                       | opt in; without it the live file is skipped                                                                    |
+| `PSYCHE_MODEL=<provider>/<model>`                                                           | `anthropic`, `openai`, `google`, `openrouter` or `ollama`                                                      |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY` | the hosted provider's key (read by `modelSetupFromEnv`, never model-visible)                                   |
+| `PSYCHE_OLLAMA_URL`                                                                         | a non-default Ollama (default `http://127.0.0.1:11434`)                                                        |
+| `PSYCHE_UTILITY_MODEL`                                                                      | utility model ref (default: the primary)                                                                       |
+| `PSYCHE_LIVE_REPEATS`                                                                       | runs per scenario (default 3)                                                                                  |
+| `PSYCHE_LIVE_SCENARIOS`                                                                     | comma-separated scenario ids, the directory names such as `v1-inbox-triage` (default: the list above)          |
+| `PSYCHE_USAGE_LOG`                                                                          | opt-in token meter: a file path; each model usage event is appended as one JSON line `{m, u}`. Off when unset. |
 
 Each run writes `out/acceptance/live-<provider>-<model>.json` with the hard and soft results, the steps and every tool call. Hard assertions (security, correctness) fail the run; soft ones (quality) are counted.
 
