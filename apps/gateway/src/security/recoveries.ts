@@ -1,4 +1,5 @@
 import {
+  decidePairingRequest,
   getDevice,
   getMachineByDevice,
   getPairingRequest,
@@ -709,36 +710,46 @@ export class SecurityRecoveries {
           throw new PsycheError("conflict", "the device key changed since the request");
         }
         const scopes = parseScopes(p.scopes) as DeviceScope[];
+        // `pairing_requests` is not sealed: anything on the Mac can rewrite it. It never chooses
+        // which device pairs. Only the device recorded (sealed) at intake pairs, the one every
+        // device was shown. A stored request that now names another device or key is tampering:
+        // refuse, so the owner sees it fail instead of pairing anything.
         const request =
           typeof p.pairingRequestId === "string"
             ? getPairingRequest(db, p.pairingRequestId)
             : undefined;
+        if (
+          request !== undefined &&
+          (request.deviceId !== device.id || request.publicKeyFingerprint !== p.fingerprint)
+        ) {
+          throw new PsycheError(
+            "conflict",
+            "the pairing request changed since it was approved on the Mac; nothing was paired",
+          );
+        }
         // Machine if either the intake or the request itself (still stored when expired) says so.
+        // The request can only narrow here: a machine is `["node"]` and nothing else.
         const machine = p.purpose === "machine" || request?.purpose === "machine";
-        // The request itself has usually expired by now (5 minutes): pair the device directly.
-        const live =
-          request?.status === "pending" && Date.parse(request.expiresAt) > this.#d.now().getTime();
-        const approved =
-          request !== undefined && live
-            ? db.sqlite.transaction(
-                () =>
-                  approvePairing(db, {
-                    pairingRequestId: request.id,
-                    scopes,
-                    decidedByDeviceId: null,
-                  }).device,
-              )()
-            : db.sqlite.transaction(
-                () =>
-                  applyPairingDecision(db, {
-                    device,
-                    machine,
-                    scopes,
-                    pairedAt: device.pairedAt ?? this.#iso(),
-                    decidedByDeviceId: null,
-                  }).device,
-              )();
+        const approved = db.sqlite.transaction(
+          () =>
+            applyPairingDecision(db, {
+              device,
+              machine,
+              scopes,
+              pairedAt: device.pairedAt ?? this.#iso(),
+              decidedByDeviceId: null,
+            }).device,
+        )();
         if (approved === undefined) throw new PsycheError("not_found", "the device is gone");
+        // The card of a request still pending (same device and key, checked above) is answered:
+        // approved while it is live, marked expired otherwise. Bookkeeping only.
+        if (request?.status === "pending") {
+          try {
+            decidePairingRequest(db, request.id, { decision: "approved", decidedByDeviceId: null });
+          } catch {
+            // expired or decided meanwhile: the device is paired either way
+          }
+        }
         this.#d.onDeviceChanged?.(approved);
         return `approved ${approved.name} with ${approved.scopes.join(",")}`;
       }
