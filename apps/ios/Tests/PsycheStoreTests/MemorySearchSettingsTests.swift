@@ -62,40 +62,14 @@ struct MemorySearchSettingsTests {
 
     // MARK: Search
 
-    @Test func claimsCutAtMarkersAndDropFactMarkers() {
-        let passages = (1...3).map { LifePassage(id: "p\($0)", source: "mail", title: "T\($0)") }
-        let answer = SearchResults.Answer(
-            text: "Rent is due Friday [1][P1]. Sam asked for $1,850 [P1] [P2]. Autopay is off [P9] and that is that",
-            emphasis: "", evidence: [], passages: passages)
-        let claims = answer.claims
-        #expect(claims.map(\.text) == ["Rent is due Friday.", "Sam asked for $1,850.", "Autopay is off and that is that"])
-        #expect(claims.map { $0.passages.map(\.id) } == [["p1"], ["p1", "p2"], []])  // [P9] names nothing returned
-        #expect(SearchResults.Answer(text: "Plain.", emphasis: "", evidence: []).claims.map(\.text) == ["Plain."])
-    }
-
-    @Test func aFollowUpCarriesTheIdsOfTheTurnBefore() async throws {
-        let first = try #require(try await store.lifeAnswer(question: "when is rent due", passages: true, previous: nil))
-        #expect(first.passages.count == 3)
-        #expect(try await store.lifeAnswer(question: "when is rent due", passages: false, previous: nil)?.passages.isEmpty == true)
-        let turn = first.turn(question: "when is rent due")
-        #expect(turn.passageIDs == first.passages.map(\.id) && turn.factIDs == ["fact_rent_due"])
-        #expect(try await store.lifeAnswer(question: "and autopay?", passages: true, previous: turn)?.text.contains("December 1") == true)
-        // Nothing cited, nothing to re-read: no answer.
-        #expect(try await store.lifeAnswer(question: "and autopay?", passages: true, previous: LifeTurn(question: "q", answer: "a", factIDs: [], passageIDs: [])) == nil)
-        #expect(try await store.sourceDocument(id: first.passages[0].id) != nil)
-        #expect(try await store.sourceDocument(id: "notes:autopay") == nil)  // "Open on your Mac"
-    }
-
     @Test func searchGroupsHitsAndEachCarriesATarget() async throws {
         let rent = try await store.search(query: "rent")
         #expect(rent.hits.contains { $0.target == .todo(id: "t1") })
         #expect(rent.hits.contains { $0.target == .file(id: "lib_lease") })
-        #expect(rent.answer?.emphasis == "Friday, November 6")
         let sam = try await store.search(query: "sam")
         #expect(sam.hits.contains { $0.group == .people && $0.target == .person(id: "pe1") })
         let lease = try await store.search(query: "lease")
         #expect(lease.hits.contains { $0.group == .chatsAndFiles && $0.target == .chat(id: "thr_lease") })
-        #expect(lease.answer == nil)
         // Every group appears, in the order the screen draws them.
         let all = try await store.search(query: "a")
         #expect(Set(all.hits.map(\.group)) == Set(SearchResults.Hit.Group.allCases))
@@ -104,13 +78,12 @@ struct MemorySearchSettingsTests {
 
     @Test func aQuestionMatchesOnItsWords() async throws {
         let results = try await store.search(query: "when is rent due")
-        #expect(results.answer != nil)
         #expect(results.hits.contains { $0.title == "Pay rent for November" })
     }
 
     @Test func nothingMatchesNothing() async throws {
         let results = try await store.search(query: "zzzzqq")
-        #expect(results.hits.isEmpty && results.answer == nil)
+        #expect(results.hits.isEmpty)
     }
 
     @Test func recentSearchesStayNewestFirstDedupedAndBounded() throws {

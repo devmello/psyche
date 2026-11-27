@@ -8,7 +8,7 @@ import UIKit
 
 /// What the connection looks like on a screen (docs/design/ios-app-2026.md §3.2).
 /// - `connecting`: nothing for the first 1.5 s (no flash), then a quiet "Connecting…".
-/// - `unreachable`: a paper banner that says what to do; cached content stays readable underneath.
+/// - `unreachable`: one compact row, with the cause under "Details"; cached content stays readable underneath.
 /// - Every other state is a full-screen stop or the pairing flow, drawn by `RootView`, so this draws nothing.
 struct ConnectionBanner: View {
     let state: ConnectionState
@@ -46,33 +46,44 @@ private struct ConnectingLine: View {
     }
 }
 
+/// One quiet row: what is wrong, and "Details" for the cause and the Tailscale button.
 private struct UnreachableBanner: View {
     let reason: UnreachableReason
     let lastSyncedAt: Date?
     @Environment(\.openURL) private var openURL
+    @State private var showsDetails = false
 
     var body: some View {
-        PaperCard(padding: 14) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: reason.symbol)
-                    .font(.body)
-                    .foregroundStyle(PsycheColor.muted)
-                    .frame(width: 22, height: 22)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(reason.title).font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text)
+        PaperCard(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    Image(systemName: reason.symbol)
+                        .font(.body)
+                        .foregroundStyle(PsycheColor.muted)
+                        .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
+                    Text("Mac not reachable", bundle: .module)
+                        .font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text)
+                    Spacer(minLength: 8)
+                    Button { showsDetails.toggle() } label: {
+                        Text("Details", bundle: .module)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(PsycheColor.inkText)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(.isButton)
+                }
+                if showsDetails {
                     Text(reason.detail).font(.footnote).foregroundStyle(PsycheColor.muted)
                     if let lastSyncedAt {
                         EvidenceLine([String(localized: "Updated \(lastSyncedAt.formatted(.dateTime.hour().minute()))", bundle: .module), String(localized: "cached", bundle: .module)])
-                            .padding(.top, 2)
                     }
                     if reason == .tailscaleOff {
-                        Button(Tailscale.isInstalled ? String(localized: "Open Tailscale", bundle: .module) : "Get Tailscale") {
+                        Button(Tailscale.isInstalled ? String(localized: "Open Tailscale", bundle: .module) : String(localized: "Get Tailscale", bundle: .module)) {
                             openURL(Tailscale.isInstalled ? Tailscale.appURL : Tailscale.storeURL)
                         }
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(PsycheColor.inkText)
-                        .padding(.top, 6)
                     }
                 }
             }
@@ -103,14 +114,6 @@ extension UnreachableReason {
         case .awayFromHome: "wifi.slash"
         case .gatewayOff: "moon.zzz"
         case .tailscaleOff: "lock.slash"
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .awayFromHome: String(localized: "You're away from home", bundle: .module)
-        case .gatewayOff: String(localized: "Your Mac isn't answering", bundle: .module)
-        case .tailscaleOff: String(localized: "Turn on Tailscale to reach your Mac", bundle: .module)
         }
     }
 
