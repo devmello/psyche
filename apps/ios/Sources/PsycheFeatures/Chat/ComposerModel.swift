@@ -34,20 +34,28 @@ final class ComposerModel {
     let dictation = Dictation()
     private let store: any PsycheBackend
     private let threadID: String
+    private let payloads: WaitingPayloadStore
     private var textBeforeDictation = ""
     private static let maxBytes = 25 * 1024 * 1024
+    /// Set once per launch: the first composer removes files an earlier launch left, before any composer saves one.
+    private static var sweptLeftovers = false
 
-    init(threadID: String, store: any PsycheBackend) {
+    init(threadID: String, store: any PsycheBackend, payloads: WaitingPayloadStore = .standard) {
         self.threadID = threadID
         self.store = store
+        self.payloads = payloads
+        if !Self.sweptLeftovers {
+            Self.sweptLeftovers = true
+            payloads.sweepLeftovers()
+        }
     }
 
     /// Uploading, or waiting for the Mac: Send holds until the file can go with the message.
     var isUploading: Bool { attachments.contains { $0.state == .uploading || $0.state == .waiting } }
     /// What a waiting file's chip says.
     static let waitingText = String(localized: "This file will upload when your Mac is reachable", bundle: .module)
-    /// The bytes of files waiting for the Mac; they upload again from `retryWaiting()`.
-    private var waitingData: [ComposerAttachment.ID: Data] = [:]
+    /// Where the bytes of each file waiting for the Mac are kept (a temp file, not memory); they upload again from `retryWaiting()`.
+    private var waitingFiles: [ComposerAttachment.ID: URL] = [:]
     var hasFailedUpload: Bool {
         attachments.contains { if case .failed = $0.state { true } else { false } }
     }
@@ -77,6 +85,7 @@ final class ComposerModel {
     }
 
     func remove(_ attachment: ComposerAttachment) {
+        discardWaiting(attachment.id)
         attachments.removeAll { $0.id == attachment.id }
     }
 
@@ -139,19 +148,24 @@ final class ComposerModel {
 
     private func upload(_ id: ComposerAttachment.ID, data: Data) async {
         guard let attachment = attachments.first(where: { $0.id == id }) else { return }
-        guard data.count <= Self.maxBytes else { return fail(id, "Over 25 MB") }
+        guard data.count <= Self.maxBytes else { return fail(id, String(localized: "Over 25 MB", bundle: .module)) }
         do {
             let item = try await store.upload(
                 UploadFile(name: attachment.name, contentType: attachment.contentType, data: data, threadID: threadID))
+            discardWaiting(id)
             update(id, .ready(libraryID: item.id))
-            waitingData[id] = nil
         } catch BackendError.unreachable {
-            waitingData[id] = data
+            // The bytes go to a temp file while the Mac is away; `data` is released when this call returns.
+            do {
+                waitingFiles[id] = try payloads.save(data)
+            } catch {
+                return fail(id, String(localized: "Upload failed", bundle: .module))
+            }
             update(id, .waiting)
             if connectionIsLive, retriedWhileLive.insert(id).inserted { retryWaiting() }
         } catch {
-            waitingData[id] = nil
-            fail(id, (error as? LocalizedError)?.errorDescription ?? "Upload failed")
+            discardWaiting(id)
+            fail(id, (error as? LocalizedError)?.errorDescription ?? String(localized: "Upload failed", bundle: .module))
         }
     }
 
@@ -170,13 +184,26 @@ final class ComposerModel {
 
     /// Uploads the files that waited for the Mac. Call when the connection comes back.
     func retryWaiting() {
-        for (id, data) in waitingData where attachments.first(where: { $0.id == id })?.state == .waiting {
+        for (id, url) in waitingFiles where attachments.first(where: { $0.id == id })?.state == .waiting {
+            guard let data = payloads.load(url) else {
+                discardWaiting(id)
+                fail(id, String(localized: "Upload failed", bundle: .module))
+                continue
+            }
+            // The file goes before the retry: a retry that is still unreachable saves it again.
+            discardWaiting(id)
             update(id, .uploading)
             Task { await upload(id, data: data) }
         }
     }
 
     private func fail(_ id: ComposerAttachment.ID, _ reason: String) { update(id, .failed(reason)) }
+
+    /// Deletes a waiting file and forgets it, once the file is sent, cancelled or failed.
+    private func discardWaiting(_ id: ComposerAttachment.ID) {
+        guard let url = waitingFiles.removeValue(forKey: id) else { return }
+        payloads.delete(url)
+    }
 
     private func update(_ id: ComposerAttachment.ID, _ state: ComposerAttachment.State) {
         guard let index = attachments.firstIndex(where: { $0.id == id }) else { return }

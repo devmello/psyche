@@ -27,12 +27,11 @@ private func reasonLabel(_ reason: String) -> String {
 }
 
 /// The item's date for the "From ..." line, in the phone's own format. Falls back to the raw text.
-private func shortDate(_ iso: String) -> String {
-    let fractional = ISO8601DateFormatter()
-    fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    let plain = ISO8601DateFormatter()
-    plain.formatOptions = [.withInternetDateTime]
-    guard let date = fractional.date(from: iso) ?? plain.date(from: iso) else { return iso }
+func shortDate(_ iso: String) -> String {
+    // Value-type format styles, so a row costs no formatter allocation (this runs in every row's body).
+    let date = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(iso))
+        ?? (try? Date.ISO8601FormatStyle().parse(iso))
+    guard let date else { return iso }
     return date.formatted(date: .abbreviated, time: .omitted)
 }
 

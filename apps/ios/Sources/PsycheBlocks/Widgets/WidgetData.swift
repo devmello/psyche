@@ -390,14 +390,21 @@ struct ImageNodeView: View {
     @Environment(\.widgetRuntime) private var runtime
     @State private var phase = Phase.idle
     @State private var loaded: PlatformImage?
+    /// The inline picture, decoded once when its bytes arrive (not on every render of the widget).
+    @State private var inline: PlatformImage?
+    @State private var inlineFailed = false
 
     private enum Phase { case idle, loading, failed }
+
+    private var inlineData: Data? {
+        if case .data(let data)? = image.source { data } else { nil }
+    }
 
     var body: some View {
         Group {
             switch image.source {
-            case .data(let data)?:
-                if let decoded = PlatformImage(data: data) { picture(decoded) } else { note(String(localized: "Image unavailable: \(image.alt)", bundle: .module)) }
+            case .data?:
+                if let inline { picture(inline) } else if inlineFailed { note(String(localized: "Image unavailable: \(image.alt)", bundle: .module)) }
             case .file(let id)?:
                 loadable(ref: id, requiresTap: false)
             case .remote(let url)?:
@@ -405,6 +412,12 @@ struct ImageNodeView: View {
             case nil:
                 EmptyView()
             }
+        }
+        // Keyed on the bytes: decoding happens once per picture, and a re-render with the same bytes reuses it.
+        .task(id: inlineData) {
+            guard let data = inlineData else { return }
+            inline = PlatformImage(data: data)
+            inlineFailed = inline == nil
         }
     }
 

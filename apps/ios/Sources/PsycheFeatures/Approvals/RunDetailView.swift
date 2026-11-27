@@ -179,10 +179,16 @@ private struct FrameViewer: View {
             }
             .task {
                 guard let data = try? await model.imageData(for: frame, size: .full) else { return }
-                image = decodedImage(data)
+                // A full-size frame is megapixels of decoding: it runs off the main actor, and only the result returns.
+                image = await Task.detached(priority: .userInitiated) { DecodedPicture(image: decodedImage(data)) }.value.image
             }
         }
     }
+}
+
+/// Carries a decoded picture back from the detached decode. SwiftUI's `Image` is a value built once here and then only drawn.
+private struct DecodedPicture: @unchecked Sendable {
+    let image: Image?
 }
 
 /// The picture from its bytes. Nil when the bytes are not an image this platform can draw.

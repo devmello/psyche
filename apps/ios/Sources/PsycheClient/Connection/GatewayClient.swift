@@ -551,6 +551,14 @@ public actor GatewayClient {
         await flushOutbox()
     }
 
+    /// How long a connection must stay live before its drop counts as a fresh start rather than another failure.
+    static let stableLive: Duration = .seconds(30)
+
+    /// The retry counter after a live connection ends: zero only when it stayed up for `stableLive`.
+    static func attemptAfterLive(_ uptime: Duration, previous attempt: Int) -> Int {
+        uptime >= stableLive ? 0 : attempt
+    }
+
     // MARK: - The run loop
 
     private func run() async {
@@ -562,12 +570,15 @@ public actor GatewayClient {
             if Task.isCancelled { return }
             switch outcome {
             case .live(let events):
-                attempt = 0
                 setupToken = nil
+                let liveSince = ContinuousClock.now
                 await consume(events)
                 await location?.disconnected()
                 if Task.isCancelled || !wantsConnection { return }
-                try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: 0)))
+                // A handshake alone does not reset the backoff: a Gateway that accepts and drops at once keeps slowing down.
+                attempt = Self.attemptAfterLive(ContinuousClock.now - liveSince, previous: attempt)
+                try? await Task.sleep(for: .seconds(deps.backoff.delay(attempt: attempt)))
+                attempt += 1
             case .pending(let code):
                 setupToken = nil
                 set(.pending(PendingApproval(code: Self.groupedCode(code), endpoint: endpoint, deviceName: deps.deviceName)))

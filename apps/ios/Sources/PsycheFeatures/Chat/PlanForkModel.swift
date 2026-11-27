@@ -149,8 +149,15 @@ final class PlanForkStartModel {
             estimate = nil
             return
         }
-        estimate = try? await store.estimatePlanFork(threadID: threadID, options: options)
+        // Typing changes the options on every keystroke: wait for a pause, and a cancelled wait sends nothing.
+        do { try await Task.sleep(for: Self.estimateIdle) } catch { return }
+        let result = try? await store.estimatePlanFork(threadID: threadID, options: options)
+        // A superseded request keeps the current estimate rather than blanking it to nil.
+        guard !Task.isCancelled else { return }
+        estimate = result
     }
+
+    static let estimateIdle: Duration = .milliseconds(400)
 
     /// The fork, or nil with `error` set in the Gateway's words.
     func start() async -> PlanForkDetail? {
