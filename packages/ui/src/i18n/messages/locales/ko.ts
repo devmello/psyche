@@ -3701,6 +3701,7 @@ export const ko: Partial<Catalogue> = {
   "web.chat.modelTitle": "모델 (⌘⇧I)",
   "web.chat.defaultModel": "기본 모델",
   "web.chat.conversation": "대화",
+  "web.chat.stopFailed": "중지하지 못했습니다. 다시 시도하세요.",
   "web.chat.preparing": "Psyche가 메인 채팅을 준비하는 중입니다.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {메인 채팅} other {오프라인}}{approvals, plural, =0 {} other { · 승인 #개 대기 중}}",

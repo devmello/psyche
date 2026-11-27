@@ -3711,6 +3711,7 @@ export const hi: Partial<Catalogue> = {
   "web.chat.modelTitle": "मॉडल (⌘⇧I)",
   "web.chat.defaultModel": "डिफ़ॉल्ट मॉडल",
   "web.chat.conversation": "बातचीत",
+  "web.chat.stopFailed": "रोका नहीं जा सका। फिर से कोशिश करें।",
   "web.chat.preparing": "Psyche आपकी मुख्य चैट तैयार कर रहा है।",
   "web.quickEntry.status":
     "Psyche · {online, select, true {मुख्य चैट} other {ऑफ़लाइन}}{approvals, plural, =0 {} one { · # स्वीकृति प्रतीक्षा में} other { · # स्वीकृतियाँ प्रतीक्षा में}}",

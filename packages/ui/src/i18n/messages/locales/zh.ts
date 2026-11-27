@@ -3641,6 +3641,7 @@ export const zh: Partial<Catalogue> = {
   "web.chat.modelTitle": "模型（⌘⇧I）",
   "web.chat.defaultModel": "默认模型",
   "web.chat.conversation": "对话",
+  "web.chat.stopFailed": "无法停止。请重试。",
   "web.chat.preparing": "Psyche 正在准备你的主聊天。",
   "web.quickEntry.status":
     "Psyche · {online, select, true {主聊天} other {离线}}{approvals, plural, =0 {} other { · # 项审批等待中}}",
