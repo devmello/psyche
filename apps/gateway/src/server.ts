@@ -75,6 +75,7 @@ import { openGatewayDb, releaseGatewayLock } from "./pre-update.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { normalizePeerAddress, resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
+import { RateLimitedLog } from "./rate-limited-log.ts";
 import { type RecoveryReport, recoverAfterRestart, stopRunsWaitingOnApproval } from "./recovery.ts";
 import {
   RETENTION_INTERVAL_MS,
@@ -564,6 +565,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 1_048_576 });
 
+  const rejectedOriginLog = new RateLimitedLog(log, "websocket upgrade rejected");
   const handleUpgrade = (
     req: IncomingMessage,
     socket: Duplex,
@@ -577,10 +579,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     // without one. So any upgrade that carries one is refused with 403 before the upgrade, on the
     // loopback, proxied and LAN listeners alike (security §10, cross-site WebSocket hijacking).
     if (url.pathname !== WS_PATH || requestOrigin !== null) {
-      log.log("warn", "websocket upgrade rejected", {
-        path: url.pathname,
-        hasOrigin: requestOrigin !== null,
-      });
+      if (requestOrigin !== null) {
+        // A stale browser page retries on every reconnect, so the Origin refusals are rate-limited.
+        rejectedOriginLog.warn({ path: url.pathname, hasOrigin: true });
+      } else {
+        log.log("warn", "websocket upgrade rejected", { path: url.pathname, hasOrigin: false });
+      }
       socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
       socket.destroy();
       return;

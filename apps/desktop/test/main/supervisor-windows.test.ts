@@ -46,6 +46,7 @@ function bundleTemplate(): string {
     args: [
       "--max-semi-space-size=4",
       "--disable-warning=ExperimentalWarning",
+      "--disable-warning=DEP0040",
       `${d}\\app\\apps\\gateway\\dist\\main.mjs`,
     ],
     psycheHome: "{{PSYCHE_HOME}}",
