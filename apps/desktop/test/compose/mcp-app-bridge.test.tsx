@@ -3,7 +3,7 @@
 import { APPROVAL_TTL_MS, type McpApp } from "@psyche/protocol";
 import { GatewayProvider, McpAppPanel, UiSlotsProvider } from "@psyche/ui";
 import { MockGateway } from "@psyche/ui/testing";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderMcpApp } from "../../src/compose/mcp-app.tsx";
 
@@ -37,6 +37,8 @@ async function open(toolCallId: string | undefined) {
     </GatewayProvider>,
   );
   fireEvent.click(await screen.findByTestId("mcp-app-run"));
+  // The sandbox frame loads lazily (the viewers stay out of the startup bundle).
+  await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
   const frame = document.querySelector("iframe") as HTMLIFrameElement;
   const posted = vi.spyOn(frame.contentWindow as Window, "postMessage");
   const send = (data: unknown, over: { origin?: string; source?: Window } = {}) =>

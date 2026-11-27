@@ -5,6 +5,9 @@
   "description": "PDF, sheets, DOCX, code, Markdown editor, artifact frame, extraction, generators.",
   "license": "Apache-2.0",
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -25,6 +28,10 @@
     "./core/generate": {
       "types": "./src/core/generate/index.ts",
       "default": "./src/core/generate/index.ts"
+    },
+    "./core/forms": {
+      "types": "./src/core/forms.ts",
+      "default": "./src/core/forms.ts"
     },
     "./core/docx": {
       "types": "./src/core/docx.ts",
