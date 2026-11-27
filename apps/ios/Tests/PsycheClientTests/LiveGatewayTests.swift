@@ -91,7 +91,6 @@ struct LiveGatewayTests {
         let memory = try await backend.memory()
         #expect(memory.todos.isEmpty && memory.people.isEmpty)
         let found = try await backend.search(query: "hello")
-        #expect(found.answer == nil)
         #expect(try await backend.pinnedWidgets().isEmpty)
 
         // 4. Another brand-new phone with the spare link pairs too (the Gateway takes setup tokens from `ios`),

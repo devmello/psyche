@@ -6,7 +6,7 @@ export const screens = {
   "screens.search.scope.memory": "Memory",
   "screens.search.scope.library": "Library",
   "screens.search.scope.feed": "Home",
-  "screens.search.scope.ideas": "Ideas",
+  "screens.search.scope.ideas": "Suggestions",
   "screens.search.scope.goals": "Goals",
   "screens.search.scope.connectors": "Your sources",
   "screens.search.scope.people": "People",
@@ -242,11 +242,11 @@ export const screens = {
   "screens.feed.sourcesCount": "Sources ({n, number})",
   "screens.feed.sources": "Sources",
   "screens.feed.sourcesEditor.button": "Sources",
-  "screens.feed.sourcesEditor.title": "Feed sources",
+  "screens.feed.sourcesEditor.title": "Brief sources",
   "screens.feed.sourcesEditor.description":
-    "What the Feed reads. Each change saves as you make it.",
+    "What the brief reads. Each change saves as you make it.",
   "screens.feed.sourcesEditor.builtIn": "Built in",
-  "screens.feed.sourcesEditor.builtInHint": "The Feed reads these unless you turn them off.",
+  "screens.feed.sourcesEditor.builtInHint": "The brief reads these unless you turn them off.",
   "screens.feed.sourcesEditor.hackerNews": "Hacker News",
   "screens.feed.sourcesEditor.hackerNewsHint": "Top stories from Hacker News",
   "screens.feed.sourcesEditor.arxiv": "arXiv",
@@ -255,7 +255,7 @@ export const screens = {
   "screens.feed.sourcesEditor.feedsHint":
     "Each feed is a web address that starts with https:// or http://.",
   "screens.feed.sourcesEditor.fetchNote":
-    "The Feed doesn't show yet when a feed was last read or whether it failed.",
+    "The brief doesn't show yet when a feed was last read or whether it failed.",
   "screens.feed.sourcesEditor.empty": "No feeds added yet.",
   "screens.feed.sourcesEditor.notRead": "not read",
   "screens.feed.sourcesEditor.kind": "RSS or Atom",
@@ -267,7 +267,7 @@ export const screens = {
   "screens.feed.sourcesEditor.removeLabel": "Remove {host}",
   "screens.feed.sourcesEditor.removeTitle": "Remove {host}?",
   "screens.feed.sourcesEditor.removeBody":
-    "The Feed stops reading this address. Posts it already wrote stay. You can add the address again later.",
+    "The brief stops reading this address. Posts it already wrote stay. You can add the address again later.",
   "screens.feed.sourcesEditor.confirmRemove": "Remove feed",
   "screens.feed.sourcesEditor.openLabel": "Open {host} in your browser",
   "screens.feed.sourcesEditor.openFailed": "Couldn't open {host}: {reason}",
@@ -275,7 +275,7 @@ export const screens = {
   "screens.feed.sourcesEditor.errInvalid": "That isn't a web address. Start it with https://.",
   "screens.feed.sourcesEditor.errScheme": "Only http:// and https:// addresses can be feeds.",
   "screens.feed.sourcesEditor.errDuplicate": "This feed is already in the list.",
-  "screens.feed.sourcesEditor.saved": "Feed sources saved",
+  "screens.feed.sourcesEditor.saved": "Brief sources saved",
   "screens.feed.sourcesEditor.added": "Feed added",
   "screens.feed.sourcesEditor.removed": "Feed removed",
   "screens.feed.sourcesEditor.saveFailed": "Couldn't save the feed sources: {reason}",
@@ -293,7 +293,7 @@ export const screens = {
   "screens.feed.hide": "Hide {source}",
   "screens.feed.loading": "Loading the feed",
   "screens.feed.loadFailed": "Psyche couldn't load the feed",
-  "screens.feed.safe": "Your posts and feedback are safe on the Gateway.",
+  "screens.feed.safe": "Your posts and feedback are safe on this computer.",
   "screens.feed.writingFirst": "Writing your first brief. It lands here when it's ready.",
   "screens.feed.generating": "Generating the brief",
   "screens.feed.generateFirst": "Generate the first brief",
@@ -310,8 +310,7 @@ export const screens = {
   "screens.feed.editor.instructions": "What should the feed write about?",
   "screens.feed.editor.placeholder":
     "More on robotics papers, less celebrity news. Favour primary sources. Keep posts short.",
-  "screens.feed.editor.hint":
-    "Interests, sources to favour or avoid, tone and length. Saved to feed/INSTRUCTIONS.md in the workspace.",
+  "screens.feed.editor.hint": "Interests, sources to favour or avoid, tone and length.",
   "screens.feed.editor.count": "{n, number} / {max, number}",
   "screens.feed.editor.interests": "Interests",
   "screens.feed.editor.interestsHint":
@@ -334,7 +333,7 @@ export const screens = {
   "screens.feed.editor.noSchedule": "No morning brief is scheduled.",
   "screens.feed.editor.scheduleLine": "Morning brief {when}",
   "screens.feed.editor.changeSchedule": "Change",
-  "screens.feed.editor.saved": "Feed instructions saved. The next brief uses them.",
+  "screens.feed.editor.saved": "Brief instructions saved. The next brief uses them.",
   "screens.feed.editor.conflict":
     "The file changed while you were editing. Close and reopen to load the new version.",
   "screens.feed.editor.saveFailed": "Psyche couldn't save the instructions.",
@@ -415,7 +414,7 @@ export const screens = {
   "screens.files.loadingShared": "Loading shared folders",
   "screens.files.noneShared": "No folders are shared with {name}.",
   "screens.files.share": "Share a folder",
-  "screens.files.shareInSettings": "Share one in Settings → Permissions → Access.",
+  "screens.files.shareInSettings": "Share one in Settings → Privacy & security → Access.",
   "screens.files.previewOf": "Preview of {name}",
   "screens.files.preview": "Preview",
   "screens.files.needsApp": "Previews need the desktop app.",

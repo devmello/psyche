@@ -122,7 +122,6 @@ export const settingsRest: Partial<Catalogue> = {
     "Un petit modèle cloud détermine les filtres de date, de personne et de source. Seule la question est envoyée, jamais vos éléments.",
   "settings.key.search.semantic.engine": "Moteur d’embedding",
   "settings.key.search.semantic.allowCloud": "Autoriser un service d’embedding cloud",
-  "settings.key.memory.recall.mode": "Mode de rappel de la mémoire",
   "settings.key.widgets.remoteImages": "Images distantes dans les widgets",
   "settings.key.ui.map.tiles": "Tuiles de carte",
   "settings.key.ui.map.styleUrl": "URL du style de carte",
@@ -153,7 +152,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progression de l’intégration",
   "settings.key.permissions.liftedFloors": "Actions autorisées sans demander pour {id}",
   "settings.key.specialists.maxConcurrent": "Spécialistes simultanés",
-  "settings.key.specialists.showInFeed": "Afficher les résultats des spécialistes dans Feed",
+  "settings.key.specialists.showInFeed": "Afficher les résultats des spécialistes sur Home",
   "settings.key.specialists.enabled": "{role} activé",
   "settings.key.specialists.model": "Modèle de {role}",
   "settings.credentials.payments.description":
@@ -233,8 +232,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "Retirer le port {port}",
   "settings.browser.agent.ports.label": "Numéro de port",
   "settings.browser.agent.ports.add": "Ajouter le port",
-  "settings.browser.agent.fromEnv":
-    "Défini par la variable d'environnement {variable}. Supprimez-la pour modifier ceci ici.",
   "settings.browser.agent.refuse.notUrl":
     "Ce n'est pas une adresse de site. Utilisez une forme comme https://exemple.fr.",
   "settings.browser.agent.refuse.wildcard":
@@ -348,7 +345,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "Nouveau dossier de coffre",
   "settings.obsidian.noVault": "Aucun coffre choisi",
   "settings.obsidian.vaultHint":
-    "Psyche lit le coffre via un dossier partagé (Réglages → Autorisations → Accès) : partagez-le, puis utilisez-le.",
+    "Psyche lit le coffre via un dossier partagé (Réglages → Confidentialité et sécurité → Accès aux fichiers) : partagez-le, puis utilisez-le.",
   "settings.obsidian.share": "Partager ce dossier",
   "settings.obsidian.shared": "Partagé",
   "settings.obsidian.useVault": "Utiliser ce coffre",
@@ -681,14 +678,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, one {# leçon} other {# leçons}} et {events, plural, one {# retour} other {# retours}} oubliés.",
   "settings.data.reasoningRetentionHint":
     "Durée de conservation de la réflexion complète de chaque étape. Désactivé, un résumé d’une ligne est conservé.",
-  "settings.data.recallModeHint":
-    "Vos fichiers de mémoire Markdown restent la source de référence. Les embeddings permettent à chaque tour de retrouver des souvenirs par leur sens.",
-  "settings.data.recallMode.markdown": "Markdown seul",
-  "settings.data.recallMode.markdownHint":
-    "Lit les fichiers et fait correspondre les mots. Rien de plus à exécuter.",
-  "settings.data.recallMode.embeddings": "Markdown plus embeddings",
-  "settings.data.recallMode.embeddingsHint":
-    "Utilise le même choix d’embedding que la recherche. Le modèle se charge au besoin et est libéré au repos.",
   "settings.data.recallState.off": "Markdown seul.",
   "settings.data.encryptMemory": "Chiffrer la mémoire sur le disque",
   "settings.data.encryptMemoryHint":
@@ -808,7 +797,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nom (facultatif)",
   "settings.gateways.addHint":
-    "Collez le lien de jumelage du Mac qui exécute Psyche (Réglages, Appareils et serveur, Jumeler un autre ordinateur). Sans lien, saisissez son adresse Tailscale, https://<host>.<tailnet>.ts.net ; cet ordinateur demande alors le jumelage, et le propriétaire l’approuve là-bas.",
+    "Collez le lien de jumelage du Mac qui exécute Psyche (Réglages, Appareils → Réseau et accès à distance, Jumeler un autre ordinateur). Sans lien, saisissez son adresse Tailscale, https://<host>.<tailnet>.ts.net ; cet ordinateur demande alors le jumelage, et le propriétaire l’approuve là-bas.",
   "settings.gateways.newLink": "Un nouveau lien de jumelage est arrivé. L’utiliser ?",
   "settings.gateways.useNewLink": "Utiliser",
   "settings.gateways.ignoreNewLink": "Ignorer",
@@ -1178,7 +1167,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "Les compétences signées avec elle ne se chargent plus, et les nouveaux fichiers signés avec elle sont refusés. Vous pourrez lui refaire confiance plus tard.",
   "settings.skills.author.revokeConfirm": "Révoquer",
-  "settings.usage.unavailable": "L’utilisation n’est pas encore disponible depuis cette Gateway.",
+  "settings.usage.unavailable": "L’utilisation n’est pas encore disponible.",
   "settings.usage.thisMonth": "Ce mois-ci",
   "settings.usage.monthLine":
     "{cost} et {tokens} jetons sur {turns, plural, one {# tour} other {# tours}}. Aujourd’hui jusqu’ici : {today}.",
@@ -1245,7 +1234,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.openOwnCard": "Ouvrir votre fiche",
   "settings.people.ownCardHint":
     "Faits vous concernant issus de votre profil, de vos discussions et de vos apps connectées.",
-  "settings.people.editUserMd": "Modifier USER.md",
+  "settings.people.editUserMd": "Modifier votre profil",
   "settings.people.blocked": "Bloqués dans Personnes",
   "settings.people.blockedHint":
     "Plus rien n’est jamais appris à leur sujet. Un domaine bloqué couvre toutes ses adresses.",
@@ -1298,7 +1287,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrentHint":
     "Davantage s’exécutent en parallèle ; les autres attendent dans la file.",
   "settings.specialists.monthlyCapNone": "Aucun plafond",
-  "settings.specialists.showInFeed": "Afficher les résultats dans Feed",
+  "settings.specialists.showInFeed": "Afficher les résultats sur Home",
   "settings.specialists.showInFeedHint":
     "Votre boîte de réception reçoit de toute façon chaque résultat.",
   "settings.specialists.roles": "Rôles",

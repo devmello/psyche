@@ -14,10 +14,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "재시도를 취소하지 못했습니다({reason}).",
   "settings.updates.group": "업데이트",
   "settings.updates.hint": "Psyche는 서명된 업데이트를 확인하고 종료할 때 설치합니다.",
-  "settings.updates.channel": "릴리스 채널",
-  "settings.updates.channel.stable": "안정",
-  "settings.updates.channel.note":
-    "지금은 안정 채널만 있습니다. 베타 빌드가 공개되면 여기에 베타가 표시됩니다. 어느 채널이든 모든 업데이트는 Psyche의 릴리스 키로 검증됩니다.",
   "settings.storage.title": "저장 공간",
   "settings.storage.hint": "이 컴퓨터에서 Psyche가 데이터 폴더에 사용하는 디스크 공간입니다.",
   "settings.storage.total": "합계",

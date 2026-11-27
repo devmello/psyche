@@ -175,13 +175,13 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.routine.notesFolder.name": "Aufnahmeordner",
   "scheduled.routine.notesFolder.does":
     "Sucht nach neuen Meeting-Aufnahmen und macht Notizen daraus.",
-  "scheduled.routine.feedBrief.name": "Feed-Übersicht",
+  "scheduled.routine.feedBrief.name": "Morgenübersicht",
   "scheduled.routine.feedBrief.does": "Schreibt die Tagesübersicht auf Home.",
   "scheduled.routine.feedBriefing.does": "Schreibt deine individuelle Übersicht auf Home.",
-  "scheduled.routine.ideasMine.name": "Ideen: nächtliche Suche",
+  "scheduled.routine.ideasMine.name": "Vorschläge (über Nacht)",
   "scheduled.routine.ideasMine.does":
     "Sucht im Laufe des Tages nach Ideen, die es wert sind, behalten zu werden.",
-  "scheduled.routine.ideasDeliver.name": "Ideen: Zustellfenster",
+  "scheduled.routine.ideasDeliver.name": "Vorschläge (Zustellung)",
   "scheduled.routine.ideasDeliver.does":
     "Sendet dir die gefundenen Ideen zu einem passenden Zeitpunkt.",
   "scheduled.routine.goalCheckin.does": "Prüft, wie es mit diesem Ziel läuft.",

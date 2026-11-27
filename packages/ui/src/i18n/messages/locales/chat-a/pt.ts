@@ -6,7 +6,7 @@ export const chatA: Partial<Catalogue> = {
   "settings.appearance.accent.ink": "Tinta",
   "settings.appearance.gray.paper": "Papel",
   "chat.offline.waiting":
-    "Não foi possível alcançar o Gateway agora. As mensagens que você enviar esperam aqui e saem quando ele voltar.",
+    "Não foi possível alcançar o Psyche agora. As mensagens que você enviar esperam aqui e saem quando ele voltar.",
   "chat.outbox.list": "Mensagens aguardando envio",
   "chat.outbox.waiting": "Aguardando:",
   "chat.outbox.old": "(com mais de um dia)",
@@ -152,7 +152,7 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.fixed.thinking": "Pensando",
   "chat.steps.fixed.thinkingDone": "Pensou",
   "chat.system.gatewayRestart":
-    "O Gateway reiniciou durante este turno, então ele foi interrompido.",
+    "O Psyche reiniciou durante este turno, então ele foi interrompido.",
   "chat.feed.runDone": "A execução terminou.",
   "chat.feed.runFailed": "A execução não terminou.",
   "chat.steps.status.running": "em andamento",

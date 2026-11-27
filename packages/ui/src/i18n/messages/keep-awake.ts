@@ -15,10 +15,6 @@ export const keepAwake = {
   "scheduled.history.cancelRetry.failed": "Couldn't cancel the retry ({reason}).",
   "settings.updates.group": "Updates",
   "settings.updates.hint": "Psyche checks for signed updates and installs them when you quit.",
-  "settings.updates.channel": "Release channel",
-  "settings.updates.channel.stable": "Stable",
-  "settings.updates.channel.note":
-    "Stable is the only channel for now. Beta will show up here once beta builds are published. Every update is checked against Psyche's release key either way.",
   "settings.storage.title": "Storage",
   "settings.storage.hint": "Disk space Psyche uses in its data folder on this computer.",
   "settings.storage.total": "Total",

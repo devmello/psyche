@@ -2,7 +2,7 @@ import type { Catalogue } from "../../index.ts";
 
 /** chat strings (zh); merged into `../zh.ts`. */
 export const chat: Partial<Catalogue> = {
-  "chat.offline.waiting": "目前无法连接到 Gateway。你发送的消息会留在这里，待连接恢复后发出。",
+  "chat.offline.waiting": "目前无法连接到 Psyche。你发送的消息会留在这里，待连接恢复后发出。",
   "chat.outbox.list": "等待发送的消息",
   "chat.outbox.waiting": "等待中：",
   "chat.outbox.old": "（已超过一天）",
@@ -140,7 +140,7 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.fixed.model": "模型调用",
   "chat.steps.fixed.thinking": "正在思考",
   "chat.steps.fixed.thinkingDone": "已思考",
-  "chat.system.gatewayRestart": "此轮进行期间 Gateway 重新启动，因此已被停止。",
+  "chat.system.gatewayRestart": "此轮进行期间 Psyche 重新启动，因此已被停止。",
   "chat.feed.runDone": "运行已完成。",
   "chat.feed.runFailed": "运行未能完成。",
   "chat.steps.status.running": "运行中",

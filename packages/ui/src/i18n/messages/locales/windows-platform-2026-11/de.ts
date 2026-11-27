@@ -15,14 +15,15 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Beende Psyche und öffne es wieder.",
   "settings.sandbox.pc.title": "Sandbox-PC einschalten",
   "settings.sandbox.pc.body":
-    "srt, Psyches leichtgewichtige Sandbox für Befehle, läuft nicht unter Windows. Stattdessen laufen Skripte, Befehlsserver und Connectoren, die Psyche erstellt, im Sandbox-PC: einem kleinen eigenen Linux-Computer ohne Zugriff auf deine Dateien. Schalte ihn unter Einstellungen → Sandbox-PC ein und prüfe danach erneut.",
+    "srt, Psyches leichtgewichtige Sandbox für Befehle, läuft nicht unter Windows. Stattdessen laufen Skripte, Befehlsserver und Connectoren, die Psyche erstellt, im Datenschutz & Sicherheit → Computersteuerung → VM-Modus: einem kleinen eigenen Linux-Computer ohne Zugriff auf deine Dateien. Schalte ihn unter Einstellungen → Sandbox-PC ein und prüfe danach erneut.",
   "settings.sandbox.pc.notReady.title": "Der Sandbox-PC ist noch nicht bereit",
   "settings.sandbox.pc.notReady.body":
-    "Er ist eingeschaltet, läuft aber noch nicht, oder das Psyche darin ist veraltet. Starte oder aktualisiere ihn unter Einstellungen → Sandbox-PC und prüfe danach erneut.",
+    "Er ist eingeschaltet, läuft aber noch nicht, oder das Psyche darin ist veraltet. Starte oder aktualisiere ihn unter Einstellungen → Datenschutz & Sicherheit → Computersteuerung → VM-Modus und prüfe danach erneut.",
   "settings.sandbox.pc.ready":
     "Der Sandbox-PC ist eingeschaltet: Skripte, Befehlsserver und Connectoren, die Psyche erstellt, laufen darin.",
   "settings.sandbox.pc.open": "Einstellungen des Sandbox-PCs öffnen",
-  "settings.sandbox.pc.where": "Er findet sich unter Einstellungen → Sandbox-PC.",
+  "settings.sandbox.pc.where":
+    "Er findet sich unter Einstellungen → Datenschutz & Sicherheit → Computersteuerung → VM-Modus.",
   "settings.devices.platform.windows": "Windows-PC",
   "settings.devices.nodeKind.winHelper": "Windows-Helper",
   "settings.devices.thisPcAdmin":

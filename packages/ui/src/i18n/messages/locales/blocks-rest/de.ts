@@ -26,7 +26,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "Ordnerpfad",
   "blocks.folder.mustPick": "Wähle den Ordner zum Teilen, bevor du erlaubst.",
   "blocks.folder.scope":
-    "„Nur dieser Chat“ gilt, bis die Unterhaltung endet. „Immer“ behält den Ordner, bis du ihn unter Einstellungen → Berechtigungen → Zugriff entfernst.",
+    "„Nur dieser Chat“ gilt, bis die Unterhaltung endet. „Immer“ behält den Ordner, bis du ihn unter Einstellungen → Datenschutz & Sicherheit → Dateizugriff entfernst.",
   "blocks.folder.scope.once": "Nur dieser Chat",
   "blocks.folder.scope.always": "Immer, dieser Ordner und darunter",
   "blocks.folder.scope.space": "In diesem Space erlauben",

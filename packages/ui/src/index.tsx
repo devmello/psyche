@@ -403,8 +403,6 @@ export {
 } from "./shell/Rail.tsx";
 export { ShortcutList, ShortcutTable } from "./shell/ShortcutList.tsx";
 export {
-  BrowserToggle,
-  type BrowserToggleProps,
   ConnectedSidebar,
   clampSidebarWidth,
   SIDEBAR_RAIL,

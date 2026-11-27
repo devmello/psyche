@@ -4,7 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const memoryAdvancedRest: Partial<Catalogue> = {
   "memoryAdvanced.title": "고급",
   "memoryAdvanced.description": "모델, 일정, 불러오기 방식, 암호화, 데이터.",
-  "memoryAdvanced.recall": "불러오기",
   "memoryAdvanced.data": "내 데이터",
   "memoryAdvanced.dataHint": "{persona}가 기억하는 모든 것을 내보내거나 백업하거나 초기화합니다.",
   "memoryAdvanced.dataOpen": "개인정보 및 데이터 열기",

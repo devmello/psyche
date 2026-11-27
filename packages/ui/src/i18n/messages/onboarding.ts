@@ -146,7 +146,7 @@ export const onboarding = {
   "onboarding.model.idPlaceholder": "{provider}/model-name",
   "onboarding.step.memory": "Memory and daily habits",
   "onboarding.about.lead":
-    "A few facts so Psyche starts out knowing you. Everything here is optional and lives in USER.md, which you can edit any time.",
+    "A few facts so Psyche starts out knowing you. Everything here is optional and lives in your profile, which you can edit any time.",
   "onboarding.about.name": "Your name",
   "onboarding.about.nameHint": "What should Psyche call you?",
   "onboarding.about.timeZone": "Time zone",
@@ -199,7 +199,8 @@ export const onboarding = {
   "onboarding.folders.desktop": "Desktop",
   "onboarding.folders.downloads": "Downloads",
   "onboarding.folders.hint": "You can change this any time in Settings, under File access.",
-  "onboarding.folders.shareLater": "You can share these folders later in Settings → File access.",
+  "onboarding.folders.shareLater":
+    "You can share these folders later in Settings → Privacy & security → Access.",
   "onboarding.folders.openFileAccess": "Open File access",
   "onboarding.folders.retry": "Try again",
   "onboarding.folders.continueWithout": "Continue without sharing",

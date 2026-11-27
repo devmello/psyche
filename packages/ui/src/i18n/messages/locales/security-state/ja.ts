@@ -16,7 +16,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "この Mac 上のプログラムが Psyche を通さずにセキュリティ記録を {count} 件変更しました。Psyche は元に戻しました。心当たりがない場合は、Mac に不要なソフトウェアがないか確認してください。",
   "web.security.alert.untrusted":
-    "Psyche のセキュリティ記録の確認に失敗しました。新しいデバイス、セキュリティ設定、Touch ID による承認はブロックされています。デバイスを確認してから、Mac で psyched security reseal を実行してください。24 時間後に適用されます。",
+    "Psycheのセキュリティ記録の確認に失敗しました。新しいデバイス、セキュリティ設定、Touch IDでの承認はブロックされています。設定 → デバイスで端末を確認し、「確認済みにする」をタップしてください。現在の記録を受け入れるよう求められたら「今すぐ承認」をタップします。適用は24時間後です。",
   "web.security.alert.firstSeal":
     "Psyche はセキュリティ記録を確認するようになりました（ペアリング済みデバイス {devices} 台）。Psyche の外で行われた変更は元に戻され、ここに表示されます。一度デバイスを確認してください。",
   "web.security.alert.resealed": "Psyche がセキュリティ記録を再び封印しました。",

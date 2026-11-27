@@ -44,7 +44,7 @@ export const nudges = {
     "Gentle reminders about people you have lost touch with, birthdays and promises you made.",
   "nudges.settings.enabled": "Remind me to keep in touch",
   "nudges.settings.enabledHint":
-    "Up to three in your morning brief, and quiet Feed cards. Nothing is ever sent for you.",
+    "Up to three in your morning brief, and quiet cards on Home. Nothing is ever sent for you.",
   "nudges.settings.sensitivity": "How often",
   "nudges.settings.sensitivityHint": "How long a message waits before Psyche says something.",
   "nudges.settings.low": "Gentle",

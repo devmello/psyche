@@ -19,6 +19,9 @@ struct ApprovalSheet: View {
     @State private var flow = AnswerFlow()
     /// Whether the Gateway's 400 ms arming delay has passed; Allow stays off until then.
     @State private var armed = false
+    @State private var detailsOpen = false
+    /// More fields than this and the Details section starts collapsed.
+    private static let collapseAbove = 4
 
     private static let armingDelay: Duration = .seconds(PsycheMotion.Duration.arming)
 
@@ -27,7 +30,7 @@ struct ApprovalSheet: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        StatusDot(.needsYou, "Needs your OK · \(detail.kindLabel)", font: .footnote.weight(.semibold))
+                        StatusDot(.needsYou, String(localized: "Needs your OK · \(detail.kindLabel)", bundle: .module), font: .footnote.weight(.semibold))
                         if let machine = detail.machineName {
                             Label {
                                 Text("On \(machine)", bundle: .module)
@@ -43,13 +46,22 @@ struct ApprovalSheet: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    ForEach(detail.fields, id: \.path) { fieldRow($0) }
+                    if detail.fields.count > Self.collapseAbove {
+                        // A long list starts closed; the title, the summary and Allow stay in view.
+                        DisclosureGroup(isExpanded: $detailsOpen) {
+                            ForEach(detail.fields, id: \.path) { fieldRow($0) }
+                        } label: {
+                            Text("Details", bundle: .module)
+                        }
+                    } else {
+                        ForEach(detail.fields, id: \.path) { fieldRow($0) }
+                    }
                 } header: {
-                    Text("Details", bundle: .module)
+                    if detail.fields.count <= Self.collapseAbove { Text("Details", bundle: .module) }
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(String(localized: "Because", bundle: .module)) \(detail.evidence.joined(separator: " \u{B7} "))")
-                        Text("\(String(localized: "Also sent to", bundle: .module)) \(detail.alsoSentTo)")
+                        Text("\(String(localized: "Why", bundle: .module)) \(detail.evidence.joined(separator: " \u{B7} "))")
+                        Text("\(String(localized: "Also sends to", bundle: .module)) \(detail.alsoSentTo)")
                     }
                 }
             }

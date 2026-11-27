@@ -42,7 +42,7 @@ export const nudgesRest: Partial<Catalogue> = {
     "Promemoria discreti su persone con cui hai perso i contatti, compleanni e promesse che hai fatto.",
   "nudges.settings.enabled": "Ricordami di restare in contatto",
   "nudges.settings.enabledHint":
-    "Fino a tre nel riepilogo del mattino, più schede discrete nel Feed. Non viene mai inviato nulla al tuo posto.",
+    "Fino a tre nel riepilogo del mattino, più schede discrete in Home. Non viene mai inviato nulla al tuo posto.",
   "nudges.settings.sensitivity": "Con che frequenza",
   "nudges.settings.sensitivityHint": "Quanto aspetta un messaggio prima che Psyche dica qualcosa.",
   "nudges.settings.low": "Con calma",

@@ -99,9 +99,9 @@ export const memoryReview: Partial<Catalogue> = {
     "يحذف هذا {facts, number} من الحقائق و{quotes, number} من الاقتباسات التي تعلّمها من رسائلهم، و{held, number} من العناصر المحجوزة.",
   "personData.excludeOnly": "لن تُقرأ رسائلهم ولن يُتعلَّم شيء عنهم. يبقى ما هو معروف حتى تطلب نسيانه.",
   "personData.after.said": "يبقى الشخص ورسائله وكل ما أضفته بنفسك.",
-  "personData.after.exclude": "يمكنك السماح بهم مجددًا في الإعدادات ← الذاكرة ← الخصوصية.",
+  "personData.after.exclude": "يمكنك السماح بهم مجددًا في الإعدادات ← الذاكرة ← الأشخاص والخصوصية.",
   "personData.after.exclude_forget":
-    "يمكنك السماح بهم مجددًا في الإعدادات ← الذاكرة ← الخصوصية، لكن ما حُذف لا يعود.",
+    "يمكنك السماح بهم مجددًا في الإعدادات ← الذاكرة ← الأشخاص والخصوصية، لكن ما حُذف لا يعود.",
   "personData.confirm.said": "نسيان ما قالوه",
   "personData.confirm.exclude": "التوقف عن التعلّم",
   "personData.confirm.exclude_forget": "التوقف والنسيان",
@@ -200,7 +200,7 @@ export const memoryReview: Partial<Catalogue> = {
   "everything.perSource.ref": "نموذج {source}",
   "everything.sources.title": "ما يقرؤه",
   "everything.sources.description":
-    "تتعلم الذاكرة مما يقرؤه البحث، بالترتيب نفسه في الإعدادات ← مصادر البحث. أوقف مصدرًا هنا لتتوقف عن التعلم منه؛ ويبقى قابلًا للبحث.",
+    "تتعلم الذاكرة مما يقرؤه البحث، بالترتيب نفسه في الإعدادات ← الموصلات والمصادر → البحث. أوقف مصدرًا هنا لتتوقف عن التعلم منه؛ ويبقى قابلًا للبحث.",
   "everything.sources.learning": "يُتعلَّم منه",
   "everything.sources.notLearning": "لا يُتعلَّم منه",
   "everything.sources.notRead": "لا يقرأ Psyche {source}.",
@@ -335,7 +335,6 @@ export const memoryReview: Partial<Catalogue> = {
   "memoryBasics.paused": "الذاكرة متوقفة مؤقتًا.",
   "memoryAdvanced.title": "متقدم",
   "memoryAdvanced.description": "النماذج والجدول وطريقة الاسترجاع والتشفير وبياناتك.",
-  "memoryAdvanced.recall": "الاسترجاع",
   "memoryAdvanced.data": "بياناتك",
   "memoryAdvanced.dataHint": "تصدير كل ما يتذكره {persona} أو نسخه احتياطيًا أو إعادة ضبطه.",
   "memoryAdvanced.dataOpen": "فتح الخصوصية والبيانات",

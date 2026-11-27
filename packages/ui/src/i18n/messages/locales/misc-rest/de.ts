@@ -31,9 +31,9 @@ export const miscRest: Partial<Catalogue> = {
   "personData.after.said":
     "Die Person, ihre Nachrichten und alles, was du selbst hinzugefügt hast, bleiben.",
   "personData.after.exclude":
-    "Du kannst sie unter Einstellungen → Gedächtnis → Datenschutz wieder zulassen.",
+    "Du kannst sie unter Einstellungen → Gedächtnis → Personen & Datenschutz wieder zulassen.",
   "personData.after.exclude_forget":
-    "Du kannst sie unter Einstellungen → Gedächtnis → Datenschutz wieder zulassen, aber was gelöscht wurde, kommt nicht zurück.",
+    "Du kannst sie unter Einstellungen → Gedächtnis → Personen & Datenschutz wieder zulassen, aber was gelöscht wurde, kommt nicht zurück.",
   "personData.confirm.said": "Vergessen, was die Person gesagt hat",
   "personData.confirm.exclude": "Nicht mehr lernen",
   "personData.confirm.exclude_forget": "Beenden und vergessen",
@@ -56,7 +56,6 @@ export const miscRest: Partial<Catalogue> = {
   "memoryAdvanced.title": "Erweitert",
   "memoryAdvanced.description":
     "Modelle, Zeitplan, wie abgerufen wird, Verschlüsselung und deine Daten.",
-  "memoryAdvanced.recall": "Abruf",
   "memoryAdvanced.data": "Deine Daten",
   "memoryAdvanced.dataHint":
     "Alles, was sich {persona} merkt, exportieren, sichern oder zurücksetzen.",

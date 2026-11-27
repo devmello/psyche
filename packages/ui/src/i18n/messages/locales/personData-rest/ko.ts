@@ -14,9 +14,9 @@ export const personDataRest: Partial<Catalogue> = {
   "personData.excludeOnly":
     "해당 사람의 메시지는 읽지 않으며 그 사람에 대해 아무것도 학습하지 않습니다. 이미 알고 있는 내용은 지우기 전까지 남습니다.",
   "personData.after.said": "그 사람, 그 사람의 메시지, 직접 추가한 내용은 그대로 남습니다.",
-  "personData.after.exclude": "설정 → 메모리 → 개인정보에서 다시 허용할 수 있습니다.",
+  "personData.after.exclude": "설정 → 메모리 → 사람 및 개인정보에서 다시 허용할 수 있습니다.",
   "personData.after.exclude_forget":
-    "설정 → 메모리 → 개인정보에서 다시 허용할 수 있지만, 삭제한 내용은 복구되지 않습니다.",
+    "설정 → 메모리 → 사람 및 개인정보에서 다시 허용할 수 있지만, 삭제한 내용은 복구되지 않습니다.",
   "personData.confirm.said": "말한 내용 지우기",
   "personData.confirm.exclude": "학습 중지",
   "personData.confirm.exclude_forget": "중지하고 지우기",

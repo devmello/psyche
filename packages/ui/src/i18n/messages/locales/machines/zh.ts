@@ -18,7 +18,7 @@ export const machines: Partial<Catalogue> = {
   "machines.add.account.dedicatedHint":
     "Psyche 只能看到该账户的文件和应用。没有 sudo，也没有密码。",
   "machines.add.needsNetwork":
-    "其他电脑暂时还连不上这台电脑。请先在“设置”→“服务器和远程访问”中打开远程访问或本地网络访问。",
+    "其他电脑暂时还连不上这台电脑。请先在“设置”→“设备 → 网络与远程访问”中打开远程访问或本地网络访问。",
   "machines.add.make": "显示命令",
   "machines.add.again": "生成新命令",
   "machines.add.commands": "Linux 电脑的命令",

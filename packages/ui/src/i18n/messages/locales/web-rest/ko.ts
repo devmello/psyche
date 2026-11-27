@@ -76,7 +76,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityMissing": "ID 키가 제시되지 않아 Psyche가 연결하지 않습니다.",
   "web.splash.remote.identityInvalid": "ID 증명을 확인할 수 없어 Psyche가 연결하지 않습니다.",
   "web.splash.remote.identityOrigin":
-    "이 컴퓨터가 접속한 주소와 다른 주소로 응답했습니다. {host}에서 설정 → 기기 및 서버의 공개 주소를 설정하십시오.",
+    "이 컴퓨터가 접속한 주소와 다른 주소로 응답했습니다. {host}에서 설정 → 기기 → 네트워크 및 원격 접속의 공개 주소를 설정하십시오.",
   "web.splash.remote.certChanged":
     "네트워크 인증서가 이 컴퓨터에 고정된 인증서와 다릅니다. 이 네트워크의 다른 기기가 대신 응답하고 있거나 인증서가 교체되었을 수 있습니다.",
   "web.splash.remote.certMissing": "사용한 인증서에 대한 보증이 없어 Psyche가 연결하지 않습니다.",

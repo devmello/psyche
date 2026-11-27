@@ -12,7 +12,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "Google, Microsoft या ईमेल खाता जोड़ें",
   "onboarding.step.memory": "मेमोरी और रोज़ की आदतें",
   "onboarding.about.lead":
-    "कुछ बातें ताकि Psyche शुरू से ही आपको जानता हो। यहाँ सब कुछ वैकल्पिक है और USER.md में रहता है, जिसे आप कभी भी संपादित कर सकते हैं।",
+    "कुछ जानकारी, ताकि Psyche शुरू से आपको जाने। यहाँ सब कुछ वैकल्पिक है और आपकी प्रोफ़ाइल में रहता है, जिसे आप कभी भी बदल सकते हैं।",
   "onboarding.about.name": "आपका नाम",
   "onboarding.about.nameHint": "Psyche आपको क्या कहकर बुलाए?",
   "onboarding.about.timeZone": "समय क्षेत्र",
@@ -63,7 +63,8 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.desktop": "डेस्कटॉप",
   "onboarding.folders.downloads": "डाउनलोड",
   "onboarding.folders.hint": "आप इसे कभी भी सेटिंग्स में, फ़ाइल एक्सेस के अंतर्गत बदल सकते हैं।",
-  "onboarding.folders.shareLater": "आप इन फ़ोल्डरों को बाद में सेटिंग्स → फ़ाइल एक्सेस में साझा कर सकते हैं।",
+  "onboarding.folders.shareLater":
+    "आप इन फ़ोल्डरों को बाद में सेटिंग्स → गोपनीयता और सुरक्षा → फ़ाइल ऐक्सेस में साझा कर सकते हैं।",
   "onboarding.folders.openFileAccess": "फ़ाइल एक्सेस खोलें",
   "onboarding.folders.retry": "दोबारा कोशिश करें",
   "onboarding.folders.continueWithout": "साझा किए बिना आगे बढ़ें",

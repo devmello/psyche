@@ -24,7 +24,7 @@ describe("Settings → Usage when usage.summary fails", () => {
     // request-gate.ts), so a single rate limit no longer reaches this screen as an error.
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Usage could not be read just now");
-    expect(screen.queryByText("Usage isn't available from this Gateway yet.")).toBeNull();
+    expect(screen.queryByText("Usage isn't available yet.")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /try again|retry/i }));
     expect(await screen.findByRole("heading", { name: "This month" })).toBeTruthy();
   });
@@ -39,7 +39,7 @@ describe("Settings → Usage when usage.summary fails", () => {
         <UsageSection />
       </StoryWorld>,
     );
-    expect(await screen.findByText("Usage isn't available from this Gateway yet.")).toBeTruthy();
+    expect(await screen.findByText("Usage isn't available yet.")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByRole("button", { name: /try again|retry/i })).toBeNull();
   });

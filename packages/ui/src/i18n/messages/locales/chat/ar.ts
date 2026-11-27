@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** chat strings (ar); merged into `../ar.ts`. */
 export const chat: Partial<Catalogue> = {
   "chat.offline.waiting":
-    "تعذّر الوصول إلى Gateway الآن. الرسائل التي ترسلها تنتظر هنا وتُرسل عند عودته.",
+    "تعذّر الوصول إلى Psyche الآن. الرسائل التي ترسلها تنتظر هنا وتُرسل عند عودته.",
   "chat.outbox.list": "رسائل في انتظار الإرسال",
   "chat.outbox.waiting": "في الانتظار:",
   "chat.outbox.old": "(مضى عليها أكثر من يوم)",
@@ -147,7 +147,7 @@ export const chat: Partial<Catalogue> = {
   "chat.steps.fixed.model": "استدعاء النموذج",
   "chat.steps.fixed.thinking": "جارٍ التفكير",
   "chat.steps.fixed.thinkingDone": "تم التفكير",
-  "chat.system.gatewayRestart": "أُعيد تشغيل Gateway أثناء هذا الدور، لذلك تم إيقافه.",
+  "chat.system.gatewayRestart": "أُعيد تشغيل Psyche أثناء هذا الدور، لذلك تم إيقافه.",
   "chat.feed.runDone": "انتهى التشغيل.",
   "chat.feed.runFailed": "لم ينتهِ التشغيل.",
   "chat.steps.status.running": "قيد التشغيل",

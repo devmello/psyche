@@ -227,7 +227,7 @@ export const settingsD: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "Las habilidades firmadas con ella dejan de cargarse y se rechazan los archivos nuevos firmados con ella. Puedes volver a confiar en ella más tarde.",
   "settings.skills.author.revokeConfirm": "Revocar",
-  "settings.usage.unavailable": "El uso todavía no está disponible desde este Gateway.",
+  "settings.usage.unavailable": "El uso todavía no está disponible.",
   "settings.usage.thisMonth": "Este mes",
   "settings.usage.monthLine":
     "{cost} y {tokens} tokens en {turns, plural, one {# turno} other {# turnos}}. Hoy hasta ahora: {today}.",
@@ -292,7 +292,7 @@ export const settingsD: Partial<Catalogue> = {
     "Tu propia ficha: cada dato que {persona} aprendió sobre ti, con su fuente.",
   "settings.people.openOwnCard": "Abrir tu ficha",
   "settings.people.ownCardHint": "Datos sobre ti de tu perfil, chats y apps conectadas.",
-  "settings.people.editUserMd": "Editar USER.md",
+  "settings.people.editUserMd": "Editar tu perfil",
   "settings.people.blocked": "Bloqueado en Personas",
   "settings.people.blockedHint":
     "No se vuelve a aprender nada de ello. Un dominio bloqueado cubre todas las direcciones de ese dominio.",

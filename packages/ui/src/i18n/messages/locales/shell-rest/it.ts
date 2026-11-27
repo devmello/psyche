@@ -33,7 +33,6 @@ export const shellRest: Partial<Catalogue> = {
   "shell.palette.addProject": "Aggiungi progetto",
   "shell.palette.keywords.addProject":
     "nuovo progetto corso lezione lavoro iniziativa crea monitora",
-  "shell.browser.open": "Apri il browser",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

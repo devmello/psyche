@@ -30,7 +30,6 @@ export const shell: Partial<Catalogue> = {
   "shell.palette.keywords.addTodo": "新建 待办 任务 作业 截止日期 到期 提醒 创建",
   "shell.palette.addProject": "添加项目",
   "shell.palette.keywords.addProject": "新建 项目 课程 班级 工作 计划 创建 跟踪",
-  "shell.browser.open": "打开浏览器",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

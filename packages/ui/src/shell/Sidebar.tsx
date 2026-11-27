@@ -1,4 +1,4 @@
-import { Globe, PanelLeft, Search, Settings } from "lucide-react";
+import { PanelLeft, Search, Settings } from "lucide-react";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -672,45 +672,4 @@ export function ConnectedSidebar(props: Omit<SidebarProps, "counts">): ReactElem
     [onNavigate],
   );
   return <Sidebar renderUsage={renderUsage} {...props} counts={counts} />;
-}
-
-export interface BrowserToggleProps {
-  /** Click or ⌘⇧B: show the built-in browser, docking it again when it was popped out. */
-  onOpen: () => void;
-  className?: string;
-}
-
-/**
- * The built-in browser's entry in the toolbar, beside the sidebar toggle. It always shows the
- * browser (opens the pane, raises its window or docks it again); it never hides it, since
- * closing is the pane's own control.
- */
-export function BrowserToggle({ onOpen, className }: BrowserToggleProps): ReactElement {
-  const label = t("shell.browser.open");
-  return (
-    <span className={cn("inline-flex items-center", className)} data-no-drag="">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={label}
-              aria-keyshortcuts="Meta+Shift+B"
-              onClick={onOpen}
-              className="text-label-secondary"
-              data-testid="browser-toggle"
-            />
-          }
-        >
-          <Globe aria-hidden="true" strokeWidth={1.75} />
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          {label}
-          {/* i18n-ignore: a key chord */}
-          <DropdownMenuShortcut>{keysLabel("Mod+Shift+B")}</DropdownMenuShortcut>
-        </TooltipContent>
-      </Tooltip>
-    </span>
-  );
 }

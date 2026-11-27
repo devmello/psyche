@@ -70,14 +70,6 @@ export const settingsC: Partial<Catalogue> = {
     "Se {lessons, plural, one {olvidó # lección} other {olvidaron # lecciones}} y {events, plural, one {# evento de comentarios} other {# eventos de comentarios}}.",
   "settings.data.reasoningRetentionHint":
     "Cuánto tiempo se conserva el razonamiento completo de cada paso. Desactivado conserva un resumen de una línea.",
-  "settings.data.recallModeHint":
-    "Tus archivos de memoria en Markdown siguen siendo la fuente de verdad. Los embeddings permiten que cada turno encuentre recuerdos por significado.",
-  "settings.data.recallMode.markdown": "Solo Markdown",
-  "settings.data.recallMode.markdownHint":
-    "Lee los archivos y compara palabras. Nada extra que ejecutar.",
-  "settings.data.recallMode.embeddings": "Markdown más embeddings",
-  "settings.data.recallMode.embeddingsHint":
-    "Usa la misma elección de embeddings que la Búsqueda. El modelo se carga cuando hace falta y se libera cuando está inactivo.",
   "settings.data.recallState.off": "Solo Markdown.",
   "settings.data.encryptMemory": "Cifrar la memoria en el disco",
   "settings.data.encryptMemoryHint":
@@ -195,7 +187,7 @@ export const settingsC: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nombre (opcional)",
   "settings.gateways.addHint":
-    "Pega el enlace de vinculación del Mac que ejecuta Psyche (Ajustes, Dispositivos y servidor, Vincular otro ordenador). Sin enlace, escribe su dirección de Tailscale, https://<host>.<tailnet>.ts.net; este ordenador pedirá vincularse y el propietario lo aprueba allí.",
+    "Pega el enlace de vinculación del Mac que ejecuta Psyche (Ajustes, Dispositivos → Red y acceso remoto, Vincular otro ordenador). Sin enlace, escribe su dirección de Tailscale, https://<host>.<tailnet>.ts.net; este ordenador pedirá vincularse y el propietario lo aprueba allí.",
   "settings.gateways.newLink": "Ha llegado un nuevo enlace de vinculación. ¿Usarlo?",
   "settings.gateways.useNewLink": "Usarlo",
   "settings.gateways.ignoreNewLink": "Ignorar",

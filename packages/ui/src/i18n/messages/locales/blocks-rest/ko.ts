@@ -26,7 +26,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "폴더 경로",
   "blocks.folder.mustPick": "허용하기 전에 공유할 폴더를 선택하십시오.",
   "blocks.folder.scope":
-    '"이 대화만"은 대화가 끝날 때까지 유지됩니다. "항상"은 설정 → 권한 → 접근에서 삭제하기 전까지 폴더를 유지합니다.',
+    '"이 대화만"은 대화가 끝날 때까지 유지됩니다. "항상"은 설정 → 개인정보 및 보안 → 파일 접근에서 삭제하기 전까지 폴더를 유지합니다.',
   "blocks.folder.scope.once": "이 대화만",
   "blocks.folder.scope.always": "항상 (이 폴더와 하위 폴더)",
   "blocks.folder.scope.space": "이 스페이스에서 허용",

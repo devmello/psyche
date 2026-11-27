@@ -217,7 +217,7 @@ export const specialistsA: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "Su prueba de identidad no se verificó, así que Psyche no se conectará.",
   "web.splash.remote.identityOrigin":
-    "Respondió por una dirección distinta de la que marcó este ordenador. En {host}, define la dirección pública en Ajustes → Dispositivos y servidor.",
+    "Respondió por una dirección distinta de la que marcó este ordenador. En {host}, define la dirección pública en Ajustes → Dispositivos → Red y acceso remoto.",
   "web.splash.remote.certChanged":
     "Su certificado de red no es el que este ordenador fijó. Puede que otra máquina de esta red esté respondiendo en su lugar, o que se haya sustituido su certificado.",
   "web.splash.remote.certMissing":

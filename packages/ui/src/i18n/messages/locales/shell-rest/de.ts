@@ -32,7 +32,6 @@ export const shellRest: Partial<Catalogue> = {
     "neu todo aufgabe hausaufgabe abgabe frist fällig erinnern erstellen",
   "shell.palette.addProject": "Projekt hinzufügen",
   "shell.palette.keywords.addProject": "neu projekt kurs seminar job vorhaben erstellen verfolgen",
-  "shell.browser.open": "Browser öffnen",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Strg L",
 };

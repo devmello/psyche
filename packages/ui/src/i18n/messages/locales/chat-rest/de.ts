@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** Completed chat strings (de); merged into `../de.ts`. */
 export const chatRest: Partial<Catalogue> = {
   "chat.offline.waiting":
-    "Das Gateway ist gerade nicht erreichbar. Nachrichten, die du sendest, warten hier und gehen raus, sobald es wieder da ist.",
+    "Psyche ist gerade nicht erreichbar. Nachrichten, die du sendest, warten hier und gehen raus, sobald es wieder da ist.",
   "chat.outbox.list": "Nachrichten, die auf das Senden warten",
   "chat.outbox.waiting": "Wartet:",
   "chat.outbox.old": "(über einen Tag alt)",
@@ -150,7 +150,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.fixed.thinking": "Denkt nach",
   "chat.steps.fixed.thinkingDone": "Nachgedacht",
   "chat.system.gatewayRestart":
-    "Das Gateway wurde während dieses Zugs neu gestartet, deshalb wurde er gestoppt.",
+    "Psyche wurde während dieses Zugs neu gestartet, deshalb wurde er gestoppt.",
   "chat.feed.runDone": "Der Lauf ist beendet.",
   "chat.feed.runFailed": "Der Lauf wurde nicht beendet.",
   "chat.steps.status.running": "läuft",

@@ -2,7 +2,7 @@ import Foundation
 
 /// Settings' fixture state.
 struct SettingsState: Sendable {
-    var settings = PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
+    var settings = PhoneSettings(notifications: true, liveActivities: true)
     /// Set by `revokeThisPhone`, so tests can see the call arrived.
     var revoked = false
 }

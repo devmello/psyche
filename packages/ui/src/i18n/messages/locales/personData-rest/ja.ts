@@ -14,9 +14,9 @@ export const personDataRest: Partial<Catalogue> = {
   "personData.excludeOnly":
     "その人のメッセージは読み取られず、その人について何も学習されません。すでにわかっていることは、忘れさせるまで残ります。",
   "personData.after.said": "その人、そのメッセージ、ご自身で追加した内容は残ります。",
-  "personData.after.exclude": "設定 → メモリ → プライバシーで、再び許可できます。",
+  "personData.after.exclude": "設定 → メモリ → 人物とプライバシーで、再び許可できます。",
   "personData.after.exclude_forget":
-    "設定 → メモリ → プライバシーで再び許可できますが、削除した内容は元に戻りません。",
+    "設定 → メモリ → 人物とプライバシーで再び許可できますが、削除した内容は元に戻りません。",
   "personData.confirm.said": "言ったことを忘れる",
   "personData.confirm.exclude": "学習を停止",
   "personData.confirm.exclude_forget": "停止して忘れる",

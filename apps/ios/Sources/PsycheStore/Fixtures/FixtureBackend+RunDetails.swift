@@ -9,7 +9,7 @@ extension FixtureData {
     /// The run `FixtureBackend.taskRun` reports for every fixture task.
     public static let runID = "run_fixture_1"
 
-    /// Five steps in seq order. Step 3 is a browser step, so the one frame sits on it.
+    /// Five steps in seq order. The one frame sits on step 3.
     public static let runTrace: [RunStepRow] = {
         let start = Date.now.addingTimeInterval(-340)
         return [

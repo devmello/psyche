@@ -23,9 +23,8 @@ struct FixtureStoreTests {
         #expect(!thread.items.isEmpty)
     }
 
-    @Test func searchGroupsHitsAndAnswersRent() async throws {
+    @Test func searchGroupsHits() async throws {
         let results = try await store.search(query: "Rent")
-        #expect(results.answer != nil)
         #expect(results.hits.contains { $0.group == .todo })
         #expect(try await store.search(query: "sam").hits.contains { $0.group == .people })
         #expect(try await store.search(query: "  ").hits.isEmpty)

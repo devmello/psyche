@@ -7,7 +7,7 @@ export const chat = {
     "Psyche isn't reachable right now. Tasks keep running; this window reconnects on its own.",
 
   "chat.offline.waiting":
-    "Can't reach the Gateway right now. Messages you send wait here and go out when it's back.",
+    "Can't reach Psyche right now. Messages you send wait here and go out when it's back.",
   "chat.outbox.list": "Messages waiting to send",
   "chat.outbox.waiting": "Waiting:",
   "chat.outbox.old": "(over a day old)",
@@ -314,7 +314,7 @@ export const chat = {
   "chat.steps.fixed.model": "Model call",
   "chat.steps.fixed.thinking": "Thinking",
   "chat.steps.fixed.thinkingDone": "Thought",
-  "chat.system.gatewayRestart": "The Gateway restarted during this turn, so it was stopped.",
+  "chat.system.gatewayRestart": "Psyche restarted during this turn, so it was stopped.",
   "chat.feed.runDone": "The run finished.",
   "chat.feed.runFailed": "The run did not finish.",
   "chat.steps.status.running": "running",

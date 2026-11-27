@@ -84,7 +84,7 @@ export const blocks = {
   "blocks.folder.pathLabel": "Folder path",
   "blocks.folder.mustPick": "Choose the folder to share before allowing.",
   "blocks.folder.scope":
-    "Just this chat lasts until the conversation ends. Always keeps the folder until you remove it in Settings → Permissions → Access.",
+    "Just this chat lasts until the conversation ends. Always keeps the folder until you remove it in Settings → Privacy & security → Access.",
   "blocks.folder.scope.once": "Just this chat",
   "blocks.folder.scope.always": "Always, this folder and below",
   "blocks.folder.scope.space": "Allow in this Space",

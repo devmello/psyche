@@ -31,7 +31,7 @@ export const settings = {
   "settings.page.memory": "Memory",
   "settings.page.daily": "Routines & skills",
   "settings.page.permissions": "Privacy & security",
-  "settings.page.devices": "Devices & server",
+  "settings.page.devices": "Devices",
 
   // Settings → Essentials (EssentialsSection.tsx, settings-2026 §7).
   "settings.essentials.fullAccessNote":
@@ -103,7 +103,7 @@ export const settings = {
   "settings.nav.voice": "Voice & dictation",
   "settings.nav.data": "Privacy & data",
   "settings.nav.people": "People and privacy",
-  "settings.nav.server": "Devices & server",
+  "settings.nav.server": "Devices",
   "settings.nav.usage": "Usage",
   "settings.nav.about": "About",
 
@@ -116,7 +116,7 @@ export const settings = {
   "settings.macHelper.paired.text":
     "Runs computer use, Messages, dictation, Keychain and notifications on this Mac.",
   "settings.macHelper.starting.chip": "Starting…",
-  "settings.macHelper.starting.text": "Psyche Helper is starting and connecting to the Gateway.",
+  "settings.macHelper.starting.text": "Psyche Helper is starting and connecting to Psyche.",
   "settings.macHelper.offline.chip": "Not connected",
   "settings.macHelper.offline.text": "Psyche works without it; it is started again on its own.",
   "settings.macHelper.unbundled.chip": "Not installed",
@@ -146,7 +146,7 @@ export const settings = {
   "settings.key.devices.helper.availability": "Psyche Helper connection",
   "settings.key.devices.hostHelperDeviceId": "Which Psyche Helper to use",
   "settings.key.computerUse.apps": "App access",
-  "settings.key.feed.sources": "Feed sources",
+  "settings.key.feed.sources": "Brief sources",
   "settings.key.computerUse.linuxRevoke": "Forget the Linux computer",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.model.engine": "Model for search",
@@ -175,7 +175,6 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
-  "settings.key.memory.recall.mode": "How memory is recalled",
   "settings.key.widgets.remoteImages": "Remote images in widgets",
   "settings.key.ui.map.tiles": "Map tiles",
   "settings.key.ui.map.styleUrl": "Map style URL",
@@ -243,7 +242,7 @@ export const settings = {
   "settings.key.permissions.liftedFloors": "Actions allowed without asking for {id}",
   "settings.key.models.roles": "Model for {role}",
   "settings.key.specialists.maxConcurrent": "Specialists at once",
-  "settings.key.specialists.showInFeed": "Show specialist results in Feed",
+  "settings.key.specialists.showInFeed": "Show specialist results on Home",
   "settings.key.specialists.enabled": "{role} on",
   "settings.key.specialists.model": "{role} model",
   "settings.key.unknown": "this setting",
@@ -716,7 +715,7 @@ export const settings = {
   "settings.uninstall.cancel": "Cancel",
   "settings.uninstall.go": "Uninstall and quit",
   "settings.uninstall.goDelete": "Delete data and uninstall",
-  "settings.about.doctorDescription": "Checks the Gateway, sandbox, permissions and vault.",
+  "settings.about.doctorDescription": "Checks Psyche, the sandbox, permissions and vault.",
   "settings.about.running": "Running",
   "settings.about.runChecks": "Run checks",
   "settings.about.openLogs": "Open logs",
@@ -842,8 +841,6 @@ export const settings = {
   "settings.browser.agent.ports.remove": "Remove port {port}",
   "settings.browser.agent.ports.label": "Port number",
   "settings.browser.agent.ports.add": "Add port",
-  "settings.browser.agent.fromEnv":
-    "Set by the {variable} environment variable. Unset it to change this here.",
   "settings.browser.agent.refuse.notUrl":
     "That is not a site address. Use a form like https://example.com.",
   "settings.browser.agent.refuse.wildcard":
@@ -1081,7 +1078,7 @@ export const settings = {
   "settings.obsidian.newVault": "New vault folder",
   "settings.obsidian.noVault": "No vault chosen",
   "settings.obsidian.vaultHint":
-    "Psyche reads the vault through a shared folder (Settings → Permissions → Access): share it, then use it.",
+    "Psyche reads the vault through a shared folder (Settings → Privacy & security → Access): share it, then use it.",
   "settings.obsidian.share": "Share this folder",
   "settings.obsidian.shared": "Shared",
   "settings.obsidian.useVault": "Use this vault",
@@ -1246,14 +1243,14 @@ export const settings = {
   "settings.sandbox.restart.reopen": "Quit Psyche and open it again.",
   "settings.sandbox.pc.title": "Turn on the sandbox PC",
   "settings.sandbox.pc.body":
-    "srt, Psyche's lightweight sandbox for commands, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Sandbox PC, then check again.",
+    "srt, Psyche's lightweight sandbox for commands, doesn't run on Windows. Here scripts, command servers and connectors Psyche makes run in the sandbox PC instead: a small Linux computer of its own, with no access to your files. Turn it on in Settings → Privacy & security → Computer use → VM mode, then check again.",
   "settings.sandbox.pc.notReady.title": "The sandbox PC isn't ready yet",
   "settings.sandbox.pc.notReady.body":
-    "It's turned on, but it isn't running yet, or the Psyche inside it is out of date. Start or update it in Settings → Sandbox PC, then check again.",
+    "It's turned on, but it isn't running yet, or the Psyche inside it is out of date. Start or update it in Settings → Privacy & security → Computer use → VM mode, then check again.",
   "settings.sandbox.pc.ready":
     "The sandbox PC is on: scripts, command servers and connectors Psyche makes run in it.",
   "settings.sandbox.pc.open": "Open Sandbox PC settings",
-  "settings.sandbox.pc.where": "It's in Settings → Sandbox PC.",
+  "settings.sandbox.pc.where": "It's in Settings → Privacy & security → Computer use → VM mode.",
   "settings.sandbox.without":
     "Without srt, Psyche can still use URL servers and your connectors, but it can't run local MCP command servers.",
   "settings.mcp.kind.url": "URL",
@@ -1614,13 +1611,6 @@ export const settings = {
   "settings.data.days": "{n, plural, one {# day} other {# days}}",
   "settings.data.reasoningRetentionHint":
     "How long each step's full thinking is kept. Off keeps a one-line summary.",
-  "settings.data.recallModeHint":
-    "Your Markdown memory files stay the source of truth. Embeddings let each turn find memories by meaning.",
-  "settings.data.recallMode.markdown": "Markdown only",
-  "settings.data.recallMode.markdownHint": "Read the files and match words. Nothing extra to run.",
-  "settings.data.recallMode.embeddings": "Markdown plus embeddings",
-  "settings.data.recallMode.embeddingsHint":
-    "Uses the same embedding choice as Search. The model loads when needed and is freed when idle.",
   "settings.data.recallState.off": "Markdown only.",
   "settings.data.encryptMemory": "Encrypt memory on disk",
   "settings.data.encryptMemoryHint":
@@ -1642,7 +1632,8 @@ export const settings = {
   "settings.data.replayRetentionHint":
     "The screens {persona} looked at while it worked, for the Timeline. Off keeps none.",
   "settings.data.export": "Export",
-  "settings.data.exportHint": "A zip of the workspace (SOUL.md, memory, notes) and every claim.",
+  "settings.data.exportHint":
+    "A zip of the workspace (your agent's personality, memory, notes) and every claim.",
   "settings.data.exportEverything": "Export everything",
   "settings.data.git.title": "Back up to git",
   "settings.data.git.description":
@@ -2003,10 +1994,8 @@ export const settings = {
   "settings.permissions.noConnectors": "No connectors yet, so there are no actions to set.",
   "settings.permissions.scopeMode": "({mode})",
   "settings.permissions.grantsRevoked": "Grants revoked",
-  "settings.permissions.hashOk": "tools/list hash ok",
   "settings.permissions.toolsChanged":
     "{name} changed its tool list since you approved it, so Psyche revoked its grants. Every action asks again until you review it.",
-  "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.sendsTitle": "Recipients you always allow",
   "settings.permissions.sendsHint":
     "Email sent to these recipients goes out without asking. Remove one to be asked again.",
@@ -2079,7 +2068,6 @@ export const settings = {
   "settings.server.remote.none": "Not set up",
   "settings.server.remote.tailscale": "Tailscale Serve",
   "settings.server.remote.proxy": "Reverse proxy",
-  "settings.server.title": "Devices & server",
   "settings.server.description": "Where the Gateway listens and how your other devices reach it.",
   "settings.server.loadLabel": "server status",
   "settings.server.remoteAccess": "Remote access",
@@ -2127,7 +2115,7 @@ export const settings = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "Paste the pairing link from the Mac that runs Psyche (Settings, Devices & server, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
+    "Paste the pairing link from the Mac that runs Psyche (Settings, Devices, Network & remote access, Pair another computer). Without a link, type its Tailscale address, https://<host>.<tailnet>.ts.net; this computer then asks to pair, and the owner approves it there.",
   "settings.gateways.newLink": "A new pairing link arrived. Use it?",
   "settings.gateways.useNewLink": "Use it",
   "settings.gateways.ignoreNewLink": "Ignore",
@@ -2533,12 +2521,12 @@ export const settings = {
   "settings.skills.version": " · v{version}",
   "settings.skills.reviewUpdate": "Review update",
   "settings.skills.removeDescription":
-    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
+    "Its files are deleted from this computer. Installing it again goes through the trust card.",
   "settings.skills.switchOn": "{name} on",
   "settings.plugins.title": "Plugins",
   "settings.plugins.description":
     "Code that adds context, checks tool calls or runs evaluations. Each plugin runs in its own process. Plugins never grant permissions.",
-  "settings.plugins.off": "Plugins are switched off on this Gateway, so none of them run.",
+  "settings.plugins.off": "Plugins are switched off, so none of them run.",
   "settings.plugins.loading": "Loading plugins…",
   "settings.plugins.error": "Plugins could not be loaded. {reason}",
   "settings.plugins.empty": "No plugins are installed.",
@@ -2571,7 +2559,7 @@ export const settings = {
   "settings.plugins.capability.evaluate": "evaluations",
   "settings.plugins.removeTitle": "Remove {name}?",
   "settings.plugins.removeDescription":
-    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
+    "Its files are deleted from this computer. Installing it again goes through the trust card.",
   "settings.skills.asksFor": "Asks for:",
   "settings.skills.toolsLabel": "Tools:",
   "settings.skills.title": "Skills",
@@ -2590,7 +2578,7 @@ export const settings = {
   "settings.skills.review": "Review",
   "settings.skills.installed": "Installed",
   "settings.skills.noInstalled": "No skills installed yet. Bundled skills are below.",
-  "settings.skills.noBundled": "No bundled skills on this Gateway.",
+  "settings.skills.noBundled": "No bundled skills.",
   "settings.skills.search.label": "Search skills",
   "settings.skills.search.placeholder": "Search by name or description",
   "settings.skills.search.loading": "Searching…",
@@ -2600,7 +2588,7 @@ export const settings = {
   "settings.skills.detail.workspace": "This workspace",
   "settings.skills.detail.home": "Your skills folder",
   "settings.skills.detail.path": "File",
-  "settings.skills.detail.text": "SKILL.md",
+  "settings.skills.detail.text": "Instructions",
   "settings.skills.detail.noText": "This skill's file can't be read.",
   "settings.skills.detail.loading": "Loading the skill…",
   "settings.skills.detail.failed": "Psyche couldn't open this skill ({reason}).",
@@ -2684,7 +2672,7 @@ export const settings = {
     "{n, plural, =0 {Every installed skill is up to date.} one {# update available.} other {# updates available.}}",
 
   // Settings → Usage (UsageSection.tsx).
-  "settings.usage.unavailable": "Usage isn't available from this Gateway yet.",
+  "settings.usage.unavailable": "Usage isn't available yet.",
   "settings.usage.thisMonth": "This month",
   "settings.usage.monthLine":
     "{cost} and {tokens} tokens over {turns, plural, one {# turn} other {# turns}}. Today so far: {today}.",
@@ -2894,7 +2882,7 @@ export const settings = {
   "settings.connect.path.privacy":
     "System Settings → Privacy & Security → {pane} → Psyche (Helper)",
   "settings.connect.path.shortcuts": "the Shortcuts app",
-  "settings.connect.path.files": "Settings → File access in Psyche",
+  "settings.connect.path.files": "Settings → Privacy & security → Access in Psyche",
   "settings.connect.checkAgain": "Check again",
   "settings.connectors.status.needsPermission": "Needs permission",
   "settings.connectors.catalog.connected": "{name} (connected)",
@@ -2945,7 +2933,7 @@ export const settings = {
     "Your own card: each fact {persona} learned about you, with its source.",
   "settings.people.openOwnCard": "Open your card",
   "settings.people.ownCardHint": "Facts about you from your profile, chats and connected apps.",
-  "settings.people.editUserMd": "Edit USER.md",
+  "settings.people.editUserMd": "Edit your profile",
   "settings.people.blocked": "Blocked from People",
   "settings.people.blockedHint":
     "Never learned about again. A blocked domain covers every address at it.",
@@ -2999,7 +2987,7 @@ export const settings = {
   "settings.specialists.concurrent": "Specialists at once",
   "settings.specialists.concurrentHint": "More run side by side; the rest wait in line.",
   "settings.specialists.monthlyCapNone": "No cap",
-  "settings.specialists.showInFeed": "Show results in Feed",
+  "settings.specialists.showInFeed": "Show results on Home",
   "settings.specialists.showInFeedHint": "Your Inbox gets every result either way.",
   "settings.specialists.roles": "Roles",
   "settings.specialists.rolesHint":
