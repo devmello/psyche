@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { getWidgets, listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
+import { getWidgets, listAllMessages, listMessagesPage, listQueue, updateThread } from "@psyche/db";
 import {
   type Block,
   type ChatAttachedFile,
@@ -80,6 +80,12 @@ function send(
     params.redo === undefined
   ) {
     throw new PsycheError("invalid_params", "the message is empty");
+  }
+  // The owner writing into an archived chat brings it back into the list (as Messages does).
+  if (thread.archivedAt) {
+    const restored = updateThread(call.ctx.db, thread.id, { archivedAt: null }) as Thread;
+    call.ctx.bus.bumpStateVersion();
+    call.emit("thread.updated", { thread: restored }, restored.id);
   }
   // Checked and described by `prepareAttachedFiles`, and the skills it names read, before the
   // transaction opened.

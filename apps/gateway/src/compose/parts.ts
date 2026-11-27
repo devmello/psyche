@@ -115,6 +115,9 @@ export function partsFromEnv(
   /** Test seam: runner options for the sandbox part (a fake CLI driver and detection). */
   overrides: { sandboxRunner?: SandboxSetup["runner"] } = {},
 ): PartFactory[] {
+  // Checked here, before any part is composed or the server binds: a bad bridge socket path fails
+  // the start with the variable named, not after "gateway listening" (QA 2026-11-25).
+  bridgeSocketSetup(env);
   const parts: PartFactory[] = [];
   let browser: ComposedBrowser | undefined;
   let sandbox: ComposedSandbox | undefined;
