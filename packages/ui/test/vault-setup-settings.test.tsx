@@ -1,10 +1,11 @@
 import type { VaultStatus } from "@psyche/protocol";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW } from "../src/fixtures/index.ts";
 import { CredentialsSection } from "../src/screens/settings/CredentialsSection.tsx";
+import type { UiSlots } from "../src/slots.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** Settings → Credentials: set the vault up, and confirm the recovery key later. */
@@ -18,10 +19,11 @@ const base: VaultStatus = {
   itemCount: 0,
 };
 
-function setup(status: VaultStatus): () => MockGateway {
+function setup(status: VaultStatus, slots: UiSlots = {}): () => MockGateway {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld
+      slots={slots}
       edit={(w) => {
         w.vault = {
           status,
@@ -129,5 +131,70 @@ describe("Settings → Credentials: confirm your recovery key", () => {
     await waitFor(() => expect(screen.queryByTestId("vault-confirm-recovery")).toBeNull());
     expect(callsOf(gw(), "vault.unlock")).toHaveLength(1);
     expect(gw().calls.map((c) => c.method)).not.toContain("presence.confirm");
+  });
+});
+
+describe("Settings → Credentials: the recovery key stays viewable", () => {
+  const confirmed: VaultStatus = {
+    ...base,
+    state: "unlocked",
+    slots: ["key_file", "recovery"],
+    recoveryConfirmed: true,
+    recoveryKeyStored: true,
+  };
+
+  it("shows the key on a plain tap, with no Touch ID, password or presence call", async () => {
+    const gw = setup(confirmed);
+    const user = userEvent.setup();
+    const panel = await screen.findByTestId("vault-view-recovery");
+    // Not on the page until asked for.
+    expect(screen.queryByTestId("vault-recovery-key")).toBeNull();
+    expect(panel.textContent).not.toContain("AAAA-BBBB");
+    await user.click(within(panel).getByRole("button", { name: "Show recovery key" }));
+    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
+      "AAAA-BBBB-CCCC-DDDD",
+    );
+    expect(callsOf(gw(), "vault.recoveryKey")).toHaveLength(1);
+    expect(gw().calls.map((c) => c.method)).not.toContain("presence.confirm");
+    // Hiding takes the key off the page again.
+    await user.click(screen.getByRole("button", { name: "Hide" }));
+    expect(screen.queryByTestId("vault-recovery-key")).toBeNull();
+    expect(document.body.textContent).not.toContain("AAAA-BBBB-CCCC-DDDD");
+  });
+
+  it("unlocks a locked vault first, the way the confirm form does, and still asks for no presence", async () => {
+    const gw = setup({ ...confirmed, state: "locked" });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show recovery key" }));
+    await screen.findByTestId("vault-recovery-key");
+    expect(callsOf(gw(), "vault.unlock")).toHaveLength(1);
+    expect(gw().calls.map((c) => c.method)).not.toContain("presence.confirm");
+  });
+
+  it("offers nothing to show when the Gateway no longer holds the key (an older vault)", async () => {
+    setup({ ...confirmed, recoveryKeyStored: false });
+    await screen.findByTestId("vault-protection");
+    expect(screen.queryByRole("button", { name: "Show recovery key" })).toBeNull();
+    expect(screen.queryByTestId("vault-view-recovery")).toBeNull();
+  });
+
+  it("an unconfirmed vault shows the key next to the confirm form", async () => {
+    setup({ ...confirmed, recoveryConfirmed: false });
+    const user = userEvent.setup();
+    const panel = await screen.findByTestId("vault-confirm-recovery");
+    await user.click(within(panel).getByRole("button", { name: "Show recovery key" }));
+    await screen.findByTestId("vault-recovery-key");
+    expect(screen.getByLabelText("Last group")).toBeTruthy();
+  });
+
+  it("copies the key through the host's clipboard and says so (#507)", async () => {
+    const writeClipboard = vi.fn(async (_text: string) => {});
+    setup(confirmed, { writeClipboard });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show recovery key" }));
+    const box = await screen.findByTestId("vault-recovery-key");
+    await user.click(within(box).getByRole("button", { name: "Copy" }));
+    expect(writeClipboard).toHaveBeenCalledWith("AAAA-BBBB-CCCC-DDDD");
+    expect(await within(box).findByRole("button", { name: "Copied" })).toBeTruthy();
   });
 });

@@ -40,8 +40,10 @@ import {
 } from "@psyche/vault";
 import type { BitwardenConfig, OnePasswordConfig } from "../config.ts";
 import type { Call, HandlerDef } from "../context.ts";
+import { isLocalAdminCli } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 import type { NodeRegistry } from "../nodes/registry.ts";
+import { isDesktopViewer } from "./fork-hidden.ts";
 
 /**
  * The vault (S06 `@psyche/vault`) in the running Gateway: one `Vault` per `$PSYCHE_HOME`, its
@@ -371,8 +373,13 @@ export function maskingLogger(log: Logger, redactor: SecretRedactor): Logger {
  * vault's own (`PsycheError`) or is `internal` is replaced by a fixed message: the dispatcher
  * logs `internal` messages, and a raw error could quote its input.
  */
-export function vaultHandlers(vault: Vault): Record<string, HandlerDef> {
+export function vaultHandlers(vault: Vault, db?: PsycheDb): Record<string, HandlerDef> {
   const out: Record<string, HandlerDef> = {};
+  // The recovery key is read only on the Host itself: the desktop on this Mac or the local admin
+  // CLI. A remote admin device, a paired phone or the web never gets it (no presence step).
+  const onHost = (call: Call): boolean =>
+    isDesktopViewer(call) ||
+    (db !== undefined && isLocalAdminCli(db, call.identity, call.conn.peer));
   for (const [name, fn] of Object.entries(createVaultHandlers(vault))) {
     const run = fn as (params: unknown) => Promise<unknown>;
     if (!SECRET_PARAM_METHODS.has(name)) {
@@ -390,6 +397,23 @@ export function vaultHandlers(vault: Vault): Record<string, HandlerDef> {
       },
     };
   }
+  out["vault.recoveryKey"] = {
+    async run(call: Call) {
+      if (!onHost(call)) {
+        throw new PsycheError("forbidden", "The recovery key can be shown only on the Host itself");
+      }
+      return { recoveryKey: (await vault.recoveryKey(call.identity.deviceId)) ?? null };
+    },
+  };
+  // Callers that cannot read the key are told it is not there, so they do not offer it.
+  const status = out["vault.status"] as { run: (call: Call, params: never) => Promise<unknown> };
+  const statusRun = status.run;
+  out["vault.status"] = {
+    async run(call: Call, params: never) {
+      const res = (await statusRun(call, params)) as { status: Record<string, unknown> };
+      return onHost(call) ? res : { ...res, status: { ...res.status, recoveryKeyStored: false } };
+    },
+  };
   return out;
 }
 
@@ -499,7 +523,7 @@ export function composeVault(
     slot: choice,
     wrapper,
     helper,
-    handlers: vaultHandlers(vault),
+    handlers: vaultHandlers(vault, deps.db),
     attach(registry) {
       nodes = registry;
     },

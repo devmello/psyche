@@ -4298,8 +4298,17 @@ export class MockGateway implements GatewayClient {
         state: "unlocked",
         slots: ["key_file", "recovery"],
         recoveryConfirmed: false,
+        recoveryKeyStored: true,
       };
       return { status: vault.status, recoveryKey: vault.recoveryKey };
+    },
+    "vault.recoveryKey": () => {
+      const vault = this.vaultOf();
+      if (vault.status.state === "uninitialized") fail("not_found", "no vault");
+      if (vault.status.state === "locked") fail("unauthorized", "the vault is locked");
+      return {
+        recoveryKey: vault.status.recoveryKeyStored === true ? (vault.recoveryKey ?? null) : null,
+      };
     },
     "vault.confirmRecovery": (p) => {
       const vault = this.vaultOf();

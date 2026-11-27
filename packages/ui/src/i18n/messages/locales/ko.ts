@@ -70,6 +70,7 @@ import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { simplifyB1 } from "./simplify-b1/ko.ts";
 import { simplifyB2 } from "./simplify-b2/ko.ts";
+import { simplifyB3 } from "./simplify-b3/ko.ts";
 import { simplifyB4 } from "./simplify-b4/ko.ts";
 import { simplifyB6 } from "./simplify-b6/ko.ts";
 import { simplifyB7 } from "./simplify-b7/ko.ts";
@@ -3902,6 +3903,7 @@ export const ko: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB3,
   ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,

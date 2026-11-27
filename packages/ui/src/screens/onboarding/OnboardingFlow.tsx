@@ -233,17 +233,14 @@ export function OnboardingFlow({
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
   const [keyError, setKeyError] = useState<string | null>(null);
   const [keyRefused, setKeyRefused] = useState(false);
-  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
-  const [recoverySaved, setRecoverySaved] = useState(false);
-  // A vault created in this step shows its recovery key once: the owner must confirm saving it
-  // before leaving the step.
-  const recoveryPending = recoveryKey !== null && !recoverySaved;
+  // Search covers the accounts connected here unless the owner turns it off (S8). The host
+  // switches the matching sources on when setup completes.
+  const [searchable, setSearchable] = useState(true);
   const [checks, setChecks] = useState<SetupCheck[] | "checking" | null>(null);
 
   const name = persona.name.trim() === "" ? DEFAULT_NAME : persona.name.trim();
 
   const go = (next: OnboardingStepId) => {
-    if (recoveryPending) return;
     setOwn(next);
     setReached((r) => Math.max(r, steps.indexOf(next)));
     onStepChange?.(next);
@@ -274,6 +271,7 @@ export function OnboardingFlow({
     },
     permissions,
     connectors,
+    ...(connectors.length > 0 && !rerun ? { searchable } : {}),
     model,
     ...(steps.includes("model") ? {} : { modelKept: true }),
     ...(mailConnected ? { mail } : {}),
@@ -402,7 +400,6 @@ export function OnboardingFlow({
         try {
           const saved = await onSaveKey(model.provider, key);
           const keyRef = typeof saved === "string" ? saved : saved.keyRef;
-          if (typeof saved !== "string" && saved.recoveryKey) setRecoveryKey(saved.recoveryKey);
           if (typeof saved !== "string" && saved.refused !== undefined) {
             // Keep the field open: another paste replaces the refused key.
             setKeyError(t("onboarding.keyRefused", { reason: saved.refused }));
@@ -411,10 +408,6 @@ export function OnboardingFlow({
           }
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
-          // A vault this paste created has a recovery key that is shown once, even when the key
-          // itself was rejected: hold it until the owner confirms it is saved.
-          const rk = (err as { recoveryKey?: unknown } | null)?.recoveryKey;
-          if (typeof rk === "string" && rk !== "") setRecoveryKey((cur) => cur ?? rk);
           setKeyError(t("onboarding.keyFailed", { reason: describeError(err) }));
         }
       }
@@ -607,6 +600,7 @@ export function OnboardingFlow({
               }
               error={connectError}
               onConnect={(type, mode) => void connect(type, mode)}
+              {...(rerun ? {} : { searchable, onSearchableChange: setSearchable })}
               {...(builtInConnect ? { implemented, onResume: resumeConnector } : {})}
               {...(builtInConnect
                 ? {
@@ -676,13 +670,6 @@ export function OnboardingFlow({
             onChange={setModel}
             keyError={keyError}
             keyRefused={keyRefused}
-            {...(recoveryKey
-              ? {
-                  recoveryKey,
-                  recoverySaved,
-                  onRecoveryConfirmed: () => setRecoverySaved(true),
-                }
-              : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}
             {...(check ? { onCheck: () => void check() } : {})}
@@ -694,7 +681,6 @@ export function OnboardingFlow({
             helperConnected={helper?.kind === "paired"}
             {...(checks === null ? {} : { checks })}
             onFix={(fix) => go(fix)}
-            onTry={(target) => void openChat(undefined, target)}
           />
         ) : null}
       </section>
@@ -772,7 +758,7 @@ export function OnboardingFlow({
               >
                 {sharing && !sharing.busy
                   ? t("onboarding.folders.retry")
-                  : t("onboarding.openChat")}
+                  : t("onboarding.done.start")}
               </Button>
             )}
           </>
@@ -781,7 +767,6 @@ export function OnboardingFlow({
             type="button"
             size="lg"
             className="rounded-md"
-            disabled={recoveryPending}
             onClick={() => {
               const next = steps[index + 1];
               if (current === "memory") setMemorySkipped(false);

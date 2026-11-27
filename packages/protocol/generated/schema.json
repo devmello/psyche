@@ -4475,6 +4475,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Returns the vault's recovery key so the owner can save it. Needs the vault unlocked; the key is stored only sealed under the vault key. Admin only; each read is audited.",
+        "name": "vault.recoveryKey",
+        "params": "#/$defs/VaultRecoveryKeyParams",
+        "result": "#/$defs/VaultRecoveryKeyResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Sets the idle auto-lock (null = never), persisted with the vault. Admin only. Side-effecting.",
         "name": "vault.setAutoLock",
         "params": "#/$defs/VaultSetAutoLockParams",
@@ -56717,6 +56725,28 @@
       ],
       "type": "object"
     },
+    "VaultRecoveryKeyParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultRecoveryKeyResult": {
+      "properties": {
+        "recoveryKey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "recoveryKey"
+      ],
+      "type": "object"
+    },
     "VaultSetAutoLockParams": {
       "properties": {
         "minutes": {
@@ -56796,6 +56826,9 @@
           "type": "array"
         },
         "recoveryConfirmed": {
+          "type": "boolean"
+        },
+        "recoveryKeyStored": {
           "type": "boolean"
         },
         "autoLockMinutes": {

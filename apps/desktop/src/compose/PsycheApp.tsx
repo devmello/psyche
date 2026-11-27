@@ -87,6 +87,7 @@ import { LazyCanvas, LazyFilesPane, renderLazyMarkdownEditor } from "./lazy-view
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits, saveMemory, saveNightShift, saveProgress } from "./onboarding-host.ts";
+import { enableSearchSources } from "./onboarding-search.ts";
 import { useRemotePresence } from "./remote-presence.tsx";
 import {
   ClaimLanChoice,
@@ -470,6 +471,15 @@ export async function completeOnboarding(
       }
     }
   }
+  // "Make these searchable" (on unless the owner turned it off): the sources for what was
+  // connected. A re-run only adds; it never switches a source the owner turned off back on.
+  if (result.searchable !== false && !options.rerun) {
+    await enableSearchSources(
+      call,
+      result.connectors.filter((c) => (c.status ?? "connected") === "connected").map((c) => c.type),
+      now,
+    );
+  }
   await call(
     "settings.set",
     { key: ONBOARDED_KEY, value: now().toISOString() },
@@ -829,7 +839,6 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               {error}
             </p>
           ) : null}
-          <ServerSetupEntry platform={platform} />
           <ClaimLanChoice keepLan={claimLan.keepLan} onChange={claimLan.setKeepLan} />
           <FirstRun
             platform={platform}
@@ -866,6 +875,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               );
             }}
           />
+          {/* Below the flow, not above step 1: most owners never need it (S22). */}
+          <ServerSetupEntry platform={platform} />
         </main>
       </div>
     );

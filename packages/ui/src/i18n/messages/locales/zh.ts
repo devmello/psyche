@@ -68,6 +68,7 @@ import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
 import { simplifyB1 } from "./simplify-b1/zh.ts";
 import { simplifyB2 } from "./simplify-b2/zh.ts";
+import { simplifyB3 } from "./simplify-b3/zh.ts";
 import { simplifyB4 } from "./simplify-b4/zh.ts";
 import { simplifyB6 } from "./simplify-b6/zh.ts";
 import { simplifyB7 } from "./simplify-b7/zh.ts";
@@ -3837,6 +3838,7 @@ export const zh: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB3,
   ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,

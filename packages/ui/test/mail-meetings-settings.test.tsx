@@ -250,7 +250,7 @@ describe("the onboarding mail step", () => {
     await user.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
     // What to help with is the last step before Done.
     await user.click(await screen.findByRole("button", { name: /Next/ }));
-    await user.click(await screen.findByRole("button", { name: /Open chat|Open/ }));
+    await user.click(await screen.findByRole("button", { name: /Start chatting/ }));
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({ mail: { ...MAIL_DEFAULTS, followups: false } }),
     );

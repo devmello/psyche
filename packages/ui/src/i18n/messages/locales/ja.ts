@@ -70,6 +70,7 @@ import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { simplifyB1 } from "./simplify-b1/ja.ts";
 import { simplifyB2 } from "./simplify-b2/ja.ts";
+import { simplifyB3 } from "./simplify-b3/ja.ts";
 import { simplifyB4 } from "./simplify-b4/ja.ts";
 import { simplifyB6 } from "./simplify-b6/ja.ts";
 import { simplifyB7 } from "./simplify-b7/ja.ts";
@@ -3931,6 +3932,7 @@ export const ja: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB3,
   ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,

@@ -32,6 +32,7 @@ import { useIdeaActions } from "../screens/ideas/use-idea-actions.ts";
 import { NeedsYouList } from "../screens/inbox/InboxScreen.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { PastDueAsks } from "./PastDueAsks.tsx";
+import { SaveRecoveryKeyCard } from "./SaveRecoveryKeyCard.tsx";
 import {
   SpaceMigrationCard,
   SpaceProposalCard,
@@ -92,10 +93,13 @@ export function NeedsYouSection({
   now?: number;
 }): ReactElement | null {
   const now = useNow(30_000, fixedNow);
-  const { asks, busy, act, count } = useNeedsYou(now);
+  const { asks, busy, act, count, recoveryKey } = useNeedsYou(now);
   if (count === 0) return null;
   return (
     <ScreenSection id="needs-you" title={t("home.needsYou")} meta={count} large>
+      {recoveryKey.pending ? (
+        <SaveRecoveryKeyCard unlocked={recoveryKey.unlocked} onConfirmed={recoveryKey.reload} />
+      ) : null}
       <PastDueAsks items={asks} busy={busy} onAct={act} onOpen={onNavigate} />
       <NeedsYouList {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </ScreenSection>

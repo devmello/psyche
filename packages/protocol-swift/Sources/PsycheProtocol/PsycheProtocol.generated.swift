@@ -1870,6 +1870,8 @@
 //   let vaultPaymentsListResult = try? JSONDecoder().decode(VaultPaymentsListResult.self, from: jsonData)
 //   let vaultPaymentsMethodsParams = try? JSONDecoder().decode(VaultPaymentsMethodsParams.self, from: jsonData)
 //   let vaultPaymentsMethodsResult = try? JSONDecoder().decode(VaultPaymentsMethodsResult.self, from: jsonData)
+//   let vaultRecoveryKeyParams = try? JSONDecoder().decode(VaultRecoveryKeyParams.self, from: jsonData)
+//   let vaultRecoveryKeyResult = try? JSONDecoder().decode(VaultRecoveryKeyResult.self, from: jsonData)
 //   let vaultSetAutoLockParams = try? JSONDecoder().decode(VaultSetAutoLockParams.self, from: jsonData)
 //   let vaultSetAutoLockResult = try? JSONDecoder().decode(VaultSetAutoLockResult.self, from: jsonData)
 //   let vaultSetupParams = try? JSONDecoder().decode(VaultSetupParams.self, from: jsonData)
@@ -41937,6 +41939,7 @@ public struct VaultStatus: Codable, Sendable {
     public let itemCount: Int
     public let lockAt: String?
     public let recoveryConfirmed: Bool
+    public let recoveryKeyStored: Bool?
     public let slots: [VaultKeySlot]
     public let state: VaultStatusState
 
@@ -41945,15 +41948,17 @@ public struct VaultStatus: Codable, Sendable {
         case itemCount = "itemCount"
         case lockAt = "lockAt"
         case recoveryConfirmed = "recoveryConfirmed"
+        case recoveryKeyStored = "recoveryKeyStored"
         case slots = "slots"
         case state = "state"
     }
 
-    public init(autoLockMinutes: Int? = nil, itemCount: Int, lockAt: String? = nil, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
+    public init(autoLockMinutes: Int? = nil, itemCount: Int, lockAt: String? = nil, recoveryConfirmed: Bool, recoveryKeyStored: Bool? = nil, slots: [VaultKeySlot], state: VaultStatusState) {
         self.autoLockMinutes = autoLockMinutes
         self.itemCount = itemCount
         self.lockAt = lockAt
         self.recoveryConfirmed = recoveryConfirmed
+        self.recoveryKeyStored = recoveryKeyStored
         self.slots = slots
         self.state = state
     }
@@ -42426,6 +42431,19 @@ public struct LinkPaymentMethod: Codable, Sendable {
         self.isDefault = isDefault
         self.last4 = last4
         self.nickname = nickname
+    }
+}
+
+// MARK: - VaultRecoveryKeyResult
+public struct VaultRecoveryKeyResult: Codable, Sendable {
+    public let recoveryKey: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case recoveryKey = "recoveryKey"
+    }
+
+    public init(recoveryKey: String? = nil) {
+        self.recoveryKey = recoveryKey
     }
 }
 
@@ -44752,6 +44770,7 @@ public typealias VaultOnePasswordConnectParams = [String: JSONAny]
 public typealias VaultOnePasswordDisconnectParams = [String: JSONAny]
 public typealias VaultOnePasswordTestParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
+public typealias VaultRecoveryKeyParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
 public typealias VMSnapshotsListParams = [String: JSONAny]

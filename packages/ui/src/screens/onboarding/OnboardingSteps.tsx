@@ -6,9 +6,7 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { t } from "../../i18n/core.ts";
-import { useCopy } from "../../lib/clipboard.ts";
 import { isWindows } from "../../lib/platform.ts";
-import { ConfirmRecoveryForm } from "../settings/ConfirmRecoveryForm.tsx";
 import {
   ConnectAccessChoice,
   needsSetup,
@@ -17,7 +15,7 @@ import {
   type ScopeMode,
 } from "../settings/ConnectorsSection.tsx";
 import { RamGuidance } from "../settings/ModelSection.tsx";
-import { ErrorNotice, RadioField, StatusChip } from "../settings/shared.tsx";
+import { ErrorNotice, RadioField, StatusChip, SwitchField } from "../settings/shared.tsx";
 import type { ProviderKind, ToolCheck } from "../settings/types.ts";
 import type { ConnectedAccount, ModelChoice } from "./types.ts";
 
@@ -64,6 +62,8 @@ export function ConnectorsStep({
   progress,
   implemented,
   onResume,
+  searchable,
+  onSearchableChange,
 }: {
   persona: string;
   /** Every account the Gateway has, with its status (#620), not only the connected ones. */
@@ -77,6 +77,9 @@ export function ConnectorsStep({
   implemented?: ReadonlySet<string> | undefined;
   /** Continues an account that is not connected yet: its permission, sign-in or error (#620). */
   onResume?: (account: ConnectedAccount) => void;
+  /** "Make these searchable": Search covers the connected accounts (on unless turned off). */
+  searchable?: boolean;
+  onSearchableChange?: (on: boolean) => void;
 }): ReactElement {
   const id = useId();
   // Only real connectors here: MCP servers are added later in Settings (#529).
@@ -171,6 +174,15 @@ export function ConnectorsStep({
           </p>
         )}
       </section>
+      {onSearchableChange !== undefined &&
+      connected.some((c) => (c.status ?? "connected") === "connected") ? (
+        <SwitchField
+          label={t("onboarding.connectors.searchable")}
+          description={t("onboarding.connectors.searchableHint", { name: persona })}
+          checked={searchable ?? true}
+          onChange={onSearchableChange}
+        />
+      ) : null}
       {error ? (
         <ErrorNotice what={error} did={t("onboarding.connectors.nothingConnected")} />
       ) : null}
@@ -598,43 +610,6 @@ export function defaultModelChoice(kind: ProviderKind): ModelChoice {
   };
 }
 
-/**
- * The vault's recovery key, shown once, with Copy. It stays on screen until the owner confirms it
- * by typing its last group back (`ConfirmRecoveryForm`, in both onboarding and Settings).
- */
-export function RecoveryKeyCard({ recoveryKey }: { recoveryKey: string }): ReactElement {
-  const clip = useCopy();
-  return (
-    <div
-      className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
-      data-testid="vault-recovery-key"
-    >
-      <p className="text-headline text-label-primary">{t("onboarding.model.recoveryTitle")}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          onClick={() => void clip.copy(recoveryKey)}
-        >
-          {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
-          {clip.state === "copied" ? t("onboarding.model.copied") : t("onboarding.model.copy")}
-        </Button>
-        <span role="status" className="sr-only">
-          {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
-        </span>
-        {clip.state === "failed" ? (
-          <span className="text-callout text-danger-text" role="alert">
-            {t("onboarding.model.copyFailed")}
-          </span>
-        ) : null}
-      </div>
-      <p className="text-callout text-label-secondary">{t("onboarding.model.recoveryBody")}</p>
-    </div>
-  );
-}
-
 export function ModelStep({
   value,
   onChange,
@@ -643,9 +618,6 @@ export function ModelStep({
   onCheck,
   keyError = null,
   keyRefused = false,
-  recoveryKey,
-  recoverySaved = false,
-  onRecoveryConfirmed,
 }: {
   value: ModelChoice;
   onChange: (next: ModelChoice) => void;
@@ -656,11 +628,6 @@ export function ModelStep({
   keyError?: string | null;
   /** The key was stored but the provider refused it (the error already says what to do). */
   keyRefused?: boolean;
-  /** The vault's recovery key, when saving the key just created the vault. Shown until confirmed. */
-  recoveryKey?: string;
-  /** The owner typed the key's last group back and the Gateway confirmed it. */
-  recoverySaved?: boolean;
-  onRecoveryConfirmed?: () => void;
 }): ReactElement {
   const id = useId();
   const [key, setKey] = useState("");
@@ -843,12 +810,6 @@ export function ModelStep({
               what={keyError}
               did={keyRefused ? "" : t("onboarding.model.keyNotStored")}
             />
-          ) : null}
-          {recoveryKey && !recoverySaved ? (
-            <div className="flex flex-col gap-2">
-              <RecoveryKeyCard recoveryKey={recoveryKey} />
-              <ConfirmRecoveryForm expectUnlocked onConfirmed={() => onRecoveryConfirmed?.()} />
-            </div>
           ) : null}
         </div>
       ) : null}

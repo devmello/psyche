@@ -47,6 +47,54 @@ describe("vault create / unlock / lock (G1)", () => {
     await expect(h.vault.setup()).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("keeps the recovery key only sealed under the vault key, and reads it back while unlocked", async () => {
+    h = makeHarness();
+    const { recoveryKey, status } = await h.vault.setup();
+    expect(status.recoveryKeyStored).toBe(true);
+    // Never plaintext on disk (slots.json, recovery.slot, the database), in whole or by group.
+    for (const f of ["vault.db", "slots.json", "recovery.slot"]) {
+      const raw = readFileSync(join(h.home, "vault", f)).toString("latin1");
+      expect(raw, f).not.toContain(recoveryKey);
+      expect(raw, f).not.toContain(recoveryKey.split("-").slice(0, 3).join("-"));
+    }
+    expect(await h.vault.recoveryKey()).toBe(recoveryKey);
+    // Still readable after the owner confirms it (it stays viewable in Settings).
+    await h.vault.confirmRecovery(recoveryKey.split("-").at(-1) ?? "");
+    expect(await h.vault.recoveryKey()).toBe(recoveryKey);
+    expect(h.vault.status().recoveryKeyStored).toBe(true);
+  });
+
+  it("audits each view with the viewer's device id and never the key", async () => {
+    h = makeHarness();
+    const { recoveryKey } = await h.vault.setup();
+    await h.vault.recoveryKey("dev-mac-1");
+    const entries = await h.audit.list({ limit: 50 } as never);
+    const viewed = (entries as { kind: string; data: unknown }[]).filter(
+      (e) => e.kind === "vault.recoveryKey.viewed",
+    );
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]?.data).toEqual({ deviceId: "dev-mac-1" });
+    expect(JSON.stringify(entries)).not.toContain(recoveryKey);
+  });
+
+  it("refuses to show the recovery key while the vault is locked", async () => {
+    h = makeHarness();
+    await h.vault.setup();
+    h.vault.lock("manual");
+    await expect(h.vault.recoveryKey()).rejects.toMatchObject({ code: expect.any(String) });
+  });
+
+  it("has no recovery key to show for a vault made before it was kept", async () => {
+    h = makeHarness();
+    await h.vault.setup();
+    const slotsPath = join(h.home, "vault", "slots.json");
+    const slots = JSON.parse(readFileSync(slotsPath, "utf8"));
+    delete slots.recoveryKeySealed;
+    writeFileSync(slotsPath, JSON.stringify(slots));
+    expect(h.vault.status().recoveryKeyStored).toBe(false);
+    expect(await h.vault.recoveryKey()).toBeUndefined();
+  });
+
   it("stores the key item with biometry-OR-passcode access control", async () => {
     h = makeHarness();
     await h.vault.setup();

@@ -62,6 +62,7 @@ import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
 import { simplifyB1 } from "./simplify-b1/fr.ts";
 import { simplifyB2 } from "./simplify-b2/fr.ts";
+import { simplifyB3 } from "./simplify-b3/fr.ts";
 import { simplifyB4 } from "./simplify-b4/fr.ts";
 import { simplifyB6 } from "./simplify-b6/fr.ts";
 import { simplifyB7 } from "./simplify-b7/fr.ts";
@@ -3983,6 +3984,7 @@ export const fr: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB3,
   ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,

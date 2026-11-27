@@ -72,6 +72,9 @@ export const REPLAY_KEEPS: Record<string, (result: unknown) => unknown> = {
   "skills.drafts.update": (result) => keepIdentity(result, false),
   "skills.drafts.accept": (result) => keepIdentity(result, false),
   "skills.drafts.dismiss": (result) => keepIdentity(result, false),
+  // The recovery key is returned once and read later through `vault.recoveryKey` (sealed under the
+  // vault key); a replay inside the retry window must never hold it in the database.
+  "vault.setup": (result) => ({ ...(result as object), recoveryKey: "" }),
 };
 
 /** The result of a draft method without the text, the steps and the proposal's files and diff. */
