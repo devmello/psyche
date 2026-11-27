@@ -598,14 +598,17 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
    * copied vault directory still gives nothing. `undefined` for a vault made before the key was
    * kept. Each read is audited (never the value).
    */
-  async recoveryKey(): Promise<string | undefined> {
+  async recoveryKey(viewerDeviceId?: string): Promise<string | undefined> {
     const slots = this.#readSlots();
     if (slots === undefined) return fail("not_found", "no vault");
     const u = this.#requireUnlocked();
     this.#touch();
     if (slots.recoveryKeySealed === undefined) return undefined;
     const key = open(u.dek, slots.recoveryKeySealed, RECOVERY_KEY_AAD).toString();
-    await this.#audit("vault.recoveryKey.viewed", {});
+    await this.#audit(
+      "vault.recoveryKey.viewed",
+      viewerDeviceId === undefined ? {} : { deviceId: viewerDeviceId },
+    );
     return key;
   }
 

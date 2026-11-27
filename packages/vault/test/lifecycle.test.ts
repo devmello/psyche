@@ -64,6 +64,19 @@ describe("vault create / unlock / lock (G1)", () => {
     expect(h.vault.status().recoveryKeyStored).toBe(true);
   });
 
+  it("audits each view with the viewer's device id and never the key", async () => {
+    h = makeHarness();
+    const { recoveryKey } = await h.vault.setup();
+    await h.vault.recoveryKey("dev-mac-1");
+    const entries = await h.audit.list({ limit: 50 } as never);
+    const viewed = (entries as { kind: string; data: unknown }[]).filter(
+      (e) => e.kind === "vault.recoveryKey.viewed",
+    );
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]?.data).toEqual({ deviceId: "dev-mac-1" });
+    expect(JSON.stringify(entries)).not.toContain(recoveryKey);
+  });
+
   it("refuses to show the recovery key while the vault is locked", async () => {
     h = makeHarness();
     await h.vault.setup();

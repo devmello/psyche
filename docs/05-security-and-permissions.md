@@ -435,7 +435,7 @@ Design: `docs/design/promise-ledger-2026.md` §7.2. A promise is the owner's own
 | --- | --- | --- |
 | Keychain (macOS, default) | data-protection keychain item created by the mac helper (`kSecUseDataProtectionKeychain`, `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`, non-synchronizable) | `SecAccessControlCreateWithFlags(... [.biometryCurrentSet, .or, .devicePasscode])`; reading prompts Touch ID / password. Needs a Developer ID-signed helper with a team-prefixed keychain access group, else `errSecMissingEntitlement`; constraint flags combined without `.or` return `errSecParam` (macos notes, KQ7) |
 | `safeStorage` (Linux, Windows, server) | DEK encrypted by Chromium OSCrypt (Keychain, DPAPI, libsecret / kwallet), async API | Refused when the backend is `basic_text`; passphrase mode required instead. DPAPI is per user, not per app (browser/credentials notes, KQ1) |
-| Recovery key | `vault/recovery.slot` | 32 random bytes shown once as grouped base32; DEK wrapped under an Argon2id-derived key with parameters in the header. Needed after biometric re-enrollment (which invalidates `biometryCurrentSet` items), keychain loss, migration or restore; setup requires confirming it is stored |
+| Recovery key | `vault/recovery.slot` | 32 random bytes as grouped base32, shown at creation and viewable again in Settings → Credentials on the Host Mac (the Gateway keeps it sealed under the vault key, opened only while the vault is unlocked, never over the network); DEK wrapped under an Argon2id-derived key with parameters in the header. Needed after biometric re-enrollment (which invalidates `biometryCurrentSet` items), keychain loss, migration or restore; setup requires confirming it is stored |
 
 ### 4.3 Unlock flows
 

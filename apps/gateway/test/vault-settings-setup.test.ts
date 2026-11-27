@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDb } from "@psyche/db";
+import { openDb, updateDevice } from "@psyche/db";
 import type { VaultStatus } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,10 +11,13 @@ import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import {
   adminClient,
   desktopClient,
+  handshake,
   ik,
+  newDeviceKey,
   startTestGateway,
-  type TestClient,
+  TestClient,
   type TestGateway,
+  wsUrlOf,
 } from "./helpers.ts";
 
 /**
@@ -276,6 +279,41 @@ describe("vault set up and recovery confirmed from Settings", () => {
     expect(readFileSync(join(home, "vault", "slots.json"), "utf8")).not.toContain(
       created.recoveryKey,
     );
+  });
+
+  it("shows the recovery key only on the Host: a remote admin device and a phone are refused", async () => {
+    const { gw, admin } = await start();
+    const created = await admin.call<{ recoveryKey: string }>(
+      "vault.setup",
+      { slot: "keychain" },
+      ik(),
+    );
+    // A remote admin (paired, no handshake secret: not the desktop shell), and a phone.
+    for (const platform of ["macos", "ios"] as const) {
+      const key = newDeviceKey();
+      const deviceId = `remote-${platform}-${Math.random().toString(36).slice(2)}`;
+      (await desktopClient(gw.gateway, key, deviceId, platform)).close();
+      updateDevice(gw.gateway.context.db, deviceId, {
+        scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+      });
+      const remote = await TestClient.open(wsUrlOf(gw.gateway));
+      cleanups.push(() => remote.close());
+      const r = await handshake(remote, gw.gateway.origin, { key, deviceId, platform });
+      expect((r.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("paired");
+
+      const refused = await remote.request("vault.recoveryKey", {});
+      expect(refused.ok, platform).toBe(false);
+      expect((refused.error as { code?: string } | undefined)?.code).toBe("forbidden");
+      expect(JSON.stringify(refused)).not.toContain(created.recoveryKey);
+      // It is told there is nothing to offer, so it shows no "Save your recovery key" card.
+      const status = await remote.call<{ status: VaultStatus }>("vault.status", {});
+      expect(status.status.recoveryKeyStored).toBe(false);
+    }
+    // Positive control: the desktop on the Host reads it and is told the key is there.
+    const shown = await admin.call<{ recoveryKey: string | null }>("vault.recoveryKey", {});
+    expect(shown.recoveryKey).toBe(created.recoveryKey);
+    const hostStatus = await admin.call<{ status: VaultStatus }>("vault.status", {});
+    expect(hostStatus.status.recoveryKeyStored).toBe(true);
   });
 
   it("sets the idle auto-lock for an admin; a device without admin is refused and nothing changes", async () => {
