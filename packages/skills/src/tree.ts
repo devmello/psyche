@@ -115,6 +115,40 @@ export function readSkillDir(dir: string, limits: TreeLimits = DEFAULT_LIMITS): 
   return b.tree;
 }
 
+/**
+ * A cheap fingerprint of a skill folder from `lstat` alone (no file is opened): every entry's
+ * relative path, type, size, mtime, ctime, inode, device and mode, directories included, so an
+ * added, removed, renamed, replaced or rewritten file changes it. `undefined` when anything
+ * cannot be read or is not a plain file or folder (a symlink, a special file): the caller must
+ * then take the full path, which reads, hashes and refuses as before. It is a fast path for the
+ * periodic rescan only; it never decides trust by itself.
+ */
+export function treeSignature(dir: string): string | undefined {
+  const parts: string[] = [];
+  const fmt = (r: string, t: string, st: ReturnType<typeof lstatSync>) =>
+    `${r}\0${t}\0${st.size}\0${st.mtimeMs}\0${st.ctimeMs}\0${st.ino}\0${st.dev}\0${st.mode}`;
+  try {
+    const walk = (abs: string, rel: string): boolean => {
+      for (const entry of readdirSync(abs).sort()) {
+        if (IGNORED.has(entry)) continue;
+        const p = join(abs, entry);
+        const r = rel === "" ? entry : `${rel}/${entry}`;
+        const st = lstatSync(p);
+        if (st.isDirectory()) {
+          parts.push(fmt(r, "d", st));
+          if (!walk(p, r)) return false;
+        } else if (st.isFile()) parts.push(fmt(r, "f", st));
+        else return false;
+      }
+      return true;
+    };
+    parts.push(fmt("", "d", lstatSync(dir)));
+    return walk(dir, "") ? parts.join("\n") : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 /**
