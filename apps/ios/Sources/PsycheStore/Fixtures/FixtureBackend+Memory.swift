@@ -22,6 +22,7 @@ struct MemoryState: Sendable {
 
 extension FixtureBackend: MemoryBackend {
     public func memory() async throws -> MemorySnapshot {
+        reads.hit("memory")
         await pause()
         return memoryState.snapshot
     }

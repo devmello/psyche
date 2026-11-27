@@ -12,6 +12,7 @@ struct AgentState: Sendable {
 
 extension FixtureBackend: AgentBackend {
     public func activity() async throws -> AgentActivity {
+        reads.hit("activity")
         await pause()
         return AgentActivity(
             needsYou: homeState.snapshot.needsYou, now: homeState.snapshot.running,
@@ -30,6 +31,7 @@ extension FixtureBackend: AgentBackend {
     }
 
     public func taskRun(taskID: String) async throws -> TaskRunDetail {
+        reads.hit("taskRun")
         await pause()
         let running = homeState.snapshot.running.first { $0.id == taskID }
         let recent = agentState.recent.first { $0.id == taskID }

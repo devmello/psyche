@@ -10,9 +10,11 @@ final class NightShiftCardModel {
     private(set) var status: NightShiftStatus?
     private(set) var firstLines: [String] = []
     private let store: any NightShiftBackend & LiveUpdates
+    private let reloads: ReloadDebouncer
 
-    init(store: any NightShiftBackend & LiveUpdates) {
+    init(store: any NightShiftBackend & LiveUpdates, reloadDelay: Duration = liveReloadDelay) {
         self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
     }
 
     /// The review to open, when there is one with something ready in it.
@@ -36,7 +38,10 @@ final class NightShiftCardModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.home), .resynced: await load()
+            case .changed(.home): reloads.schedule { await self.load() }
+            case .resynced:
+                reloads.cancel()
+                await load()
             default: break
             }
         }
@@ -64,10 +69,12 @@ final class NightShiftReviewModel {
     private(set) var banner: Banner?
     private(set) var busy = false
     private let store: any NightShiftBackend & LiveUpdates
+    private let reloads: ReloadDebouncer
 
-    init(reviewID: String, store: any NightShiftBackend & LiveUpdates) {
+    init(reviewID: String, store: any NightShiftBackend & LiveUpdates, reloadDelay: Duration = liveReloadDelay) {
         self.reviewID = reviewID
         self.store = store
+        reloads = ReloadDebouncer(delay: reloadDelay)
     }
 
     var items: [NightShiftItem] { phase.value?.items ?? [] }
@@ -103,7 +110,10 @@ final class NightShiftReviewModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.home), .resynced: await load()
+            case .changed(.home): reloads.schedule { await self.load() }
+            case .resynced:
+                reloads.cancel()
+                await load()
             default: break
             }
         }
