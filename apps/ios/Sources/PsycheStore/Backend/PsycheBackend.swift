@@ -11,7 +11,7 @@ import PsycheShared
 
 public typealias PsycheBackend = AgentBackend & ChatBackend & HomeBackend & LibraryBackend & LiveUpdates
     & FollowupsBackend & GrantsBackend & MemoryBackend & ModelsBackend & ProactiveBackend & ReceiptsBackend & SearchBackend & SettingsBackend
-    & NightShiftBackend & SecurityBackend & SkillsBackend & SpacesBackend & VoiceMemoBackend & WidgetBackend
+    & NightShiftBackend & PlanForkBackend & SecurityBackend & SkillsBackend & SpacesBackend & VoiceMemoBackend & WidgetBackend
 
 public enum BackendError: Error, Equatable, LocalizedError {
     /// Not reachable right now (away from home, Mac asleep). Writes that can wait go to the outbox.

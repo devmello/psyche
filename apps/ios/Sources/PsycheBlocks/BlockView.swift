@@ -54,6 +54,8 @@ public struct BlockView: View {
             ApprovalBlock(item: item, resolution: resolution) { context.openApproval(item) }
         case .widget(_, let widgetID):
             WidgetSlot(widgetID: widgetID)
+        case .planFork, .planTaken:
+            context.planForkBlock(item)
         case .unknown(_, let type):
             UnknownBlockRow(type: type)
         }

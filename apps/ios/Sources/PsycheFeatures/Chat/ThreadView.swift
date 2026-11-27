@@ -4,6 +4,12 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
+/// The reply the "Fork a plan…" sheet is open for.
+private struct ForkTarget: Identifiable {
+    let messageID: String
+    var id: String { messageID }
+}
+
 struct ThreadView: View {
     @State private var model: ThreadModel
     @State private var composer: ComposerModel
@@ -20,6 +26,9 @@ struct ThreadView: View {
     @State private var renaming = false
     @State private var confirmingClear = false
     @State private var confirmingFullAccess = false
+    /// The reply a plan fork is being started from (the "Fork a plan…" sheet).
+    @State private var forkingFrom: ForkTarget?
+    @Environment(\.backend) private var backend
     @Environment(Router.self) private var router
     @Environment(Session.self) private var session
     @Environment(\.alerts) private var alerts
@@ -162,6 +171,11 @@ struct ThreadView: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: model.sentCount)
+        .sheet(item: $forkingFrom) { target in
+            PlanForkStartSheet(threadID: model.phase.value?.id ?? model.id, messageID: target.messageID, store: backend) { detail in
+                router.showPlanFork(threadID: detail.fork.threadID, forkID: detail.fork.id)
+            }
+        }
         .alert(String(localized: "Couldn't do that", bundle: .module), isPresented: actionErrorShown) {
             Button(String(localized: "OK", bundle: .module)) { model.clearActionError() }
         } message: {
@@ -212,6 +226,13 @@ struct ThreadView: View {
                     for _ in 0..<40 where model.phase.value == nil { try? await Task.sleep(for: .milliseconds(500)) }
                     model.send(text)
                 }
+            }
+            #endif
+            #if DEBUG
+            // `simctl launch … -psycheForkStart <messageID>` opens the "Fork a plan…" sheet (screenshots; no taps).
+            if let messageID = UserDefaults.standard.string(forKey: "psycheForkStart"), !messageID.isEmpty {
+                UserDefaults.standard.removeObject(forKey: "psycheForkStart")
+                forkingFrom = ForkTarget(messageID: messageID)
             }
             #endif
             await model.observe()
@@ -303,6 +324,12 @@ struct ThreadView: View {
                 Label(String(localized: "Fork from here", bundle: .module), systemImage: "arrow.triangle.branch")
             }
             Button {
+                forkingFrom = ForkTarget(messageID: messageID)
+            } label: {
+                Label(String(localized: "Fork a plan…", bundle: .module), systemImage: "arrow.triangle.branch")
+            }
+            .disabled(model.isRunning || !session.state.canAnswer)
+            Button {
                 Task { await model.giveFeedback(messageID: messageID, helpful: true) }
             } label: {
                 Label(String(localized: "Good reply", bundle: .module), systemImage: "hand.thumbsup")
@@ -312,6 +339,15 @@ struct ThreadView: View {
             } label: {
                 Label(String(localized: "Not helpful", bundle: .module), systemImage: "hand.thumbsdown")
             }
+        }
+    }
+
+    /// `plan_fork` and `plan_taken` blocks: the card that opens the Plans view, and the line after a plan is taken.
+    private func planForkBlock(_ item: ChatItem) -> AnyView {
+        switch item {
+        case .planFork(_, let forkID): AnyView(PlanForkCard(forkID: forkID, store: backend))
+        case .planTaken(_, let forkID, let branchID): AnyView(PlanTakenRow(forkID: forkID, branchID: branchID, store: backend))
+        default: AnyView(EmptyView())
         }
     }
 
@@ -364,7 +400,8 @@ struct ThreadView: View {
             openRoute: { router.open(appPath: $0) },
             openThread: { router.openThread($0) },
             openFile: { router.open(appPath: "/library/\($0)") },
-            retry: { model.retry($0) })
+            retry: { model.retry($0) },
+            planForkBlock: { item in planForkBlock(item) })
     }
 
     private func send() {

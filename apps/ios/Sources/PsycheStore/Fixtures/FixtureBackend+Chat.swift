@@ -517,6 +517,8 @@ extension FixtureData {
                 .note(
                     id: "l7", kind: .wrapUp, title: "Wrap-up",
                     detail: "Asked about the cap and the pet fee. Waiting on Sam's reply."),
+                .planFork(id: "l8", forkID: FixtureData.leaseForkID),
+                .planFork(id: "l9", forkID: FixtureData.scrubbedForkID),
             ]),
         "thr_trip": ChatThread(
             id: "thr_trip", title: "Maya's visit", status: "Oct 24", statusKind: .neutral,

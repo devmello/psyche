@@ -30,4 +30,6 @@ public enum LiveTopic: String, Sendable, Equatable, CaseIterable {
     case receipts
     /// A lesson or the growth summary changed (additive): the Learning pages refetch.
     case learning
+    /// A plan fork or one of its branches changed (additive): an open fork card or Plans view refetches.
+    case planForks
 }

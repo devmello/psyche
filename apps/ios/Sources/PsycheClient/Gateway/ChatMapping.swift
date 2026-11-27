@@ -59,6 +59,12 @@ enum ChatMapping {
             case "ui":
                 guard let widgetID = block["widgetId"]?.string else { continue }
                 out.append(.widget(id: rowID, widgetID: widgetID))
+            case "plan_fork":
+                guard let forkID = block["forkId"]?.string else { continue }
+                out.append(.planFork(id: rowID, forkID: forkID))
+            case "plan_taken":
+                guard let forkID = block["forkId"]?.string, let branchID = block["branchId"]?.string else { continue }
+                out.append(.planTaken(id: rowID, forkID: forkID, branchID: branchID))
             case "checklist":
                 let steps = (block["items"]?.array ?? []).enumerated().compactMap { n, item -> ProgressStep? in
                     guard let title = item["text"]?.string else { return nil }

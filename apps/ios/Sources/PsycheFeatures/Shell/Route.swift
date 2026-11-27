@@ -3,6 +3,8 @@ import Foundation
 /// Where a push goes inside a tab's NavigationStack (docs/design/ios-app-2026.md §4).
 public enum Route: Hashable, Sendable {
     case thread(id: String)
+    /// A chat's fork-a-plan view (`/chat/<thread>?fork=<fork>`, the fork card's tap): the lanes and the comparison.
+    case planFork(threadID: String, forkID: String)
     case project(id: String)
     case person(id: String)
     case file(id: String)
@@ -62,7 +64,12 @@ public enum Route: Hashable, Sendable {
         let query = pieces.count == 2 ? String(pieces[1]) : ""
         guard let head = parts.first else { return nil }
         switch (head, parts.count) {
-        case ("chat", 2): self = .thread(id: parts[1])
+        case ("chat", 2):
+            if let fork = Self.queryValue("fork", in: query) {
+                self = .planFork(threadID: parts[1], forkID: fork)
+            } else {
+                self = .thread(id: parts[1])
+            }
         case ("goals", 2): self = .goal(id: parts[1])
         case ("people", 2): self = .person(id: parts[1])
         case ("library", 1): self = .tab(.library)

@@ -271,6 +271,10 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
     case approval(id: String, item: NeedsYouItem, resolution: String?)
     /// `ui`: a generative-UI widget, rendered natively by `WidgetSlot` (I8) from `widgetID`.
     case widget(id: String, widgetID: String)
+    /// `plan_fork`: the fork card at the point a chat was split into plans. The card reads the fork with `planForks.get`.
+    case planFork(id: String, forkID: String)
+    /// `plan_taken`: the line posted when the owner takes a branch's plan.
+    case planTaken(id: String, forkID: String, branchID: String)
     /// A block type this build doesn't draw, shown as "Open on your Mac".
     case unknown(id: String, type: String)
 
@@ -280,7 +284,7 @@ public enum ChatItem: Sendable, Equatable, Identifiable {
             .question(let id, _, _), .evidence(let id, _, _), .sources(let id, _), .progress(let id, _, _, _),
             .file(let id, _, _, _, _, _, _), .toolRun(let id, _, _, _, _), .appLink(let id, _, _, _),
             .relatedThreads(let id, _), .note(let id, _, _, _), .approval(let id, _, _), .widget(let id, _),
-            .unknown(let id, _):
+            .planFork(let id, _), .planTaken(let id, _, _), .unknown(let id, _):
             id
         }
     }
