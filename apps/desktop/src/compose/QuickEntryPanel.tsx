@@ -1,7 +1,16 @@
-import { t } from "@psyche/ui";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { AppearanceProvider, GatewayProvider, t } from "@psyche/ui";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { GatewayStatus } from "../client/index.ts";
 import type { ShellPlatform } from "../shell/platform.ts";
+import { kitClient } from "./kit-client.ts";
 
 /** The Quick Entry window's route. It is served by the small panel entry, not the full app. */
 export const QUICK_ENTRY_ROUTE = "/quick";
@@ -16,6 +25,30 @@ interface MainThreadList {
  * window holds none of the app's threads, messages or streaming text.
  */
 export function QuickEntryPanel({ platform }: { platform: ShellPlatform }): ReactElement {
+  const client = useMemo(() => kitClient(platform.gateway), [platform]);
+  return (
+    <GatewayProvider client={client}>
+      {/* This window is its own renderer: without the provider it gets no theme (always light, no
+          dark mode, accent, contrast or text direction), as in ScreenAsk. */}
+      <AppearanceProvider>
+        <QuickEntryBody platform={platform} />
+      </AppearanceProvider>
+    </GatewayProvider>
+  );
+}
+
+// panel.html does not load shell.css, so the two variables the bar reads are defined here with the
+// same fallbacks.
+const BAR_VARS = {
+  "--shell-border": "var(--separator, rgb(0 0 0 / 8%))",
+  "--shell-muted": "var(--label-secondary, #646464)",
+  height: "100vh",
+  background: "var(--canvas, #fcfcfb)",
+  color: "var(--label-primary, #202020)",
+  gridTemplateColumns: "1fr",
+} as CSSProperties;
+
+function QuickEntryBody({ platform }: { platform: ShellPlatform }): ReactElement {
   const gateway = platform.gateway;
   const [status, setStatus] = useState<GatewayStatus | undefined>();
   const [approvals, setApprovals] = useState(0);
@@ -79,7 +112,7 @@ export function QuickEntryPanel({ platform }: { platform: ShellPlatform }): Reac
   };
 
   return (
-    <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="quick-entry">
+    <div style={BAR_VARS} data-testid="quick-entry">
       <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 13, color: "var(--shell-muted)" }}>
           {t("web.quickEntry.status", { online: paired, approvals })}

@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { HelperLauncher, type HelperRunState } from "../../src/main/helper-launcher.ts";
-import { createIntegrityGate, gateShortcuts } from "../../src/main/integrity-gate.ts";
+import {
+  createIntegrityGate,
+  gateShortcuts,
+  requireVerified,
+} from "../../src/main/integrity-gate.ts";
 import type { Runner } from "../../src/main/supervisor.ts";
 
 function deferred<T>() {
@@ -122,5 +126,35 @@ describe("helper launch waits for the integrity check", () => {
     await p;
     expect(opened).toEqual([]);
     expect(states.at(-1)).toMatchObject({ kind: "offline" });
+  });
+});
+
+describe("requireVerified (permission requests during the check)", () => {
+  it("a request made while pending succeeds after a clean verdict", async () => {
+    const d = deferred<boolean>();
+    const gate = createIntegrityGate(() => d.promise);
+    let outcome = "pending";
+    const p = requireVerified(gate, () => "modified").then(
+      () => {
+        outcome = "ok";
+      },
+      () => {
+        outcome = "refused";
+      },
+    );
+    await tick();
+    expect(outcome).toBe("pending");
+    d.resolve(false);
+    await p;
+    expect(outcome).toBe("ok");
+  });
+
+  it("is refused after a failed verdict, and with no gate", async () => {
+    const d = deferred<boolean>();
+    const gate = createIntegrityGate(() => d.promise);
+    const p = requireVerified(gate, () => "modified");
+    d.resolve(true);
+    await expect(p).rejects.toThrow("modified");
+    await expect(requireVerified(undefined, () => "modified")).rejects.toThrow("modified");
   });
 });

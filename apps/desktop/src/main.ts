@@ -133,7 +133,12 @@ import {
   readAltGrLayout,
   readHelperIdentity,
 } from "./main/helper-launcher.ts";
-import { createIntegrityGate, gateShortcuts, type IntegrityGate } from "./main/integrity-gate.ts";
+import {
+  createIntegrityGate,
+  gateShortcuts,
+  type IntegrityGate,
+  requireVerified,
+} from "./main/integrity-gate.ts";
 import { LoginItem, squirrelLayout } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { PasskeyHost } from "./main/passkey-host.ts";
@@ -436,6 +441,8 @@ let helper: HelperLauncher | undefined;
  * (microphone, screen, Apple Events, Contacts, Calendar) stay off until it is reinstalled.
  */
 let integrity: IntegrityGate | undefined;
+/** The window is paired with the Gateway (set from its status). */
+let gatewayPaired = false;
 /** Fail-closed: blocked until the background check has finished clean (integrity-gate.ts). */
 const integrityBlocked = (): boolean => integrity?.blocked() ?? true;
 let integrityMessage =
@@ -1847,7 +1854,9 @@ function registerIpc(): void {
     system: app.getSystemLocale(),
     preferred: app.getPreferredSystemLanguages(),
   }));
-  handle(IPC.permissionsRequest, (_event, arg) => {
+  handle(IPC.permissionsRequest, async (_event, arg) => {
+    // A request made while the startup check runs waits for its verdict (still fail closed).
+    await integrity?.settled;
     if (integrityBlocked()) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     // Not a permission macOS can ask for or report: only its System Settings pane is opened.
@@ -1857,7 +1866,8 @@ function registerIpc(): void {
     }
     return permissions.request(kind as PermissionKind);
   });
-  handle(IPC.helperPermissionsRequest, (_event, arg) => {
+  handle(IPC.helperPermissionsRequest, async (_event, arg) => {
+    await integrity?.settled;
     if (integrityBlocked()) throw new Error(integrityMessage);
     const kind = str(
       IPC.helperPermissionsRequest,
@@ -2385,6 +2395,7 @@ void app.whenReady().then(async () => {
         const cert = gatewayVerifier.candidateCertSpki();
         if (cert !== undefined) gateways.pinCert(cert);
       }
+      gatewayPaired = s.phase === "paired";
       onPairing(s);
       if (s.phase === "paired") flushCookieAudit();
       if (s.phase === "paired") gateways.markConnected();
@@ -2477,7 +2488,9 @@ void app.whenReady().then(async () => {
   // A woken Mac tries an offline helper now (it may have quit or crashed while asleep).
   powerMonitor.on("unlock-screen", () => {
     screenAsk?.resume();
-    void helper?.kick().catch(() => undefined);
+    // As the first launch always did, the helper starts once the window has paired with the
+    // Gateway; when it has not yet, `onPaired` kicks it (the check is settled by then).
+    if (gatewayPaired) void helper?.kick().catch(() => undefined);
   });
   powerMonitor.on("resume", () => {
     screenAsk?.resume();

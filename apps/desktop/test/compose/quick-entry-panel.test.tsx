@@ -56,6 +56,14 @@ describe("QuickEntryPanel (served from the small panel entry)", () => {
     expect(input.disabled).toBe(true);
   });
 
+  it("sets the theme and defines the bar's shell variables", async () => {
+    setup();
+    const bar = await screen.findByTestId("quick-entry");
+    await waitFor(() => expect(document.documentElement.getAttribute("data-theme")).toBeTruthy());
+    expect(bar.style.getPropertyValue("--shell-muted")).toContain("--label-secondary");
+    expect(bar.style.getPropertyValue("--shell-border")).toContain("--separator");
+  });
+
   it("Escape closes without sending", async () => {
     const { calls, closeWindow } = setup();
     const input = await screen.findByTestId("quick-input");

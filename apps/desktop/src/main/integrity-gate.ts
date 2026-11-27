@@ -64,3 +64,16 @@ export function gateShortcuts(inner: ShortcutRegistry, gate: IntegrityGate): Sho
     },
   };
 }
+
+/**
+ * For a request that needs a verified copy: waits for the check's verdict, then refuses when it is
+ * blocked. A request made while the check runs is neither refused for a copy that turns out clean
+ * nor let through for one that does not. No gate yet counts as blocked.
+ */
+export async function requireVerified(
+  gate: IntegrityGate | undefined,
+  message: () => string,
+): Promise<void> {
+  await gate?.settled;
+  if (gate === undefined || gate.blocked()) throw new Error(message());
+}
