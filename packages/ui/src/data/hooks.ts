@@ -476,16 +476,9 @@ export function useThread(threadId: string | null) {
   const load = useLoader(threadId === null ? null : `thread:${threadId}`, async (st) => {
     if (threadId === null) return;
     const version = st.version();
-    // An evicted thread lost its runs too: read the ones the transcript shows (failed, stopped).
-    const reloadRuns = st.takeEvicted(threadId);
-    const [entry, history, runs] = await Promise.all([
+    const [entry, history] = await Promise.all([
       st.call("threads.get", { threadId }),
       st.call("chat.history", { threadId, limit: 100 }),
-      reloadRuns
-        ? st
-            .call("runs.list", { threadId, status: ["running", "failed", "cancelled"], limit: 50 })
-            .catch(() => null)
-        : Promise.resolve(null),
     ]);
     st.update((s) => {
       const known = s.messages[threadId] ?? [];
@@ -502,7 +495,6 @@ export function useThread(threadId: string | null) {
             : { ...s.threads, [threadId]: entry },
         messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
         historyCursor: { ...s.historyCursor, [threadId]: history.nextCursor ?? null },
-        runs: runs === null ? s.runs : putMany(s, "runs", runs.runs, version).runs,
       };
     });
   });

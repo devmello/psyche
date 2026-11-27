@@ -437,22 +437,25 @@ export function isUnsettled(run: Run): boolean {
 }
 
 /**
- * Drops a closed thread's loaded data: its messages, history cursor and the settled runs with
- * their steps, frames and tool calls. The thread row, receipts, approvals and the queue stay.
- * Opening the thread loads it again.
+ * Drops a closed thread's loaded transcript: its messages, history cursor, and the steps, frames
+ * and step details of its settled runs that no view has open (`keepRun`). The run rows
+ * and tool calls stay (they are small, and Overview lists and tool cards read them live). The
+ * thread row, receipts, approvals and the queue stay too. Opening the thread loads it again; a
+ * run's trace loads when its view mounts.
  */
-export function withThreadEvicted(state: UiState, threadId: string): UiState {
+export function withThreadEvicted(
+  state: UiState,
+  threadId: string,
+  keepRun: (runId: string) => boolean = () => false,
+): UiState {
   const runIds = new Set(
     runsOfThread(state.runs, threadId)
-      .filter((r) => !isUnsettled(r))
+      .filter((r) => !isUnsettled(r) && !keepRun(r.id))
       .map((r) => r.id),
   );
-  function keep<T>(dict: Dict<T>, runOf: (key: string, value: T) => string | undefined) {
+  function keep<T>(dict: Dict<T>, runOf: (key: string) => string) {
     return Object.fromEntries(
-      Object.entries(dict).filter(([key, value]) => {
-        const run = runOf(key, value);
-        return run === undefined || !runIds.has(run);
-      }),
+      Object.entries(dict).filter(([key]) => !runIds.has(runOf(key))),
     ) as Dict<T>;
   }
   const { [threadId]: _messages, ...messages } = state.messages;
@@ -461,11 +464,9 @@ export function withThreadEvicted(state: UiState, threadId: string): UiState {
     ...state,
     messages,
     historyCursor,
-    runs: keep(state.runs, (_k, r) => r.id),
     runSteps: keep(state.runSteps, (k) => k),
     runFrames: keep(state.runFrames, (k) => k),
-    runStepDetails: keep(state.runStepDetails, (k) => k.split("/")[0]),
-    toolCalls: keep(state.toolCalls, (_k, c) => c.runId),
+    runStepDetails: keep(state.runStepDetails, (k) => k.split("/")[0] ?? k),
   };
 }
 

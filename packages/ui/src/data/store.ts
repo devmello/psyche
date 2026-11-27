@@ -134,8 +134,8 @@ export class GatewayStore {
   /** When each thread was last opened or got an event, for the recent-threads cache. */
   private readonly lastUsed = new Map<string, number>();
   private useClock = 0;
-  /** Threads whose data was evicted; the next load of one also reads its runs. */
-  private readonly evicted = new Set<string>();
+  /** Runs whose trace a view shows right now, with how many views. Their steps are never evicted. */
+  private readonly retainedRuns = new Map<string, number>();
   private eventsSinceMaintain = 0;
   /** The outbox's retry after a send gave up on `rate_limited` (one at a time; see `scheduleOutboxRetry`). */
   private outboxRetryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -450,17 +450,25 @@ export class GatewayStore {
     };
   }
 
-  /** True once when a thread's data was evicted since it was last loaded. */
-  takeEvicted(threadId: string): boolean {
-    return this.evicted.delete(threadId);
+  /** Marks a run's trace as on screen: its steps and frames stay loaded until the release runs. */
+  retainRun(runId: string): () => void {
+    this.retainedRuns.set(runId, (this.retainedRuns.get(runId) ?? 0) + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const n = (this.retainedRuns.get(runId) ?? 1) - 1;
+      if (n <= 0) this.retainedRuns.delete(runId);
+      else this.retainedRuns.set(runId, n);
+    };
   }
 
   /** Counts for tests and diagnostics: how much the store holds on to. */
-  memoryStats(): { touched: number; recentThreads: number; evictedThreads: number } {
+  memoryStats(): { touched: number; recentThreads: number; changedRuns: number } {
     return {
       touched: Object.keys(this.base.touched).length,
       recentThreads: this.lastUsed.size,
-      evictedThreads: this.evicted.size,
+      changedRuns: this.changedRuns.size,
     };
   }
 
@@ -473,8 +481,14 @@ export class GatewayStore {
 
   private evictClosedThreads(): void {
     const s = this.base;
+    // Threads that hold transcript or trace data (run rows alone are kept and need no sweep).
     const candidates = new Set<string>(Object.keys(s.messages));
-    for (const r of Object.values(s.runs)) candidates.add(r.threadId);
+    const traced = new Set([
+      ...Object.keys(s.runSteps),
+      ...Object.keys(s.runFrames),
+      ...Object.keys(s.runStepDetails).map((k) => k.split("/")[0] ?? k),
+    ]);
+    for (const r of Object.values(s.runs)) if (traced.has(r.id)) candidates.add(r.threadId);
     if (candidates.size === 0) return;
     // Recent first: the last few used threads stay loaded, open or not.
     const recent = new Set(
@@ -497,9 +511,14 @@ export class GatewayStore {
       if (!recent.has(id) && !this.retained.has(id)) this.lastUsed.delete(id);
     }
     if (drop.length === 0) return;
-    this.base = drop.reduce(withThreadEvicted, this.base);
-    for (const id of drop) this.evicted.add(id);
-    this.recompute();
+    const keepRun = (id: string) => this.retainedRuns.has(id);
+    const before = this.base;
+    this.base = drop.reduce((st, id) => withThreadEvicted(st, id, keepRun), this.base);
+    // A run whose steps are gone has nothing to refresh: forget its "changed" mark.
+    for (const id of [...this.changedRuns]) {
+      if (this.base.runSteps[id] === undefined) this.changedRuns.delete(id);
+    }
+    if (this.base !== before) this.recompute();
   }
 
   private noteThreadUse(e: GatewayEvent): void {
@@ -709,6 +728,10 @@ export class GatewayStore {
     );
     this.noteThreadUse(e);
     if (++this.eventsSinceMaintain >= MAINTAIN_EVERY_EVENTS) this.maintain();
+    if (e.event === "thread.deleted") {
+      this.lastUsed.delete(e.payload.threadId);
+      this.retained.delete(e.payload.threadId);
+    }
     if (e.event === "run.step") this.changedRuns.add(e.payload.runId);
     if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
     if (gap) {

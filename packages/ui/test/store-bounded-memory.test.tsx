@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GatewayProvider, GatewayStore, useThread } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
+import { seedRun, useRunSteps } from "../src/data/runs.ts";
 import { putMany, runsOfThread } from "../src/data/state.ts";
 import { KEEP_RECENT_THREADS } from "../src/data/store.ts";
 
@@ -84,7 +85,7 @@ function manualClient() {
       stateVersion,
     });
   };
-  return { store, emit, pending };
+  return { store, emit, pending, client };
 }
 
 const post = (feedback: "like" | "save" | null) => ({
@@ -172,7 +173,7 @@ describe("closed threads are evicted and reload when opened", () => {
     return { gateway, store, wrapper, ids };
   }
 
-  it("re-opening an evicted thread reloads its history and its runs", async () => {
+  it("re-opening an evicted thread reloads its history; its run rows were kept", async () => {
     const { gateway, store, wrapper, ids } = hookWorld(10);
     store.start();
     const first = renderHook(() => useThread("t0"), { wrapper });
@@ -188,8 +189,7 @@ describe("closed threads are evicted and reload when opened", () => {
     });
     store.maintain();
     expect(store.getState().messages.t0).toBeUndefined();
-    expect(store.getState().runs.r_failed).toBeUndefined();
-    expect(store.memoryStats().evictedThreads).toBeGreaterThan(0);
+    expect(store.getState().runs.r_failed?.status).toBe("failed");
 
     const again = renderHook(() => useThread("t0"), { wrapper });
     await waitFor(() => expect(again.result.current.messages).toHaveLength(1));
@@ -241,7 +241,8 @@ describe("memory stays bounded", () => {
     expect(store.memoryStats().touched).toBe(0);
     // Cache: only the recent threads keep messages and settled runs.
     expect(Object.keys(s.messages).length).toBeLessThanOrEqual(KEEP_RECENT_THREADS);
-    expect(Object.keys(s.runs).length).toBeLessThanOrEqual(KEEP_RECENT_THREADS * 20);
+    // Run rows are small and Overview lists read them live, so they are kept (steps are not).
+    expect(Object.keys(s.runSteps).length).toBeLessThanOrEqual(KEEP_RECENT_THREADS);
     expect(store.memoryStats().recentThreads).toBeLessThanOrEqual(KEEP_RECENT_THREADS);
   });
 
@@ -251,5 +252,75 @@ describe("memory stays bounded", () => {
     expect(runsOfThread(runs, "none")).toEqual([]);
     // Same object, same index: no rescan.
     expect(runsOfThread(runs, "t2")).toBe(runsOfThread(runs, "t2"));
+  });
+});
+
+describe("run views and run rows survive eviction", () => {
+  const step = (seq: number) =>
+    ({ id: `s${seq}`, runId: "rA", seq, kind: "tool", status: "done" }) as never;
+  /** Seeds a settled run `rA` with two steps and a tool call in thread `tA`, then pushes `tA` out of the cache. */
+  function setupClosedThread() {
+    const m = manualClient();
+    m.emit("chat.message", { message: message("mA", "tA") });
+    seedRun(m.store, run("rA", "tA", "done" as Run["status"]), [step(1), step(2)]);
+    m.store.update((s) => ({
+      ...s,
+      toolCalls: { tc1: { id: "tc1", runId: "rA", tool: "x" } as never },
+    }));
+    const sweep = () => {
+      for (let i = 0; i < KEEP_RECENT_THREADS + 2; i += 1)
+        m.emit("chat.message", { message: message(`o${i}`, `other${i}`) });
+      m.store.maintain();
+    };
+    return { ...m, sweep };
+  }
+
+  it("A: a mounted run timeline keeps its steps across sweeps, and loses them once closed", () => {
+    const { store, client, sweep } = setupClosedThread();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GatewayProvider client={client as never} store={store}>
+        {children}
+      </GatewayProvider>
+    );
+    const view = renderHook(() => useRunSteps("rA"), { wrapper });
+    sweep();
+    sweep();
+    expect(store.getState().messages.tA).toBeUndefined();
+    expect(view.result.current.steps).toHaveLength(2);
+    view.unmount();
+    sweep();
+    expect(store.getState().runSteps.rA).toBeUndefined();
+  });
+
+  it("B: a run that finished does not go back to running after a sweep", () => {
+    const { store, emit, sweep } = setupClosedThread();
+    emit("run.updated", { run: run("rB", "tA", "running") });
+    emit("run.updated", { run: { ...run("rB", "tA", "done" as Run["status"]), endedAt: NOW } });
+    sweep();
+    expect(store.getState().runs.rB?.status).toBe("done");
+  });
+
+  it("C: a run that arrived live in a closed thread stays in the store", () => {
+    const { store, emit, sweep } = setupClosedThread();
+    emit("run.updated", { run: run("rC", "tA", "done" as Run["status"]) });
+    sweep();
+    sweep();
+    expect(Object.keys(store.getState().runs).sort()).toEqual(["rA", "rC"]);
+  });
+
+  it("D: tool calls survive eviction and re-opening", () => {
+    const { store, emit, sweep } = setupClosedThread();
+    sweep();
+    expect(store.getState().runSteps.rA).toBeUndefined();
+    emit("chat.message", { message: message("mA", "tA") });
+    expect(store.getState().toolCalls.tc1?.tool).toBe("x");
+  });
+
+  it("forgets the changed mark of a run whose steps were evicted", () => {
+    const { store, emit, sweep } = setupClosedThread();
+    emit("run.step", { runId: "rA", step: step(3) });
+    expect(store.memoryStats().changedRuns).toBeGreaterThan(0);
+    sweep();
+    expect(store.memoryStats().changedRuns).toBe(0);
   });
 });
