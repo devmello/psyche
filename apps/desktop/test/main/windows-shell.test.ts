@@ -25,6 +25,8 @@ const noop = () => {};
 const actions = {
   newSideChat: noop,
   palette: noop,
+  toggleSidebar: noop,
+  toggleCompactSidebar: noop,
   closeThreadView: noop,
   quitEntirely: noop,
   settings: noop,

@@ -140,9 +140,10 @@ describe("View menu sidebar items", () => {
       const items = await viewItems(platform);
       const toggle = items[0] as MenuItemConstructorOptions;
       const compact = items[1] as MenuItemConstructorOptions;
-      // ⌘B and ⌘⌥B (Ctrl on Windows): the menu accelerator takes the key, the page never sees it.
+      // ⌘B on macOS, Ctrl+B on Windows: the menu accelerator takes the key, the page never sees it.
       expect(toggle.accelerator).toBe("CmdOrCtrl+B");
-      expect(compact.accelerator).toBe("CmdOrCtrl+Alt+B");
+      // ⌘⌥B on macOS. On Windows no accelerator: Ctrl+Alt is AltGr, and the renderer keeps the guard.
+      expect(compact.accelerator).toBe(platform === "darwin" ? "CmdOrCtrl+Alt+B" : undefined);
       toggleSidebar.mockClear();
       toggleCompactSidebar.mockClear();
       (toggle.click as () => void)();

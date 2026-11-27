@@ -41,6 +41,7 @@ function viewMenu(
   a: MenuActions,
   label: (id: MessageId) => string,
   fullScreen: MenuItemConstructorOptions,
+  compactAccelerator: string | undefined,
 ): MenuItemConstructorOptions {
   return {
     label: label("desktop.menu.view"),
@@ -52,7 +53,9 @@ function viewMenu(
       },
       {
         label: label("desktop.menu.compactSidebar"),
-        accelerator: "CmdOrCtrl+Alt+B",
+        // Windows: no key here. Ctrl+Alt is AltGr on many keyboards, and a menu accelerator would
+        // take AltGr+B before the renderer's AltGr guard sees it. The renderer key still works.
+        ...(compactAccelerator !== undefined ? { accelerator: compactAccelerator } : {}),
         click: a.toggleCompactSidebar,
       },
       { type: "separator" },
@@ -122,7 +125,7 @@ export function appMenuTemplate(
         ],
       },
       { role: "editMenu" },
-      viewMenu(a, label, { role: "togglefullscreen", accelerator: "F11" }),
+      viewMenu(a, label, { role: "togglefullscreen", accelerator: "F11" }, undefined),
       { role: "windowMenu" },
     ];
   }
@@ -165,7 +168,7 @@ export function appMenuTemplate(
       ],
     },
     { role: "editMenu" },
-    viewMenu(a, label, { role: "togglefullscreen" }),
+    viewMenu(a, label, { role: "togglefullscreen" }, "CmdOrCtrl+Alt+B"),
     { role: "windowMenu" },
   ];
 }
