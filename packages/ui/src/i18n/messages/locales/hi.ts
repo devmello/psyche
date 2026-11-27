@@ -69,6 +69,7 @@ import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
 import { simplifyB1 } from "./simplify-b1/hi.ts";
+import { simplifyB2 } from "./simplify-b2/hi.ts";
 import { simplifyB4 } from "./simplify-b4/hi.ts";
 import { simplifyB7 } from "./simplify-b7/hi.ts";
 import { simplifyB8 } from "./simplify-b8/hi.ts";
@@ -3907,6 +3908,7 @@ export const hi: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,
   ...simplifyB8,

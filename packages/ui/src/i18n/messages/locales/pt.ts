@@ -51,6 +51,7 @@ import { settingsD } from "./settings-d/pt.ts";
 import { settingsDrill } from "./settings-drill/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
 import { simplifyB1 } from "./simplify-b1/pt.ts";
+import { simplifyB2 } from "./simplify-b2/pt.ts";
 import { simplifyB4 } from "./simplify-b4/pt.ts";
 import { simplifyB7 } from "./simplify-b7/pt.ts";
 import { simplifyB8 } from "./simplify-b8/pt.ts";
@@ -3909,6 +3910,7 @@ export const pt: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,
   ...simplifyB8,

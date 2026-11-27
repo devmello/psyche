@@ -69,6 +69,7 @@ import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
 import { simplifyB1 } from "./simplify-b1/ko.ts";
+import { simplifyB2 } from "./simplify-b2/ko.ts";
 import { simplifyB4 } from "./simplify-b4/ko.ts";
 import { simplifyB7 } from "./simplify-b7/ko.ts";
 import { simplifyB8 } from "./simplify-b8/ko.ts";
@@ -3899,6 +3900,7 @@ export const ko: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,
   ...simplifyB8,
