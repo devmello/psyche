@@ -78,7 +78,8 @@ export interface WindowOptions {
   /** Base URL of the renderer (Vite dev server or app://psyche). */
   rendererUrl: string;
   preloadPath: string;
-  onMainCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /** `view` is undefined for a hidden start: the renderer is built when the window first shows. */
+  onMainCreated?: (win: BaseWindow, view: WebContentsView | undefined) => void;
   /** Extra main-window options (the Liquid Glass spike's transparent window). */
   mainOptions?: Partial<BaseWindowConstructorOptions>;
   onMainClosed?: () => void;
@@ -364,11 +365,15 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       ...ownFrame(),
       ...opts.mainOptions,
     });
-    const view = makeMainView(win, "/chat", {
-      ...insetChrome(),
-      ...(opts.splash?.() ? { splash: true } : {}),
-    });
-    if (!hidden) view.webContents.once("did-finish-load", () => win.show());
+    // A hidden start (open at login) builds no renderer: showMain makes the view when the window
+    // is first shown, the way it rebuilds a released one (audit D5).
+    const view = hidden
+      ? undefined
+      : makeMainView(win, "/chat", {
+          ...insetChrome(),
+          ...(opts.splash?.() ? { splash: true } : {}),
+        });
+    view?.webContents.once("did-finish-load", () => win.show());
     win.on("hide", armRelease);
     win.on("show", disarmRelease);
     win.on("show", () => {
@@ -393,11 +398,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     });
     mainWin = win;
     opts.onMainCreated?.(win, view);
-    opts.onChromeWindowCreated?.(win, view);
-    if (hidden) {
-      armRelease();
-      syncDock();
-    }
+    if (view) opts.onChromeWindowCreated?.(win, view);
+    if (hidden) syncDock();
     return win;
   }
 

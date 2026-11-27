@@ -133,6 +133,7 @@ import {
   readAltGrLayout,
   readHelperIdentity,
 } from "./main/helper-launcher.ts";
+import { createIntegrityGate, gateShortcuts, type IntegrityGate } from "./main/integrity-gate.ts";
 import { LoginItem, squirrelLayout } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { PasskeyHost } from "./main/passkey-host.ts";
@@ -434,15 +435,18 @@ let helper: HelperLauncher | undefined;
  * The app's own signature no longer verifies (bundle-integrity.ts): the TCC-backed features
  * (microphone, screen, Apple Events, Contacts, Calendar) stay off until it is reinstalled.
  */
-let integrityBlocked = false;
+let integrity: IntegrityGate | undefined;
+/** Fail-closed: blocked until the background check has finished clean (integrity-gate.ts). */
+const integrityBlocked = (): boolean => integrity?.blocked() ?? true;
 let integrityMessage =
   "Turned off: this copy of Psyche was modified. Reinstall it from the official download.";
 
-async function startupIntegrity(): Promise<void> {
-  if (!app.isPackaged || !isMac()) return;
+/** Resolves true when the signature is broken. */
+async function startupIntegrity(): Promise<boolean> {
+  if (!app.isPackaged || !isMac()) return false;
   const pinned = readBundledPinned(process.resourcesPath);
   const requirement = pinned === undefined ? undefined : parsePinnedRequirement(pinned);
-  if (!requirement) return;
+  if (!requirement) return false;
   const bundle = bundleOfExecutable(app.getPath("exe"));
   const verdict = await checkBundleIntegrity({
     bundle,
@@ -451,8 +455,7 @@ async function startupIntegrity(): Promise<void> {
     appVersion: app.getVersion(),
     fingerprint: bundleFingerprint(bundle),
   });
-  if (verdict.state !== "blocked") return;
-  integrityBlocked = true;
+  if (verdict.state !== "blocked") return false;
   console.warn("[integrity] the app's signature no longer verifies; TCC-backed features are off");
   // Stop a helper that an earlier launch left running from this bundle (an exact path match, not a
   // regular expression). Only the helper: the Gateway keeps running and is not booted out from here.
@@ -486,6 +489,7 @@ async function startupIntegrity(): Promise<void> {
       });
     })
     .catch(() => {});
+  return true;
 }
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
@@ -1844,7 +1848,7 @@ function registerIpc(): void {
     preferred: app.getPreferredSystemLanguages(),
   }));
   handle(IPC.permissionsRequest, (_event, arg) => {
-    if (integrityBlocked) throw new Error(integrityMessage);
+    if (integrityBlocked()) throw new Error(integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     // Not a permission macOS can ask for or report: only its System Settings pane is opened.
     if (kind === "fullDiskAccess") return permissions.openFullDiskAccess();
@@ -1854,7 +1858,7 @@ function registerIpc(): void {
     return permissions.request(kind as PermissionKind);
   });
   handle(IPC.helperPermissionsRequest, (_event, arg) => {
-    if (integrityBlocked) throw new Error(integrityMessage);
+    if (integrityBlocked()) throw new Error(integrityMessage);
     const kind = str(
       IPC.helperPermissionsRequest,
       rec(IPC.helperPermissionsRequest, arg).kind,
@@ -2071,7 +2075,10 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
-  await startupIntegrity().catch((err) => console.warn(`[integrity] ${String(err)}`));
+  // The signature check runs behind the first window. Until it settles the TCC-backed features
+  // stay blocked (fail closed): the helper, Ask about screen and dictation wait on it.
+  const gate = createIntegrityGate(startupIntegrity, (m) => console.warn(m));
+  integrity = gate;
   if (gatewaysFileProblem !== undefined) {
     await dialog.showMessageBox({
       type: "warning",
@@ -2181,15 +2188,14 @@ void app.whenReady().then(async () => {
         });
       }
     },
-    onMainCreated: (win, mainView) => {
+    onMainCreated: (win) => {
       browser?.dispose();
       // The agent's browser stays on the Host (decision G4): no pane, no bridge to this Mac's
       // own Gateway, nothing for the Host to drive from here.
       if (remoteGateway) return;
       browser = new BrowserHost({
         window: win,
-        rendererZoom: () =>
-          mainView.webContents.isDestroyed() ? 1 : mainView.webContents.getZoomFactor(),
+        rendererZoom: () => windows?.mainContents()?.getZoomFactor() ?? 1,
         psycheHome: home,
         userData: app.getPath("userData"),
         // Straight from this process to the Gateway's vault: the value never goes through the
@@ -2255,7 +2261,8 @@ void app.whenReady().then(async () => {
     // A packaged Windows helper's Authenticode signature is checked once, in the background.
     verifySignature: windows32 && app.isPackaged,
     isPaired: async () => (await onlineHostHelpers()).length > 0,
-    blocked: () => integrityBlocked,
+    blocked: integrityBlocked,
+    settled: gate.settled,
     onState: (s) => {
       // A helper that went away or is starting is a new process when it pairs again: it reads
       // a Screen Recording grant afresh, so "Restart to apply" no longer holds.
@@ -2437,9 +2444,9 @@ void app.whenReady().then(async () => {
   dictation = new DictationService({
     dictation: controller,
     call: (m, p) => requireGateway().call(m, p),
-    ...((!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1") || integrityBlocked
+    ...(!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1"
       ? {}
-      : { shortcuts: globalShortcut }),
+      : { shortcuts: gateShortcuts(globalShortcut, gate) }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // Windows: Settings warns when Right Alt is AltGr on the layout in use.
@@ -2448,7 +2455,7 @@ void app.whenReady().then(async () => {
       : {}),
     // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
     onKeyDoubleTap: () => {
-      if (!remoteGateway && !integrityBlocked) screenAsk?.trigger("window");
+      if (!remoteGateway && !integrityBlocked()) screenAsk?.trigger("window");
     },
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
@@ -2595,13 +2602,18 @@ void app.whenReady().then(async () => {
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
     trigger: () => {
-      if (!integrityBlocked) screenAsk?.trigger();
+      if (!integrityBlocked()) screenAsk?.trigger();
     },
-    setEnabled: (on) => screenAsk?.setEnabled(on && !integrityBlocked, "screen"),
+    setEnabled: (on) => screenAsk?.setEnabled(on && !integrityBlocked(), "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
     disabled: remoteGateway,
   });
   screenAskShortcut.apply(screenAskShortcut.settings);
+  // The check settled: what was held back while it ran may start now (a blocked copy stays off).
+  void gate.settled.then(() => {
+    screenAskShortcut?.apply(screenAskShortcut.settings);
+    void helper?.kick().catch(() => undefined);
+  });
   tray?.update({ shortcuts: shownShortcuts() });
   pointsSetting = new PointsSetting({
     call: (m, p) => requireGateway().call(m, p),
@@ -2615,7 +2627,7 @@ void app.whenReady().then(async () => {
         {
           label: "Ask about screen",
           click: () => {
-            if (!integrityBlocked) screenAsk?.trigger();
+            if (!integrityBlocked()) screenAsk?.trigger();
           },
         },
       ]),

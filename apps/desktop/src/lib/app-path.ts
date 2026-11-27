@@ -16,6 +16,7 @@ export const PANEL_ROUTES: readonly string[] = [
   "/screen-ask",
   "/screen-ask-region",
   "/dictation-hud",
+  "/quick",
 ];
 
 export function resolveAppPath(root: string, requestUrl: string): string | null {

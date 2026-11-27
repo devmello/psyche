@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { QUICK_ENTRY_ROUTE, QuickEntryPanel } from "../compose/QuickEntryPanel.tsx";
 import {
   SCREEN_ASK_REGION_ROUTE,
   ScreenAsk,
@@ -21,6 +22,7 @@ window.addEventListener("drop", (e) => e.preventDefault());
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
 const hud = window.location.pathname === "/dictation-hud";
+const quick = window.location.pathname === QUICK_ENTRY_ROUTE;
 const screenAskRegion = window.location.pathname === SCREEN_ASK_REGION_ROUTE;
 const screenAskBridge = (window.psyche as { screenAsk?: ScreenAskBridge }).screenAsk;
 document.documentElement.style.background = "transparent";
@@ -30,6 +32,8 @@ void loadFirstLocale().then(() =>
     <StrictMode>
       {hud ? (
         <DictationHud />
+      ) : quick ? (
+        <QuickEntryPanel platform={desktopPlatform()} />
       ) : screenAskRegion ? (
         <ScreenAskRegion {...(screenAskBridge ? { bridge: screenAskBridge } : {})} />
       ) : (

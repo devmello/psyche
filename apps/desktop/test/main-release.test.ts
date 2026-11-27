@@ -175,8 +175,41 @@ describe("main renderer release while hidden in the menu bar", () => {
   });
 });
 
-describe("releaseHiddenAfterMs", async () => {
-  const { RELEASE_HIDDEN_AFTER_MS, releaseHiddenAfterMs } = await import("../src/main/release.ts");
+describe("a hidden start (open at login)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    BaseWindow.all.length = 0;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("builds no app view until the window is shown", () => {
+    const created: unknown[] = [];
+    const main: { win: unknown; view: unknown }[] = [];
+    const windows = createAppWindows({
+      rendererUrl: "app://psyche/",
+      preloadPath: "/preload.cjs",
+      releaseHiddenAfterMs: TEN_MIN,
+      onMainViewCreated: (_w, v) => created.push(v),
+      onMainCreated: (win, view) => main.push({ win, view }),
+    });
+    windows.startHidden();
+    // The window exists (the browser host hangs on it) but no renderer was started.
+    expect(windows.main()).toBeDefined();
+    expect(main).toHaveLength(1);
+    expect(main[0]?.view).toBeUndefined();
+    expect(created).toHaveLength(0);
+    expect(windows.mainContents()).toBeUndefined();
+    vi.advanceTimersByTime(TEN_MIN * 2);
+    expect(created).toHaveLength(0);
+    // Positive control: showing it builds the view, on the default route.
+    windows.showMain();
+    expect(created).toHaveLength(1);
+    expect(windows.mainContents()?.getURL()).toBe("app://psyche/chat");
+  });
+});
+
+const { RELEASE_HIDDEN_AFTER_MS, releaseHiddenAfterMs } = await import("../src/main/release.ts");
+describe("releaseHiddenAfterMs", () => {
   it("is ten minutes, and only dev runs may change it", () => {
     expect(RELEASE_HIDDEN_AFTER_MS).toBe(TEN_MIN);
     expect(releaseHiddenAfterMs(true, { PSYCHE_RELEASE_HIDDEN_MS: "5" })).toBe(TEN_MIN);
