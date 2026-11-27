@@ -1043,7 +1043,11 @@ export function ApprovalCard({
               variant="outline"
               size="sm"
               disabled={!canRunUnsandboxed}
-              onClick={() => void submit("approve", false, "once", true)}
+              onClick={(e) => {
+                // Like Allow: Return and Space never approve; only a pointer does.
+                if (e.detail === 0) return;
+                void submit("approve", false, "once", true);
+              }}
             >
               {t("simplify.b9.execHost.runOnce")}
             </Button>
