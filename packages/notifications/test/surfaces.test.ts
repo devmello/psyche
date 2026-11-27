@@ -110,3 +110,15 @@ describe("OS surface (mac helper notify.show)", () => {
     ).toBe("passive");
   });
 });
+
+describe("surface aliases are own properties only", () => {
+  it("maps the legacy web and os names, and passes prototype member names through unchanged", async () => {
+    const { normalizeSurface, surfaceClass } = await import("../src/index.ts");
+    expect(normalizeSurface("web" as never)).toBe("offMac");
+    expect(normalizeSurface("os" as never)).toBe("notification");
+    for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      expect(normalizeSurface(name as never)).toBe(name);
+      expect(surfaceClass(name as never)).toBe("unknown");
+    }
+  });
+});

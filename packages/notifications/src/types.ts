@@ -64,7 +64,8 @@ const SURFACE_ALIASES: Readonly<Record<string, Surface>> = {
 
 export function normalizeSurface(surface: Surface): Surface {
   const s = surface.trim();
-  return SURFACE_ALIASES[s] ?? s;
+  // An own-property check: "constructor" or "toString" must not reach Object.prototype.
+  return Object.hasOwn(SURFACE_ALIASES, s) ? (SURFACE_ALIASES[s] as Surface) : s;
 }
 
 export function surfaceClass(surface: Surface): SurfaceClass {

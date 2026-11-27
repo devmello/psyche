@@ -21,7 +21,9 @@ import { computerWatch } from "./computer-watch/it.ts";
 import { dailyRest } from "./daily-rest/it.ts";
 import { deckRest } from "./deck-rest/it.ts";
 import { designRest } from "./design-rest/it.ts";
+import { desktopMenu } from "./desktop-menu/it.ts";
 import { desktopSimple } from "./desktop-simple/it.ts";
+import { desktopTray } from "./desktop-tray/it.ts";
 import { everythingRest } from "./everything-rest/it.ts";
 import { final202611 } from "./final-2026-11/it.ts";
 import { friction } from "./friction/it.ts";
@@ -3959,6 +3961,8 @@ export const it: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

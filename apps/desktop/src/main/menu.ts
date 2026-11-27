@@ -1,3 +1,4 @@
+import { createI18n, type MessageId } from "@psyche/ui/i18n-core";
 import { app, Menu, type MenuItemConstructorOptions } from "electron";
 
 /**
@@ -9,6 +10,9 @@ import { app, Menu, type MenuItemConstructorOptions } from "electron";
  * accelerators work while a Psyche window has focus: `main.ts` sets this menu and hides the bar
  * of each window (`hideMenuBar`). The commands are the same; the keys are Ctrl-based, and "Quit
  * entirely" is Ctrl+Shift+Q, since Ctrl+Alt is AltGr on many keyboards (AltGr+Q types @).
+ *
+ * Labels come from the message catalogue in the system's language (`app.getLocale()`), as the
+ * tray's do. Edit, Window and the About/Hide items use Electron's roles, which macOS localizes.
  */
 export interface MenuActions {
   newSideChat(): void;
@@ -23,19 +27,50 @@ export interface MenuActions {
   zoomReset(): void;
 }
 
+/** The menu's words in one language; English when the locale has no catalogue. */
+function menuLabel(locale: string): (id: MessageId) => string {
+  const i18n = createI18n({ locale });
+  return (id) => i18n.t(id);
+}
+
 function viewMenu(
   a: MenuActions,
+  label: (id: MessageId) => string,
   fullScreen: MenuItemConstructorOptions,
 ): MenuItemConstructorOptions {
   return {
-    label: "View",
+    label: label("desktop.menu.view"),
     submenu: [
-      { label: "Command palette", accelerator: "CmdOrCtrl+K", click: a.palette },
+      {
+        label: label("shell.shortcut.palette"),
+        accelerator: "CmdOrCtrl+K",
+        click: a.palette,
+      },
       { type: "separator" },
-      { id: "zoom-reset", label: "Actual Size", accelerator: "CmdOrCtrl+0", click: a.zoomReset },
-      { id: "zoom-in", label: "Zoom In", accelerator: "CmdOrCtrl+Plus", click: a.zoomIn },
-      { label: "Zoom In", accelerator: "CmdOrCtrl+=", click: a.zoomIn, visible: false },
-      { id: "zoom-out", label: "Zoom Out", accelerator: "CmdOrCtrl+-", click: a.zoomOut },
+      {
+        id: "zoom-reset",
+        label: label("desktop.menu.actualSize"),
+        accelerator: "CmdOrCtrl+0",
+        click: a.zoomReset,
+      },
+      {
+        id: "zoom-in",
+        label: label("desktop.menu.zoomIn"),
+        accelerator: "CmdOrCtrl+Plus",
+        click: a.zoomIn,
+      },
+      {
+        label: label("desktop.menu.zoomIn"),
+        accelerator: "CmdOrCtrl+=",
+        click: a.zoomIn,
+        visible: false,
+      },
+      {
+        id: "zoom-out",
+        label: label("desktop.menu.zoomOut"),
+        accelerator: "CmdOrCtrl+-",
+        click: a.zoomOut,
+      },
       { type: "separator" },
       fullScreen,
       ...(app.isPackaged ? [] : [{ role: "toggleDevTools" } as MenuItemConstructorOptions]),
@@ -46,27 +81,33 @@ function viewMenu(
 export function appMenuTemplate(
   a: MenuActions,
   platform: NodeJS.Platform = process.platform,
+  locale = "en",
 ): MenuItemConstructorOptions[] {
+  const label = menuLabel(locale);
   if (platform === "win32") {
     return [
       {
-        label: "File",
+        label: label("desktop.menu.file"),
         submenu: [
-          { label: "New Chat", accelerator: "Ctrl+N", click: a.newSideChat },
-          { label: "Settings…", accelerator: "Ctrl+,", click: a.settings },
+          { label: label("desktop.menu.newChat"), accelerator: "Ctrl+N", click: a.newSideChat },
+          { label: label("desktop.menu.settings"), accelerator: "Ctrl+,", click: a.settings },
           { type: "separator" },
-          { label: "Close", accelerator: "Ctrl+W", click: a.closeThreadView },
+          { label: label("common.close"), accelerator: "Ctrl+W", click: a.closeThreadView },
           { type: "separator" },
           {
-            label: "Quit Psyche (tasks keep running)",
+            label: label("desktop.menu.quitTasks"),
             accelerator: "Ctrl+Q",
             click: () => app.quit(),
           },
-          { label: "Quit Psyche entirely", accelerator: "Ctrl+Shift+Q", click: a.quitEntirely },
+          {
+            label: label("desktop.menu.quitEntirely"),
+            accelerator: "Ctrl+Shift+Q",
+            click: a.quitEntirely,
+          },
         ],
       },
       { role: "editMenu" },
-      viewMenu(a, { role: "togglefullscreen", accelerator: "F11" }),
+      viewMenu(a, label, { role: "togglefullscreen", accelerator: "F11" }),
       { role: "windowMenu" },
     ];
   }
@@ -76,34 +117,50 @@ export function appMenuTemplate(
       submenu: [
         { role: "about" },
         { type: "separator" },
-        { label: "Settings…", accelerator: "CmdOrCtrl+,", click: a.settings },
+        {
+          label: label("desktop.menu.settings"),
+          accelerator: "CmdOrCtrl+,",
+          click: a.settings,
+        },
         { type: "separator" },
         { role: "hide" },
         { role: "hideOthers" },
         { type: "separator" },
         {
-          label: "Quit Psyche (tasks keep running)",
+          label: label("desktop.menu.quitTasks"),
           accelerator: "CmdOrCtrl+Q",
           click: () => app.quit(),
         },
-        { label: "Quit Psyche entirely", accelerator: "CmdOrCtrl+Alt+Q", click: a.quitEntirely },
+        {
+          label: label("desktop.menu.quitEntirely"),
+          accelerator: "CmdOrCtrl+Alt+Q",
+          click: a.quitEntirely,
+        },
       ],
     },
     {
-      label: "File",
+      label: label("desktop.menu.file"),
       submenu: [
-        { label: "New Chat", accelerator: "CmdOrCtrl+N", click: a.newSideChat },
-        { label: "Close", accelerator: "CmdOrCtrl+W", click: a.closeThreadView },
+        {
+          label: label("desktop.menu.newChat"),
+          accelerator: "CmdOrCtrl+N",
+          click: a.newSideChat,
+        },
+        { label: label("common.close"), accelerator: "CmdOrCtrl+W", click: a.closeThreadView },
       ],
     },
     { role: "editMenu" },
-    viewMenu(a, { role: "togglefullscreen" }),
+    viewMenu(a, label, { role: "togglefullscreen" }),
     { role: "windowMenu" },
   ];
 }
 
-export function buildAppMenu(a: MenuActions, platform: NodeJS.Platform = process.platform): Menu {
-  return Menu.buildFromTemplate(appMenuTemplate(a, platform));
+export function buildAppMenu(
+  a: MenuActions,
+  platform: NodeJS.Platform = process.platform,
+  locale = "en",
+): Menu {
+  return Menu.buildFromTemplate(appMenuTemplate(a, platform, locale));
 }
 
 /**

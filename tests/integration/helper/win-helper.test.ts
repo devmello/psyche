@@ -156,7 +156,7 @@ describe("Windows Hello approvals from the toast", () => {
       grantKey: `win|${n}`,
       requestedBy: { runId: null, taskId: null, threadId: null },
       sideEffect: "financial",
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       taint: false,
     });
   }
