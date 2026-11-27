@@ -115,6 +115,10 @@ export interface CommandNotice {
   confirm?: { label: string; run: () => Promise<void> };
 }
 
+function jumpToMessage(id: string): void {
+  document.getElementById(`message-${id}`)?.scrollIntoView({ block: "center" });
+}
+
 function codeOf(err: unknown): string | undefined {
   const c = typeof err === "object" && err !== null ? (err as { code?: unknown }).code : undefined;
   return typeof c === "string" ? c : undefined;
@@ -315,38 +319,53 @@ export function ChatThread({
     setDraftQuote(threadId, quoting?.id ?? null);
   }, [threadId, quoting, view.messages]);
 
+  // DisplayMessage objects stay the same object while their message and streaming text are
+  // unchanged, so a streamed frame re-renders only the streaming row (MessageView is memoized).
+  const displayCache = useRef(new Map<string, DisplayMessage>());
   const display = useMemo<DisplayMessage[]>(() => {
-    const byId = new Map(view.messages.map((m) => [m.id, m]));
-    const out: DisplayMessage[] = view.messages.map((m) => ({
-      message: m,
-      streamingText: null,
-    }));
+    const prevCache = displayCache.current;
+    const nextCache = new Map<string, DisplayMessage>();
+    const streamById = new Map(view.streaming.map((s) => [s.messageId, s]));
+    const reuse = (m: Message, text: string | null): DisplayMessage => {
+      const old = prevCache.get(m.id);
+      const d =
+        old !== undefined && old.message === m && old.streamingText === text
+          ? old
+          : { message: m, streamingText: text };
+      nextCache.set(m.id, d);
+      return d;
+    };
+    const out: DisplayMessage[] = view.messages.map((m) =>
+      reuse(m, streamById.get(m.id)?.text ?? null),
+    );
+    const committed = new Set(view.messages.map((m) => m.id));
     for (const s of view.streaming) {
-      const committed = byId.get(s.messageId);
-      if (committed !== undefined) {
-        const entry = out.find((d) => d.message.id === s.messageId);
-        if (entry) entry.streamingText = s.text;
-        continue;
-      }
-      out.push({
-        message: {
-          id: s.messageId,
-          threadId,
-          seq: Number.MAX_SAFE_INTEGER,
-          role: "agent",
-          blocks: [],
-          providerNative: null,
-          provenance: "agent",
-          replyToMessageId: null,
-          channelRef: null,
-          runId: s.runId,
-          createdAt: new Date(now ?? Date.now()).toISOString(),
-        },
-        streamingText: s.text,
-      });
+      if (committed.has(s.messageId)) continue;
+      const old = prevCache.get(s.messageId);
+      const message: Message =
+        old !== undefined &&
+        old.message.runId === s.runId &&
+        old.message.seq === Number.MAX_SAFE_INTEGER
+          ? old.message
+          : {
+              id: s.messageId,
+              threadId,
+              seq: Number.MAX_SAFE_INTEGER,
+              role: "agent",
+              blocks: [],
+              providerNative: null,
+              provenance: "agent",
+              replyToMessageId: null,
+              channelRef: null,
+              runId: s.runId,
+              createdAt: new Date(now ?? Date.now()).toISOString(),
+            };
+      out.push(reuse(message, s.text));
     }
+    displayCache.current = nextCache;
     return out;
   }, [view.messages, view.streaming, threadId, now]);
+  const displayIndex = useMemo(() => new Map(display.map((d, i) => [d.message.id, i])), [display]);
 
   const latestChecklistId = useMemo(() => {
     for (let i = display.length - 1; i >= 0; i--) {
@@ -897,15 +916,24 @@ export function ChatThread({
   );
   // Agent messages with nothing to show (their calls and approvals sit in the trace and the
   // dock) draw no header, and the next message takes the header instead.
-  const emptyIds = useMemo(
+  // Finished rows are classified once per messages/blockIndex change; only the streaming rows
+  // are re-checked on a streamed frame.
+  const emptyBase = useMemo(
     () =>
       new Set(
-        display.flatMap((d) =>
-          isEmptyAgentMessage(d.message, d.streamingText, blockIndex) ? [d.message.id] : [],
-        ),
+        view.messages.flatMap((m) => (isEmptyAgentMessage(m, null, blockIndex) ? [m.id] : [])),
       ),
-    [display, blockIndex],
+    [view.messages, blockIndex],
   );
+  const isEmptyId = (id: string): boolean => {
+    const d = display[displayIndex.get(id) ?? -1];
+    if (d === undefined) return false;
+    return d.streamingText !== null
+      ? isEmptyAgentMessage(d.message, d.streamingText, blockIndex)
+      : emptyBase.has(id) ||
+          (d.message.seq === Number.MAX_SAFE_INTEGER &&
+            isEmptyAgentMessage(d.message, null, blockIndex));
+  };
 
   /**
    * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
@@ -923,6 +951,20 @@ export function ChatThread({
       navigate?.(`/chat/${thread.id}`);
     },
     [view.messages, threadId, fork, create, call, navigate],
+  );
+
+  // One stable handler set for every row: the latest closures sit in a ref, so MessageView's memo
+  // holds across renders.
+  const actionsRef = useRef({ fork, startForkPlan, editAndResend, send: view.send });
+  actionsRef.current = { fork, startForkPlan, editAndResend, send: view.send };
+  const rowActions = useMemo(
+    () => ({
+      onFork: (msg: Message) => void actionsRef.current.fork(threadId, msg.id),
+      onForkPlan: (msg: Message) => actionsRef.current.startForkPlan(msg),
+      onEdit: (msg: Message, text: string) => void actionsRef.current.editAndResend(msg, text),
+      onWrapUp: (text: string) => void actionsRef.current.send(text),
+    }),
+    [threadId],
   );
 
   // Bottom anchoring and the jump pill (motion.md §4.6); the floating stack's height pads the
@@ -1040,11 +1082,11 @@ export function ChatThread({
                         const [d] = getExternalStoreMessages<DisplayMessage>(message);
                         if (d === undefined) return null;
                         const m = d.message;
-                        const at = display.indexOf(d);
+                        const at = displayIndex.get(m.id) ?? -1;
                         let prev = display[at - 1]?.message;
-                        for (let i = at - 1; prev && emptyIds.has(prev.id); i--)
+                        for (let i = at - 1; prev && isEmptyId(prev.id); i--)
                           prev = display[i - 1]?.message;
-                        const next = display[display.indexOf(d) + 1]?.message;
+                        const next = display[at + 1]?.message;
                         // The run's specialists follow its last message.
                         const spawns =
                           m.runId != null && next?.runId !== m.runId
@@ -1092,19 +1134,12 @@ export function ChatThread({
                                 ? {}
                                 : {
                                     onReply: setQuoting,
-                                    onFork: (msg: Message) => void fork(threadId, msg.id),
-                                    onForkPlan: (msg: Message) => startForkPlan(msg),
-                                    onEdit: (msg: Message, text: string) =>
-                                      void editAndResend(msg, text),
+                                    onFork: rowActions.onFork,
+                                    onForkPlan: rowActions.onForkPlan,
+                                    onEdit: rowActions.onEdit,
                                   })}
-                              onJumpTo={(id) =>
-                                document
-                                  .getElementById(`message-${id}`)
-                                  ?.scrollIntoView({ block: "center" })
-                              }
-                              {...(importedThread
-                                ? {}
-                                : { onWrapUpAction: (text: string) => void view.send(text) })}
+                              onJumpTo={jumpToMessage}
+                              {...(importedThread ? {} : { onWrapUpAction: rowActions.onWrapUp })}
                             />
                             {failed.map((run) => (
                               <RunFailure key={run.id} run={run} />
