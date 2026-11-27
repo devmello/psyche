@@ -179,7 +179,6 @@ struct ThreadListView: View {
             if !spaces.spaces.isEmpty { SpaceTargetItems(model: spaces) }
         }
         .searchable(text: $query, prompt: String(localized: "Search chats", bundle: .module))
-        .psycheSettingsButton()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { Task { selection = await newChat() ?? selection } } label: {

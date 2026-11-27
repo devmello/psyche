@@ -17,13 +17,12 @@ extension GatewayBackend {
         async let questions = settled { try await self.needsYouQuestions() }
         async let tasks = optional { try await self.runningTasks() }
         async let brief = optional { try await self.todayBrief() }
-        async let nudges = optional { try await self.nudgeList() }
         let (a, q) = await (approvals, questions)
         if case .failure(let error) = a, case .failure = q { throw error }
         let needsYou = ((try? a.get()) ?? []) + ((try? q.get()) ?? [])
         return await HomeSnapshot(
             needsYou: needsYou,
-            running: tasks ?? [], today: brief ?? [], keepInTouch: nudges ?? [], updatedAt: .now)
+            running: tasks ?? [], today: brief ?? [], keepInTouch: [], updatedAt: .now)
     }
 
     public func answerApproval(id: String, decision: ApprovalDecision) async throws {
@@ -121,6 +120,7 @@ extension GatewayBackend {
                 id: id, title: n["title"]?.string ?? "", body: n["body"]?.string ?? "",
                 kindLabel: Self.inboxLabel(kind), time: WireFormat.time(n["createdAt"]?.string),
                 needsYou: waiting, read: n["readAt"]?.string != nil, route: n["route"]?.string,
+                needsYouID: kind == "approval" ? n["approvalId"]?.string : nil,
                 message: Self.noticeKeys(n["message"]), actions: Self.noticeActions(n, kind: kind))
         }
         return InboxPage(items: items, nextCursor: result["nextCursor"]?.string)
@@ -207,15 +207,6 @@ extension GatewayBackend {
             guard let id = item["id"]?.string, let text = item["text"]?.string else { return nil }
             let source = Self.humanized(item["source"]?.string ?? "")
             return BriefItem(id: id, text: text, evidenceLabel: "Because", evidence: source.isEmpty ? [] : [source])
-        }
-    }
-
-    func nudgeList() async throws -> [Nudge] {
-        let result = try await call("nudges.list", .obj([:]))
-        guard result["enabled"]?.bool == true else { return [] }
-        return (result["items"]?.array ?? []).compactMap { item in
-            guard let id = item["id"]?.string, let text = item["text"]?.string else { return nil }
-            return Nudge(id: id, initials: Self.initials(item["name"]?.string ?? ""), text: text)
         }
     }
 

@@ -83,7 +83,7 @@ final class HomeUITests: PsycheUITestCase {
         waitFor(needsYouRow("Pay the electricity bill"))
     }
 
-    /// Every More page opens and draws its navigation title. Never touches an approval.
+    /// Both More pages open and draw their navigation title. Never touches an approval.
     func testEveryMorePageOpens() {
         launch()
         continueAfterFailure = true
@@ -91,7 +91,7 @@ final class HomeUITests: PsycheUITestCase {
         scrollTo(more, maxSwipes: 12)
         waitFor(more)
         more.tap()
-        for title in ["Notifications", "Scheduled tasks", "Task history", "To-do", "Keep in touch", "Pinned", "Follow-ups", "Spaces", "Feed", "Ideas", "Goals"] {
+        for title in ["Notifications", "Scheduled tasks"] {
             let row = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)).firstMatch
             tapWhenHittable(row)
             let bar = app.navigationBars[title]
@@ -124,7 +124,10 @@ final class HomeUITests: PsycheUITestCase {
         scrollTo(more, maxSwipes: 12)
         waitFor(more)
         more.tap()
-        waitFor(text("Keep in touch"))
-        waitFor(text("Spaces"))
+        waitFor(text("Notifications"))
+        waitFor(text("Scheduled tasks"))
+        // At most three rows: the junk-drawer rows are gone.
+        XCTAssertFalse(text("Feed").exists)
+        XCTAssertFalse(text("Goals").exists)
     }
 }

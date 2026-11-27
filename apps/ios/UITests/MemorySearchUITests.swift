@@ -7,7 +7,7 @@ final class MemoryUITests: PsycheUITestCase {
 
     func testSegmentsSwitch() {
         launch()
-        openTab("Memory")
+        openTab("People")
         waitFor(match("Pay rent"))
         segment("Work").tap()
         waitFor(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Kitchen remodel")).firstMatch)
@@ -19,7 +19,7 @@ final class MemoryUITests: PsycheUITestCase {
 
     func testCircleCheckMarksTodoDone() {
         launch()
-        openTab("Memory")
+        openTab("People")
         let check = app.buttons["Mark Pay rent done"]
         waitFor(check)
         check.tap()
@@ -28,7 +28,7 @@ final class MemoryUITests: PsycheUITestCase {
 
     func testSwipeTodoDone() {
         launch()
-        openTab("Memory")
+        openTab("People")
         let row = app.staticTexts["Book a dentist cleaning"]
         waitFor(row)
         row.swipeRight()
@@ -40,7 +40,7 @@ final class MemoryUITests: PsycheUITestCase {
 
     func testOpenProjectAndPersonPagesThenBack() {
         launch()
-        openTab("Memory")
+        openTab("People")
         segment("Work").tap()
         let project = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Kitchen remodel")).firstMatch
         waitFor(project)
@@ -88,8 +88,8 @@ final class SearchUITests: PsycheUITestCase {
         waitFor(hit)
         hit.tap()
         waitFor(app.buttons["To-do"].firstMatch, 5)
-        // The Memory page is showing (its title); on iPad the floating tab bar can be hidden at this moment.
-        waitFor(app.staticTexts["Memory"], 5)
+        // The People page is showing (its title); on iPad the floating tab bar can be hidden at this moment.
+        waitFor(app.staticTexts["People"].firstMatch, 5)
     }
 
     func testPersonHitOpensPersonPage() {
