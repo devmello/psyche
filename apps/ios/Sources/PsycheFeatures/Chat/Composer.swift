@@ -5,16 +5,14 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The Liquid Glass composer: a + menu, the text field with dictation, and Send (ink) or Stop. While Psyche
-/// is replying, Send steers the reply or queues the message (by `runMode`), Stop stays, and the queued
-/// messages show above the field with a remove action. The glass is chrome; the only ink fill is Send.
+/// is replying, Send queues the message (like Messages), Stop stays, and the queued messages show above
+/// the field with a remove action. The glass is chrome; the only ink fill is Send.
 struct Composer: View {
     @Bindable var composer: ComposerModel
     let isRunning: Bool
     let canSend: Bool
     var focused: FocusState<Bool>.Binding
     let queue: [QueuedFollowUp]
-    let runMode: RunMessageMode
-    let setRunMode: (RunMessageMode) -> Void
     let removeQueued: (QueuedFollowUp) -> Void
     let send: () -> Void
     let stop: () -> Void
@@ -26,7 +24,7 @@ struct Composer: View {
     private let motion = MotionContext()
     @Namespace private var glass
     @ScaledMetric(relativeTo: .body) private var fieldHit: CGFloat = 48
-    @ScaledMetric(relativeTo: .body) private var controlHit: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var controlHit: CGFloat = 44
     @State private var sendTick = 0
 
     private var showsStop: Bool { isRunning && composer.trimmedText.isEmpty && composer.attachments.isEmpty }
@@ -133,19 +131,6 @@ struct Composer: View {
         .glassEffectID("field", in: glass)
     }
 
-    /// While Psyche replies, a long-press on Send picks how the next message goes (it was a separate menu in the field).
-    @ViewBuilder
-    private var sendModeMenu: some View {
-        if isRunning {
-            Button { setRunMode(.queue) } label: {
-                Label(String(localized: "Queue after the reply", bundle: .module), systemImage: runMode == .queue ? "checkmark" : "clock")
-            }
-            Button { setRunMode(.steer) } label: {
-                Label(String(localized: "Steer the reply", bundle: .module), systemImage: runMode == .steer ? "checkmark" : "bolt.fill")
-            }
-        }
-    }
-
     private var dictationButton: some View {
         let active = composer.dictation.isActive
         return Button { composer.toggleDictation() } label: {
@@ -172,11 +157,7 @@ struct Composer: View {
         .disabled(!canSend)
         .opacity(canSend ? 1 : 0.4)
         .sensoryFeedback(.impact, trigger: sendTick)
-        .contextMenu { sendModeMenu }
         .accessibilityLabel(String(localized: "Send", bundle: .module))
-        .accessibilityHint(isRunning ? (runMode == .steer ? String(localized: "Steer the reply", bundle: .module) : String(localized: "Queue after the reply", bundle: .module)) : "")
-        .accessibilityAction(named: Text("Queue after the reply", bundle: .module)) { if isRunning { setRunMode(.queue) } }
-        .accessibilityAction(named: Text("Steer the reply", bundle: .module)) { if isRunning { setRunMode(.steer) } }
     }
 
     /// Stop is not ink: the screen's one filled control is Send.
@@ -230,11 +211,12 @@ private struct QueuedChip: View {
                 .frame(maxWidth: 200, alignment: .leading)
             Button(action: remove) {
                 Image(systemName: "xmark").font(.caption2.weight(.bold)).foregroundStyle(PsycheColor.muted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "Remove queued message", bundle: .module))
         }
-        .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 4)
+        .padding(.leading, 10).padding(.trailing, 0)
         .background(PsycheColor.sheet, in: Capsule())
         .overlay(Capsule().strokeBorder(PsycheColor.hairline, lineWidth: 1))
     }
@@ -267,11 +249,12 @@ private struct AttachmentChip: View {
             .frame(maxWidth: 160, alignment: .leading)
             Button(action: remove) {
                 Image(systemName: "xmark").font(.caption2.weight(.bold)).foregroundStyle(PsycheColor.muted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel(String(localized: "Remove \(attachment.name)", bundle: .module))
         }
-        .padding(.leading, 10).padding(.trailing, 4).padding(.vertical, 4)
+        .padding(.leading, 10).padding(.trailing, 0)
         .background(PsycheColor.sheet, in: Capsule())
         .overlay(Capsule().strokeBorder(PsycheColor.hairline, lineWidth: 1))
     }
