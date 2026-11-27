@@ -161,13 +161,15 @@ export function normalize(v: ArrayLike<number>): Float32Array {
 }
 
 /** In-memory int8 copy of one model's unit vectors. */
-class VectorCache {
+export class VectorCache {
   readonly dims: number;
   #data: Int8Array;
   #docs: string[] = [];
   #ids: string[] = [];
   #alive: Uint8Array;
   #slot = new Map<string, number>();
+  /** docId -> every slot holding it (live or dead), so `dropDoc` does not scan all slots (G11). */
+  #bySlots = new Map<string, number[]>();
   #size = 0;
   #dead = 0;
 
@@ -194,6 +196,10 @@ class VectorCache {
       this.#slot.set(id, i);
       this.#ids[i] = id;
     } else if (this.#alive[i] === 0) this.#dead--;
+    if (this.#docs[i] !== docId) {
+      if (this.#docs[i] !== undefined) this.#unlink(i, this.#docs[i] as string);
+      this.#link(i, docId);
+    }
     this.#docs[i] = docId;
     this.#alive[i] = 1;
     const off = i * this.dims;
@@ -201,12 +207,26 @@ class VectorCache {
   }
 
   dropDoc(docId: string): void {
-    for (let i = 0; i < this.#size; i++) {
-      if (this.#alive[i] === 1 && this.#docs[i] === docId) {
+    for (const i of this.#bySlots.get(docId) ?? []) {
+      if (this.#alive[i] === 1) {
         this.#alive[i] = 0;
         this.#dead++;
       }
     }
+  }
+
+  #link(slot: number, docId: string): void {
+    const list = this.#bySlots.get(docId);
+    if (list === undefined) this.#bySlots.set(docId, [slot]);
+    else list.push(slot);
+  }
+
+  #unlink(slot: number, docId: string): void {
+    const list = this.#bySlots.get(docId);
+    if (list === undefined) return;
+    const at = list.indexOf(slot);
+    if (at !== -1) list.splice(at, 1);
+    if (list.length === 0) this.#bySlots.delete(docId);
   }
 
   drop(id: string): void {
