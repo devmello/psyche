@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const showMessageBoxSync = vi.fn();
 vi.mock("electron", () => ({ dialog: { showMessageBoxSync } }));
 vi.mock("@psyche/ui/i18n-core", () => ({
-  createI18n: () => ({ t: (k: string) => k }),
+  createLoadedI18n: async () => ({ t: (k: string) => k }),
 }));
 const {
   askBeforeUnload,

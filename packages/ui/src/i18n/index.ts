@@ -1,6 +1,8 @@
+export { isLocaleLoaded, loadLocale } from "./catalogues.ts";
 export {
   activeI18n,
   createI18n,
+  createLoadedI18n,
   type I18n,
   type I18nOptions,
   isMessageId,
@@ -30,5 +32,4 @@ export {
   runtimeLocale,
 } from "./locale.ts";
 export { type Catalogue, en, type MessageId } from "./messages/index.ts";
-export { CATALOGUES } from "./messages/locales/index.ts";
 export { type NoticeText, noticeText } from "./notice.ts";

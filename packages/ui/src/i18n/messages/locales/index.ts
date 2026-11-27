@@ -7,6 +7,7 @@ import { hi } from "./hi.ts";
 import { it } from "./it.ts";
 import { ja } from "./ja.ts";
 import { ko } from "./ko.ts";
+import { MESSAGE_LOCALES, type MessageLocale } from "./list.ts";
 import { pt } from "./pt.ts";
 import { zh } from "./zh.ts";
 
@@ -30,9 +31,11 @@ const REGISTRY = {
   zh,
 } satisfies Record<string, Partial<Catalogue>>;
 
-export type MessageLocale = keyof typeof REGISTRY;
+export { MESSAGE_LOCALES, type MessageLocale };
 
+/**
+ * Every catalogue at once. Only the checks (`pnpm i18n:check`), the tests and `register-all.ts`
+ * import this file; the app never does, so a window holds English plus one language
+ * (`../../catalogues.ts`).
+ */
 export const CATALOGUES: Readonly<Record<MessageLocale, Partial<Catalogue>>> = REGISTRY;
-
-/** The languages offered in onboarding and Settings, English first. */
-export const MESSAGE_LOCALES = Object.keys(CATALOGUES) as readonly MessageLocale[];

@@ -2,6 +2,8 @@ import { cleanup, configure } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { clearAllDrafts } from "../src/chat/composer-drafts.ts";
 import { resetAttachmentScopes } from "../src/chat/useAttachments.ts";
+// Every language and platform table in memory: tests format in several, synchronously.
+import "../src/i18n/register-all.ts";
 import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
 
 // findBy* and waitFor give up after 1 s by default; on a loaded CI runner widget and connector

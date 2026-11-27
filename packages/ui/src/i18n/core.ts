@@ -1,5 +1,6 @@
 import { type Formatters, IntlMessageFormat } from "intl-messageformat";
 import { uiPlatform } from "../lib/platform.ts";
+import { getCatalogue, loadLocale } from "./catalogues.ts";
 import {
   type Direction,
   type DirectionSetting,
@@ -8,7 +9,6 @@ import {
   runtimeLocale,
 } from "./locale.ts";
 import { en, type MessageId } from "./messages/index.ts";
-import { CATALOGUES } from "./messages/locales/index.ts";
 import { platformVariant, translatedPlatformVariant } from "./messages/variants/index.ts";
 
 /** Values a message's `{placeholders}` take. */
@@ -57,7 +57,8 @@ export function createI18n(options: I18nOptions = {}): I18n {
   const locale = options.locale ?? runtimeLocale();
   const messageLocale = resolveMessageLocale(options.language ?? "system", locale);
   const dir = resolveDirection(options.direction ?? "auto", messageLocale);
-  const catalogue = CATALOGUES[messageLocale];
+  // Only what is loaded: a language still in flight reads English, per id.
+  const catalogue = getCatalogue(messageLocale) ?? {};
   const timeZone = options.timeZone ?? defaultTimeZone;
   // Keyed by id, or `id@windows` for a platform variant (messages/variants).
   const compiled = new Map<string, IntlMessageFormat>();
@@ -157,6 +158,16 @@ export function createI18n(options: I18nOptions = {}): I18n {
       }
     },
   };
+}
+
+/**
+ * `createI18n` after the language's catalogue (and this platform's variants) are in memory, so the
+ * first string is already in the right language. A chunk that fails to load leaves English.
+ */
+export async function createLoadedI18n(options: I18nOptions = {}): Promise<I18n> {
+  const locale = options.locale ?? runtimeLocale();
+  await loadLocale(resolveMessageLocale(options.language ?? "system", locale));
+  return createI18n(options);
 }
 
 let active: I18n = createI18n();

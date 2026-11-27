@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { PsycheApp } from "../compose/index.ts";
 import { desktopPlatform } from "./bridge.ts";
+import { loadFirstLocale } from "./preload-locale.ts";
 import "../compose/app.css";
 
 // A file dropped outside the composer must never navigate the app view (security §12).
@@ -11,8 +12,11 @@ window.addEventListener("drop", (e) => e.preventDefault());
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
 // The screen-ask panel, its region overlay and the dictation HUD run panel.tsx (panel.html).
-createRoot(root).render(
-  <StrictMode>
-    <PsycheApp platform={desktopPlatform()} />
-  </StrictMode>,
+// The system language's catalogue loads first, so the first paint is already in it.
+void loadFirstLocale().then(() =>
+  createRoot(root).render(
+    <StrictMode>
+      <PsycheApp platform={desktopPlatform()} />
+    </StrictMode>,
+  ),
 );

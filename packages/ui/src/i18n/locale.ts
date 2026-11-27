@@ -1,4 +1,4 @@
-import { MESSAGE_LOCALES, type MessageLocale } from "./messages/locales/index.ts";
+import { MESSAGE_LOCALES, type MessageLocale } from "./messages/locales/list.ts";
 
 export { MESSAGE_LOCALES, type MessageLocale };
 

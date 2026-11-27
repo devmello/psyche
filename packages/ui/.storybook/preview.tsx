@@ -1,5 +1,6 @@
 import type { Preview } from "@storybook/react-vite";
 import "../src/styles/index.css";
+import "../src/i18n/register-all.ts";
 import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
 import { setUiPlatform } from "../src/lib/platform.ts";
 import { ThemeProvider } from "../src/theme/ThemeProvider.tsx";

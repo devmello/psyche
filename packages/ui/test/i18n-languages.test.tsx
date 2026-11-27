@@ -16,6 +16,7 @@ vi.mock("../src/i18n/messages/locales/index.ts", async () => {
   };
   return { CATALOGUES: { en, de }, MESSAGE_LOCALES: ["en", "de"] };
 });
+vi.mock("../src/i18n/messages/locales/list.ts", () => ({ MESSAGE_LOCALES: ["en", "de"] }));
 
 // The setup file loaded the i18n with the real registry; load this file's modules afresh so they
 // see the mock.
@@ -25,6 +26,10 @@ const { localeName, resolveMessageLocale } = await import("../src/i18n/locale.ts
 const { YouStep } = await import("../src/screens/onboarding/YouStep.tsx");
 const { AppearanceProvider } = await import("../src/shell/AppearanceProvider.tsx");
 const { StoryWorld } = await import("../src/stories/harness.tsx");
+// The app loads a catalogue on demand; this file's German is the mocked one, put in memory here.
+const { registerCatalogue } = await import("../src/i18n/catalogues.ts");
+const { CATALOGUES: MOCKED } = await import("../src/i18n/messages/locales/index.ts");
+registerCatalogue("de", (MOCKED as Record<string, object>).de as never);
 setActiveI18n(createI18n({ locale: "en-US" }));
 
 describe("the text's language (A12, #621)", () => {

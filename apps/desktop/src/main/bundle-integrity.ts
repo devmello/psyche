@@ -169,8 +169,8 @@ export interface IntegrityText {
 }
 
 export async function integrityText(systemLocale: string): Promise<IntegrityText> {
-  const { createI18n } = await import("@psyche/ui/i18n-core");
-  const i18n = createI18n({ locale: systemLocale });
+  const { createLoadedI18n } = await import("@psyche/ui/i18n-core");
+  const i18n = await createLoadedI18n({ locale: systemLocale });
   return {
     title: i18n.t("app.integrity.title"),
     detail: i18n.t("app.integrity.detail"),
