@@ -1,4 +1,4 @@
-import { ChevronDown, Globe, PanelLeft, Search, Settings } from "lucide-react";
+import { Globe, PanelLeft, Search, Settings } from "lucide-react";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -18,9 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
@@ -183,7 +180,7 @@ function ResizeEdge({
   );
 }
 
-/** The gear's items: Settings (⌘,), Usage, Help. */
+/** The gear's items: Settings (⌘,) and Help. */
 function SettingsMenuItems({
   onSettings,
   onNavigate,
@@ -193,16 +190,9 @@ function SettingsMenuItems({
 }): ReactElement {
   return (
     <>
-      <DropdownMenuItem onClick={() => onNavigate("/can-do")}>
-        {t("capabilities.open")}
-      </DropdownMenuItem>
       <DropdownMenuItem onClick={onSettings}>
         {t("shell.rail.settings")}
         <DropdownMenuShortcut>{keysLabel("Mod+,")}</DropdownMenuShortcut>
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => onNavigate("/settings/usage")}>
-        {t("shell.rail.usage")}
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => onNavigate("/settings/about")}>
         {t("shell.rail.help")}
@@ -611,7 +601,7 @@ export interface SidebarToggleProps {
 /**
  * The sidebar toggle in the toolbar's leading place (redesign §4, #598): the `sidebar.left`
  * glyph; a click hides or shows the sidebar (⌘B), ⌥-click switches to the compact rail (⌥⌘B), and
- * the small menu beside it offers the three states. It stays where it is when the sidebar hides.
+ * View → Sidebar has the states. It stays where it is when the sidebar hides.
  */
 export function SidebarToggle({
   open,
@@ -629,7 +619,6 @@ export function SidebarToggle({
     }
     onToggle();
   };
-  const state = open ? mode : "hidden";
   return (
     <span className={cn("inline-flex items-center", className)} data-no-drag="">
       <Tooltip>
@@ -655,51 +644,6 @@ export function SidebarToggle({
           <DropdownMenuShortcut>{keysLabel("Mod+B")}</DropdownMenuShortcut>
         </TooltipContent>
       </Tooltip>
-      {onModeChange ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={t("shell.sidebar.options")}
-                className="-ms-1 w-4 text-label-tertiary"
-              />
-            }
-          >
-            <ChevronDown aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {/* Picking a state closes the menu, as a native mode picker does (Base UI radio items
-                stay open by default). */}
-            <DropdownMenuRadioGroup
-              value={state}
-              onValueChange={(v) => {
-                if (v === "hidden") {
-                  if (open) onToggle();
-                  return;
-                }
-                onModeChange(v as SidebarMode);
-                if (!open) onToggle();
-              }}
-            >
-              <DropdownMenuRadioItem value="full" closeOnClick>
-                {t("shell.sidebar.full")}
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="rail" closeOnClick>
-                {t("shell.sidebar.compact")}
-                {/* i18n-ignore: a key chord */}
-                <DropdownMenuShortcut>{keysLabel("Alt+Mod+B")}</DropdownMenuShortcut>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="hidden" closeOnClick>
-                {t("shell.sidebar.hidden")}
-                {/* i18n-ignore: a key chord */}
-                <DropdownMenuShortcut>{keysLabel("Mod+B")}</DropdownMenuShortcut>
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
     </span>
   );
 }

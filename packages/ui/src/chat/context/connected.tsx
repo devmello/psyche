@@ -27,6 +27,7 @@ import { ContextMeter } from "./ContextMeter.tsx";
 import {
   type CompactionBlock,
   compactionView,
+  contextTone,
   formatTokens,
   limitFromLabel,
   usageView,
@@ -61,7 +62,7 @@ export async function compactWithToast(
   }
 }
 
-/** The header's context meter; nothing until the thread's first turn reports its usage. */
+/** The header's context meter: nothing until the chat nears compaction, then a "Chat is getting long" chip. */
 export function ThreadContextMeter({
   threadId,
   onEditLimits,
@@ -72,9 +73,13 @@ export function ThreadContextMeter({
   const { usage, limits, compact, compacting } = useThreadContext(threadId);
   // Nothing before the first turn, or from a Gateway without the context methods.
   if (!usage?.limits) return null;
+  const view = usageView(usage, limits);
+  // Quiet at rest: the meter appears, as a small chip, only once the chat nears compaction.
+  if (contextTone(view) === "ok") return null;
   return (
     <ContextMeter
-      usage={usageView(usage, limits)}
+      chip
+      usage={view}
       onCompact={() => void compactWithToast(compact)}
       compacting={compacting}
       {...(onEditLimits ? { onEditLimits } : {})}
