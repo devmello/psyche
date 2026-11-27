@@ -1205,7 +1205,7 @@ describe("deploy/scripts/release-notes.mjs", () => {
           "### Minor Changes\n\n- abc123: A feature.\n\n### Patch Changes\n\n- Updated dependencies [abc123]\n  - @psyche/protocol@0.3.0-alpha.0\n",
         ],
         [
-          "web",
+          "desktop",
           "### Patch Changes\n\n- Updated dependencies [abc123]\n  - @psyche/protocol@0.3.0-alpha.0\n",
         ],
       ] as const) {
@@ -1232,7 +1232,7 @@ describe("deploy/scripts/release-notes.mjs", () => {
       expect(notes).not.toContain("@psyche/protocol@");
       expect(notes).not.toContain("### Patch Changes");
       // A package whose section held only dependency bumps drops out.
-      expect(notes).not.toContain("### @psyche/web");
+      expect(notes).not.toContain("### @psyche/desktop");
       expect(notes).not.toContain("- old");
       // No curated file: the plain heading.
       expect(run("v0.4.0").startsWith("# Psyche v0.4.0\n")).toBe(true);

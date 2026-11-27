@@ -1,6 +1,6 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { gatewaySigningPayload } from "@psyche/protocol";
-import { GatewayConnection, Handshake, type WebSocketLike } from "@psyche/web/client";
+import { GatewayConnection, Handshake, type WebSocketLike } from "../src/client/index.ts";
 import { describe, expect, it } from "vitest";
 import {
   createGatewayVerifier,

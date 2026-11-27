@@ -13,7 +13,7 @@ function keysInSource(): Set<string> {
     // Vitest runs from packages/ui.
     join(PKG, "src/screens"),
     join(PKG, "src/agent"),
-    join(PKG, "../../apps/web/src/compose"),
+    join(PKG, "../../apps/desktop/src/compose"),
   ];
   const files: string[] = [];
   const walk = (dir: string) => {

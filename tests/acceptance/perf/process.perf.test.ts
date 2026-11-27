@@ -16,7 +16,7 @@ import { arch, homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findChromium } from "@psyche/browser";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
-import { GatewayConnection } from "@psyche/web/client";
+import { GatewayConnection } from "../../../apps/desktop/src/client/index.ts";
 import { afterAll, describe, expect, it } from "vitest";
 import { Client } from "../../integration/walking-skeleton/harness.ts";
 import { median } from "../src/report.ts";

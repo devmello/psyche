@@ -22,8 +22,8 @@ import { userEvent } from "@testing-library/user-event";
 import axe from "axe-core";
 import { computeAccessibleName } from "dom-accessibility-api";
 import { describe, expect, it, vi } from "vitest";
-import { PsycheApp } from "../../../apps/web/src/compose/PsycheApp.tsx";
-import { SHORTCUTS } from "../../../apps/web/src/shell/keyboard.ts";
+import { PsycheApp } from "../../../apps/desktop/src/compose/PsycheApp.tsx";
+import { SHORTCUTS } from "../../../apps/desktop/src/shell/keyboard.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS } from "../../../packages/ui/src/fixtures/index.ts";
 import { ROOT } from "../src/report.ts";
 import { mediaMatches } from "./setup.ts";
@@ -430,7 +430,7 @@ describe("reduced motion (docs/06 §4.5)", () => {
 
   it("the kit and shell stylesheets zero animations under the media query and the root attribute", () => {
     const kit = readFileSync(join(ROOT, "packages/ui/src/styles/index.css"), "utf8");
-    const shell = readFileSync(join(ROOT, "apps/web/src/shell/shell.css"), "utf8");
+    const shell = readFileSync(join(ROOT, "apps/desktop/src/shell/shell.css"), "utf8");
     expect(kit).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
     expect(kit).toMatch(
       /\[data-reduce-motion="true"\][^{]*\{[^}]*animation-duration: 0ms !important/,

@@ -1,4 +1,4 @@
-import type { GatewayStatus } from "@psyche/web/client";
+import type { GatewayStatus } from "../client/index.ts";
 import {
   Menu,
   type MenuItemConstructorOptions,

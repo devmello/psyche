@@ -9,7 +9,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gatewaySigningPayload, lanCertSigningPayload } from "@psyche/protocol";
-import { GatewayConnection, type GatewayStatus } from "@psyche/web/client";
+import { GatewayConnection, type GatewayStatus } from "../src/client/index.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 // Test-only: the Gateway's own certificate maker, so this talks to a certificate shaped exactly

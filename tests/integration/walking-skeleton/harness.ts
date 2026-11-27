@@ -4,11 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "@psyche/gateway/compose";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
-import { GatewayConnection, type GatewayEvent, type GatewayStatus } from "@psyche/web/client";
+import { GatewayConnection, type GatewayEvent, type GatewayStatus } from "../../../apps/desktop/src/client/index.ts";
 
 /**
  * The walking skeleton's test rig: a composed `psyched` (real packages) in a temporary
- * `$PSYCHE_HOME`, and the desktop's own Gateway client (`@psyche/web/client`) paired over
+ * `$PSYCHE_HOME`, and the desktop's own Gateway client (`apps/desktop/src/client`) paired over
  * loopback with the handshake secret, exactly as `apps/desktop` connects.
  */
 

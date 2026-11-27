@@ -3,7 +3,7 @@ import {
   ScreenAsk,
   type ScreenAskBridge,
   ScreenAskRegion,
-} from "@psyche/web/compose/screen-ask";
+} from "../compose/ScreenAsk.tsx";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { desktopPlatform } from "./bridge.ts";

@@ -3,7 +3,7 @@
 This audit checks every screen and shared component against **WCAG 2.2 AA**. It is the work list for the v1.0 accessibility pass in [08-roadmap.md](08-roadmap.md). The rules that come out of it live in [ui-audit.md](ui-audit.md) under "Accessibility rules".
 
 **How it was done**
-- The UI kit (`packages/ui/src`), the composed app (`apps/web/src/shell`, `apps/web/src/compose`) and the viewers (`packages/viewers/src/react`) were read line by line.
+- The UI kit (`packages/ui/src`), the composed app (`apps/desktop/src/shell`, `apps/desktop/src/compose`) and the viewers (`packages/viewers/src/react`) were read line by line.
 - Contrast was computed with colorjs.io (WCAG 2.1 formula) against the default `#6e56cf` theme, in light and dark. Alpha and opacity values were blended over the background.
 - The existing gates were reviewed:
   - the axe run over every story (`packages/ui/test/stories.test.tsx`);

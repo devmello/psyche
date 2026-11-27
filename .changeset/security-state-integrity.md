@@ -3,7 +3,7 @@
 "@psyche/gateway": minor
 "@psyche/db": minor
 "@psyche/ui": minor
-"@psyche/web": minor
+"@psyche/desktop": minor
 "@psyche/backup": minor
 "@psyche/permissions": minor
 "@psyche/cli": minor

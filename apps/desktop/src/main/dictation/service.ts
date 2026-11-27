@@ -24,7 +24,7 @@ export function dictationSettingsUrl(platform: NodeJS.Platform = process.platfor
   return platform === "win32" ? "ms-settings:privacy-microphone" : ACCESSIBILITY_SETTINGS_URL;
 }
 
-/** What Settings → Voice & dictation shows (`SystemDictationStatus` in @psyche/web/platform). */
+/** What Settings → Voice & dictation shows (`SystemDictationStatus` in src/shell/platform.ts). */
 export interface DictationStatus {
   helper: "online" | "offline";
   accessibility: "granted" | "missing" | "unknown";

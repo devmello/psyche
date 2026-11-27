@@ -2,7 +2,7 @@
 
 **Owner:** S11 (`docs/archive/prompts/s11-desktop-web-shell.md`). Features A6, A7, E10, I1, I5, I6, I11, K6, D5, O10 (desktop relay), Q1 (composer UI) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Design: [architecture §5, §8](../../docs/02-architecture.md), [UI design](../../docs/06-ui-design.md), [security §6, §10, §12](../../docs/05-security-and-permissions.md), [spike 01](../../docs/archive/spikes-docs/spike-01-cdp-bridge.md).
 
-Electron 44 shell (`Psyche.app`). It renders the shared React shell from `@psyche/web/shell`, holds the Gateway connection and the device key in the main process, hosts the agent's embedded browser and its CDP bridge, runs terminal PTYs the Gateway chooses, relays notifications, and keeps a menu-bar item so work continues after the window closes. It decides nothing: approvals are rendered and answered through the Gateway.
+Electron 44 shell (`Psyche.app`). It renders the shared React shell from `src/shell`, holds the Gateway connection and the device key in the main process, hosts the agent's embedded browser and its CDP bridge, runs terminal PTYs the Gateway chooses, relays notifications, and keeps a menu-bar item so work continues after the window closes. It decides nothing: approvals are rendered and answered through the Gateway.
 
 ## Run
 
@@ -36,7 +36,7 @@ BaseWindow (quick entry)  frameless, app renderer at /quick, ⌥Space (⌃⌥Spa
 Tray                      status, usage placeholder, needs-you, Gateway row, Quit vs Quit entirely
 ```
 
-- **Shell** (`apps/web/src/shell`, shared UI code): rail, thread list, chat, composer, panes, palette, shortcut sheet. The pane layout is a pure reducer per thread (`shell/layout`): tab strips, two side by side at ≥ 1440 px, resize clamped to 480/360 px, pop-out, ⌘\ closes the focused pane and focus returns to the opener. Layouts persist per thread in `localStorage` on the `app://psyche` origin.
+- **Shell** (`apps/desktop/src/shell`, shared UI code): rail, thread list, chat, composer, panes, palette, shortcut sheet. The pane layout is a pure reducer per thread (`shell/layout`): tab strips, two side by side at ≥ 1440 px, resize clamped to 480/360 px, pop-out, ⌘\ closes the focused pane and focus returns to the opener. Layouts persist per thread in `localStorage` on the `app://psyche` origin.
 - **view.\*** (agent pane control): the Gateway forwards `view.command` events; the shell applies them to the layout and reports the result with `view.report` (protocol PR #14).
 - **Browser pane**: the renderer reports the pane's rectangle (`setViewport`); main places the active tab's `WebContentsView` there and hides the others (`setVisible(false)`; throttling is off, so hidden agents keep working). Overlays (palette, dialogs) hide the native view while open.
 - **Keyboard map** (`shell/keyboard.ts`) is data shared by the key handler, palette and shortcut sheet; the app menu keeps Edit roles and maps ⌘W to "close thread view or pop-out".
@@ -48,7 +48,7 @@ Tray                      status, usage placeholder, needs-you, Gateway row, Qui
 | `src/main.ts`                               | Wiring, IPC handlers (sender frame and payload checked on every call), app:// protocol, permissions, deep links                                                |
 | `src/preload.ts` / `src/renderer/bridge.ts` | `window.psyche` typed bridge → `ShellPlatform`. Invoke results are `{ok, value} \| {ok:false, error}` so error codes survive IPC                               |
 | `psyche:dialog:pick-folder`                 | Native folder chooser for Settings → File access; main returns the folder's real path (the broker matches real paths) or null                                  |
-| `src/gateway-client.ts`                     | `GatewayConnection` from `@psyche/web/client` with the device key, handshake secret and loopback origin                                                        |
+| `src/gateway-client.ts`                     | `GatewayConnection` from `src/client` with the device key, handshake secret and loopback origin                                                        |
 | `src/main/supervisor*.ts`                   | Gateway lifecycle: dev child, LaunchAgent `com.psyche.gateway` (macOS), scheduled task `\Psyche\Gateway-<SID>` (Windows, `supervisor-windows.ts`), or external |
 | `src/main/browser/*`                        | `BrowserHost` (tabs, partitions, popups, downloads, PDF interception, highlight, pop-out), `CdpPolicy`, `TakeControl`, partitions, quarantine                  |
 | `src/main/bridge/*`                         | `BridgeClient`: the CDP bridge to the Gateway                                                                                                                  |

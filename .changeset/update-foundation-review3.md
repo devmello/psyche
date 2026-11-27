@@ -5,7 +5,6 @@
 "@psyche/db": minor
 "@psyche/cli": minor
 "@psyche/desktop": minor
-"@psyche/web": minor
 "@psyche/ui": minor
 ---
 

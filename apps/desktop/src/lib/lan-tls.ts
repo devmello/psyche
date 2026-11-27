@@ -2,7 +2,7 @@ import { createHash, X509Certificate } from "node:crypto";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import { type TLSSocket, connect as tlsConnect } from "node:tls";
-import type { WebSocketLike } from "@psyche/web/client";
+import type { WebSocketLike } from "../client/index.ts";
 import WebSocket from "ws";
 
 /**

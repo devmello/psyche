@@ -2,7 +2,7 @@ import type { SupervisorMode } from "./supervisor.ts";
 
 /**
  * The startup splash (#539) is the main window's first content, drawn by the web shell
- * (`apps/web/src/shell/components/StartupSplash.tsx`); main only decides at launch whether there
+ * (`apps/desktop/src/shell/components/StartupSplash.tsx`); main only decides at launch whether there
  * is anything to wait for and passes it in the main window's chrome launch argument.
  */
 

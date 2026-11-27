@@ -8,7 +8,7 @@ import {
   PsycheError,
   validateBridgeEventPayload,
 } from "@psyche/protocol";
-import { MockGateway } from "@psyche/web/testing";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   BridgeClient,

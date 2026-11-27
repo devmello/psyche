@@ -15,7 +15,7 @@ import {
   serializeFrame,
   validateBridgeParams,
 } from "@psyche/protocol";
-import { backoffDelay } from "@psyche/web/client";
+import { backoffDelay } from "../../client/index.ts";
 import {
   BRIDGE_EVENT_NAMES,
   type BridgeHostEvents,

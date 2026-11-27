@@ -29,6 +29,10 @@
     "./vitest-setup": {
       "types": "./src/vitest-setup.ts",
       "default": "./src/vitest-setup.ts"
+    },
+    "./mock-gateway": {
+      "types": "./src/mock-gateway.ts",
+      "default": "./src/mock-gateway.ts"
     }
   },
   "scripts": {
@@ -38,7 +42,8 @@
   "dependencies": {
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
-    "ulid": "3.0.2"
+    "ulid": "3.0.2",
+    "ws": "8.23.0"
   },
   "peerDependencies": {
     "vitest": "^5.0.0"
@@ -50,5 +55,8 @@
   },
   "bin": {
     "psyche-check-secrets": "./src/cli/check-secrets.ts"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
   }
 }

@@ -9,7 +9,7 @@ import {
   type PairingLinkPayload,
   SETUP_TOKEN_TTL_MS,
 } from "@psyche/protocol";
-import { Handshake } from "@psyche/web/client";
+import { Handshake } from "../src/client/index.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { createGatewayVerifier, fingerprintOf } from "../src/lib/gateway-identity.ts";
 import {

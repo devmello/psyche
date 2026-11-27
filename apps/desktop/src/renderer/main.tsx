@@ -1,4 +1,4 @@
-import { PsycheApp } from "@psyche/web/compose";
+import { PsycheApp } from "../compose/index.ts";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { desktopPlatform } from "./bridge.ts";

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Readable } from "node:stream";
-import { MockGateway } from "@psyche/web/testing";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { loadOrCreateIdentity } from "../src/identity.ts";

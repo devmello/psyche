@@ -1,6 +1,6 @@
 import { createPublicKey, generateKeyPairSync, sign, verify } from "node:crypto";
 import { connectSigningPayload, gatewaySigningPayload } from "@psyche/protocol";
-import { Handshake } from "@psyche/web/client";
+import { Handshake } from "../src/client/index.ts";
 import { describe, expect, it } from "vitest";
 import { createGatewayVerifier } from "../src/lib/gateway-identity.ts";
 

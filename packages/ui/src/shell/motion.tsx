@@ -191,7 +191,7 @@ export function ThreadCrossfade({
  * `<ViewTransition>` with the `psy-route` class. It runs only for updates inside
  * `startTransition` (the host starts one for a change of destination, not of thread); the host's
  * stylesheet holds the 180 ms crossfade with a 4 px rise and the reduced-motion rule
- * (apps/web/src/shell/layout/shell-layout.css).
+ * (apps/desktop/src/shell/layout/shell-layout.css).
  */
 export function RouteTransition({ children }: { children?: ReactNode }): ReactElement {
   return (

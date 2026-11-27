@@ -13,7 +13,7 @@ import { duration, ease, motionSpring, spring } from "../motion/tokens.ts";
  * paper fades away under it, so splash and app read as one surface. A failed start folds the wings
  * and goes graphite. Reduced motion: the same drawing, static, and one crossfade out.
  *
- * Presentational: apps/web's `StartupSplash` decides the line, when to leave and the actions.
+ * Presentational: the desktop shell's `StartupSplash` decides the line, when to leave and the actions.
  * Compositor-only after the draw (opacity, transform); no glass, no glow, nothing idles.
  */
 

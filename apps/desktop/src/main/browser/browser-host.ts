@@ -13,7 +13,7 @@ import {
   PsycheError,
   registrableDomain,
 } from "@psyche/protocol";
-import type { BrowserHostState, BrowserNav, BrowserTabView, Rect } from "@psyche/web/platform";
+import type { BrowserHostState, BrowserNav, BrowserTabView, Rect } from "../../shell/platform.ts";
 import {
   BaseWindow,
   type DownloadItem,

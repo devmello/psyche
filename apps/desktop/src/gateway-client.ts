@@ -8,7 +8,7 @@ import {
   type GatewayConnectionOptions,
   type GatewayVerifier,
   type WebSocketLike,
-} from "@psyche/web/client";
+} from "./client/index.ts";
 import { type DeviceKey, platformFromNode, signWithDeviceKey } from "./lib/device-key.ts";
 
 /**

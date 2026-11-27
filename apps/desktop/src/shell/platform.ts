@@ -5,8 +5,7 @@ import type { GatewayStatus } from "../client/status.ts";
 import type { PasskeyHost } from "../lib/webauthn.ts";
 
 /**
- * What the shared shell needs from its host. `apps/web` implements it over a browser WebSocket;
- * `apps/desktop` implements it over the preload bridge (`window.psyche`), where the main process
+ * What the shared shell needs from its host. `apps/desktop` implements it over the preload bridge (`window.psyche`), where the main process
  * holds the Gateway connection and the native views. Optional members are desktop-only; the
  * shell hides what a host lacks (docs/06 §3.24).
  */

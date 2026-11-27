@@ -73,8 +73,8 @@ describe("psyche-app-guide", () => {
 
   it("mentions every top-level route and every route the shell renders", () => {
     const rail = all(read("packages/ui/src/shell/Rail.tsx"), /route: "\/([\w-]+)/g);
-    const screens = all(read("apps/web/src/compose/PsycheApp.tsx"), /case "([\w-]+)":/g);
-    const onboarding = all(read("apps/web/src/compose/first-run.tsx"), /page === "([\w-]+)"/g);
+    const screens = all(read("apps/desktop/src/compose/PsycheApp.tsx"), /case "([\w-]+)":/g);
+    const onboarding = all(read("apps/desktop/src/compose/first-run.tsx"), /page === "([\w-]+)"/g);
     const found = unique([...rail, ...screens, ...onboarding, "settings", "agent"]);
     for (const r of found) {
       expect(

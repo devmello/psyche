@@ -2,7 +2,7 @@ import type { CSSProperties, ReactElement } from "react";
 
 /**
  * The Psyche mark and a small status chip, kept from the bootstrap because apps/desktop and
- * apps/web use them before the kit's stylesheet is loaded (inline styles, no Tailwind needed).
+ * the desktop renderer use them before the kit's stylesheet is loaded (inline styles, no Tailwind needed).
  */
 
 export interface PsycheMarkProps {

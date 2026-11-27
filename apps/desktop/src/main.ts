@@ -10,8 +10,8 @@ import {
   type Notification as PsycheNotification,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
-import type { GatewayConnection } from "@psyche/web/client";
-import type { ShellCommand } from "@psyche/web/platform";
+import type { GatewayConnection } from "./client/index.ts";
+import type { ShellCommand } from "./shell/platform.ts";
 import {
   app,
   BaseWindow,

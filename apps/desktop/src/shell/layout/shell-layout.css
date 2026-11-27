@@ -91,7 +91,7 @@
   so nothing underneath is clickable. Reduced motion: the old page is gone at once and the new
   one fades in over 120 ms with no movement (React does not do this for us).
   The new page's delay must stay >= the old page's duration
-  (apps/web/test/shell/route-transition-css.test.ts).
+  (apps/desktop/test/shell/route-transition-css.test.ts).
 */
 ::view-transition-old(.psy-route) {
   mix-blend-mode: normal;

@@ -130,7 +130,7 @@ export function WorkflowPostCard({
         <MeetingPrepCard
           prep={card.prep}
           focused={focused}
-          // The shell's consent dialog listens for this event (apps/web MeetingRecord).
+          // The shell's consent dialog listens for this event (desktop MeetingRecord).
           onRecord={(meetingId) =>
             document.dispatchEvent(new CustomEvent(RECORD_MEETING_EVENT, { detail: { meetingId } }))
           }

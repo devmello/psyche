@@ -1,7 +1,7 @@
 ---
 "@psyche/protocol": minor
 "@psyche/ui": minor
-"@psyche/web": minor
+"@psyche/desktop": minor
 "@psyche/gateway": minor
 "@psyche/search": minor
 ---

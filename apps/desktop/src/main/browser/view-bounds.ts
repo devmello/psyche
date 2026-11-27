@@ -1,4 +1,4 @@
-import type { Rect } from "@psyche/web/platform";
+import type { Rect } from "../../shell/platform.ts";
 
 /**
  * Where the native tab view goes for the pane placeholder the renderer reported.

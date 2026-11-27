@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { createServer as createNetServer, type Server as NetServer, type Socket } from "node:net";
 import {
   BRIDGE_MAX_FRAME_BYTES,
+  connectSigningPayload,
   errRes,
   eventFrame,
   type Frame,
@@ -17,7 +18,6 @@ import {
   validateParams,
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
-import { connectSigningPayload } from "../src/client/signing.ts";
 
 /**
  * Mock Gateway for S11's tests (packages/testing has no Gateway double yet). It speaks wire spec
