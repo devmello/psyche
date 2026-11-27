@@ -4,8 +4,8 @@ Native SwiftUI, iOS 26 minimum, no third-party dependencies. Architecture and lo
 [docs/design/ios-app-2026.md](../../docs/design/ios-app-2026.md). Mockups: `docs/design/ios-app-2026/*.dc.html`.
 
 The app runs against the real Gateway (`GatewayBackend`, work package I2) unless launched with
-`-psycheScenario <name>`, which uses fixtures. "Try it without a Mac" on the pairing screen also enters
-fixture mode. Pair by scanning the code from Settings → Devices & server → Pair another computer, or paste the link
+`-psycheScenario <name>`, which uses fixtures. "Try the demo" on the pairing screen also enters
+fixture mode. Pair by scanning the code from Settings > Devices > Pair iPhone, or paste the link
 (`psyche-pair:v1:…`); the link is read only by the in-app scanner or paste button, never as a URL. It names the
 Gateway by the `sha256:` fingerprint of its identity key (not the key) and carries a one-time setup token, and the
 parser follows `packages/protocol/src/pairing-link.ts` rule for rule (https only, never loopback, no extra fields).
@@ -71,7 +71,7 @@ xcrun simctl launch booted com.psyche.ios -psycheScenario live
 ```
 
 Scenarios: `unpaired` (default), `pending`, `live`, `away`, `gatewayOff`, `tailscaleOff`, `mismatch`.
-The simulator has no camera: paste a link (`xcrun simctl pbcopy booted`, then Paste) or use "Try it without a Mac".
+The simulator has no camera: paste a link (`xcrun simctl pbcopy booted`, then Paste) or use "Try the demo".
 
 ## Tests
 

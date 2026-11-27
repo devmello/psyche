@@ -2202,77 +2202,6 @@
         }
       }
     },
-    "That isn't a Psyche pairing code. Open Settings → Devices & server → Pair another computer on your Mac.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That isn't a Psyche pairing code. Open Settings → Devices & server → Pair another computer on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هذا ليس رمز اقتران Psyche. افتح الإعدادات ← الأجهزة والخادم ← اقترن بجهاز كمبيوتر آخر على جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Das ist kein Psyche-Kopplungscode. Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ese no es un código de emparejamiento de Psyche. Abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce n’est pas un code d’association Psyche. Ouvrez Réglages → Appareils et serveur → Associer un autre ordinateur sur votre Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह Psyche पेयरिंग कोड नहीं है। अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non è un codice di abbinamento di Psyche. Apri Impostazioni → Dispositivi e server → Abbina un altro computer sul Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche のペアリングコードではありません。Mac の「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開いてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 페어링 코드가 아닙니다. Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 여세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esse não é um código de pareamento do Psyche. Abra Ajustes → Dispositivos e servidor → Parear outro computador no seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这不是 Psyche 配对码。请在 Mac 上打开“设置”→“设备与服务器”→“配对其他电脑”。"
-          }
-        }
-      }
-    },
     "That pairing code is from a newer Psyche. Update this app, or make a new code on your Mac.": {
       "extractionState": "manual",
       "localizations": {
@@ -7736,6 +7665,77 @@
           "stringUnit": {
             "state": "translated",
             "value": "来自“信息”的项目。请在 Mac 上打开以应用。"
+          }
+        }
+      }
+    },
+    "That isn't a Psyche pairing code. On your Mac: Settings > Devices > Pair iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That isn't a Psyche pairing code. On your Mac: Settings > Devices > Pair iPhone."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "هذا ليس رمز إقران Psyche. على جهاز Mac: الإعدادات > الأجهزة > إقران iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist kein Psyche-Kopplungscode. Auf deinem Mac: Einstellungen > Geräte > iPhone koppeln."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ese no es un código de vinculación de Psyche. En tu Mac: Ajustes > Dispositivos > Vincular iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce n’est pas un code d’association Psyche. Sur votre Mac : Réglages > Appareils > Associer l’iPhone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह Psyche का पेयरिंग कोड नहीं है। अपने Mac पर: सेटिंग > डिवाइस > iPhone जोड़ें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo non è un codice di associazione Psyche. Sul tuo Mac: Impostazioni > Dispositivi > Associa iPhone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これは Psyche のペアリングコードではありません。Mac で:設定 > デバイス > iPhone をペアリング。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 페어링 코드가 아닙니다. Mac에서: 설정 > 기기 > iPhone 페어링."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este não é um código de pareamento do Psyche. No seu Mac: Ajustes > Dispositivos > Parear iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这不是 Psyche 配对码。在 Mac 上:设置 > 设备 > 配对 iPhone。"
           }
         }
       }

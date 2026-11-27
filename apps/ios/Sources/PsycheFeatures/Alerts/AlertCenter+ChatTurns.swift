@@ -135,7 +135,7 @@ extension AlertCenter {
         }
         let title = chatTitles[turn.threadID]
         return ChatTurnContent(
-            phase: phase, startedAt: turn.startedAt, title: settings.taskTitlesOnLockScreen ? title : nil,
+            phase: phase, startedAt: turn.startedAt, title: nil,
             islandTitle: title, detail: detail)
     }
 

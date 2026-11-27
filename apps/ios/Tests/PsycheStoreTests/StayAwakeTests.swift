@@ -305,8 +305,4 @@ struct AwakeTimeLedgerTests {
         #expect(await AwakeTimeLedger(directory: dir, calendar: utc).seconds(on: noon) == 900)
     }
 
-    @Test func settingDefaultsToOff() {
-        #expect(PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
-            .stayConnectedWhileRunning == false)
-    }
 }

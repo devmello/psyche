@@ -143,219 +143,6 @@
         }
       }
     },
-    "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يُبقي Psyche قيد التشغيل في الخلفية بجلسة صوت صامتة، فقط أثناء تشغيل مهمة أو ردّ في دردشة تتابعه أو انتظارها لردّك. يستهلك بعض البطارية، ويتوقف في وضع الطاقة المنخفضة أو عندما تقل البطارية عن 20 في المئة والجهاز غير موصول بالشاحن."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hält Psyche im Hintergrund mit einer stummen Audiositzung am Laufen, aber nur solange eine Aufgabe oder Chat-Antwort, die du beobachtest, läuft oder auf dich wartet. Das kostet etwas Akku und endet im Stromsparmodus oder wenn der Akku unter 20 Prozent liegt und das Gerät nicht lädt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantiene Psyche activo en segundo plano, con una sesión de audio silenciosa, solo mientras una tarea o respuesta de chat que sigues se ejecuta o espera tu respuesta. Gasta algo de batería y se detiene con el modo de bajo consumo o con menos del 20 por ciento de batería sin cargador."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Garde Psyche actif en arrière-plan, avec une session audio silencieuse, uniquement tant qu'une tâche ou une réponse de chat que tu suis s'exécute ou attend ta réponse. Cela consomme un peu de batterie et s'arrête en mode économie d'énergie ou sous 20 pour cent de batterie sans chargeur."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche को बैकग्राउंड में एक मौन ऑडियो सेशन के साथ तभी चालू रखता है जब आपके देखे जा रहे किसी कार्य या चैट जवाब को चलना हो या आपके जवाब का इंतज़ार हो। इससे कुछ बैटरी खर्च होती है, और लो पावर मोड में या चार्जर के बिना बैटरी 20 प्रतिशत से कम होने पर यह बंद हो जाता है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantiene Psyche attivo in background, con una sessione audio silenziosa, solo mentre un'attività o una risposta in chat che stai seguendo è in corso o aspetta una tua risposta. Consuma un po' di batteria e si ferma con il risparmio energia o con meno del 20 per cento di batteria senza caricatore."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "見ているタスクやチャットの返信が実行中、またはあなたの返答を待っている間だけ、無音のオーディオセッションでPsycheをバックグラウンドで動かし続けます。バッテリーを少し消費し、低電力モード中や、充電していない状態でバッテリー残量が20パーセント未満のときは停止します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "지켜보고 있는 작업이나 채팅 답변이 실행 중이거나 내 응답을 기다리는 동안에만, 무음 오디오 세션으로 Psyche를 백그라운드에서 계속 실행합니다. 배터리를 조금 사용하며, 저전력 모드이거나 충전 중이 아닐 때 배터리가 20퍼센트 미만이면 멈춥니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantém o Psyche ativo em segundo plano, com uma sessão de áudio silenciosa, somente enquanto uma tarefa ou resposta de chat que você acompanha está em execução ou aguardando você. Gasta um pouco de bateria e para no modo de baixo consumo ou com menos de 20 por cento de bateria fora do carregador."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仅在你关注的任务或聊天回复正在运行或等待你回应时，通过静音音频会话让 Psyche 在后台保持运行。这会消耗一些电量，并在低电量模式下，或电量低于百分之二十且未充电时自动停止。"
-          }
-        }
-      }
-    },
-    "Kept awake %lld min today": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "بقي نشطاً %lld د اليوم"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heute %lld Min. wach gehalten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kept awake %lld min today"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activo %lld min hoy"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maintenu actif %lld min aujourd'hui"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आज %lld मिनट जागा रखा"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tenuto attivo %lld min oggi"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は%lld分間起動を維持"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘 %lld분 동안 깨어 있음"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantido ativo por %lld min hoje"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今天已保持唤醒 %lld 分钟"
-          }
-        }
-      }
-    },
-    "Not kept awake today": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يبقَ نشطاً اليوم"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heute nicht wach gehalten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not kept awake today"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se mantuvo activo hoy"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas maintenu actif aujourd'hui"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आज जागा नहीं रखा गया"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non tenuto attivo oggi"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は起動を維持していません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오늘은 깨어 있지 않음"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Não foi mantido ativo hoje"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今天未保持唤醒"
-          }
-        }
-      }
-    },
     "Open Psyche to answer this one.": {
       "extractionState": "manual",
       "localizations": {
@@ -423,77 +210,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "请打开 Psyche 来回答这一项。"
-          }
-        }
-      }
-    },
-    "Stay connected while a task runs": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ابقَ متصلاً أثناء تشغيل مهمة"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verbunden bleiben, solange eine Aufgabe läuft"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stay connected while a task runs"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantener la conexión mientras se ejecuta una tarea"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rester connecté pendant qu'une tâche s'exécute"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कार्य चलने के दौरान कनेक्टेड रहें"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resta connesso mentre un'attività è in corso"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "タスクの実行中は接続を維持"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "작업이 실행되는 동안 연결 유지"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Manter a conexão enquanto uma tarefa executa"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "任务运行时保持连接"
           }
         }
       }
@@ -4896,361 +4612,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 %@ 上"
-          }
-        }
-      }
-    },
-    "Computers Psyche can use": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أجهزة الكمبيوتر التي يمكن لـ Psyche استخدامها"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computer, die Psyche nutzen kann"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computers Psyche can use"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ordenadores que Psyche puede usar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ordinateurs que Psyche peut utiliser"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कंप्यूटर जिन्हें Psyche इस्तेमाल कर सकता है"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computer che Psyche può usare"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche が使えるコンピュータ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche가 사용할 수 있는 컴퓨터"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computadores que o Psyche pode usar"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 可以使用的电脑"
-          }
-        }
-      }
-    },
-    "No computers added yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم تتم إضافة أي جهاز كمبيوتر بعد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Computer hinzugefügt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No computers added yet."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no has añadido ningún ordenador."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun ordinateur ajouté pour l'instant."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी तक कोई कंप्यूटर नहीं जोड़ा गया।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nessun computer aggiunto finora."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "追加されたコンピュータはまだありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 추가된 컴퓨터가 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nenhum computador adicionado ainda."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "尚未添加电脑。"
-          }
-        }
-      }
-    },
-    "Online": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "متصل"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Online"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Online"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En línea"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En ligne"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ऑनलाइन"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Online"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "オンライン"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "온라인"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Online"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在线"
-          }
-        }
-      }
-    },
-    "Offline": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "غير متصل"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin conexión"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hors ligne"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ऑफ़लाइन"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "オフライン"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오프라인"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "离线"
-          }
-        }
-      }
-    },
-    "Limited": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "محدود"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eingeschränkt"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limited"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limitado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limité"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सीमित"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limitato"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一部のみ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "제한됨"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Limitado"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "受限"
           }
         }
       }
@@ -15408,77 +14769,6 @@
         }
       }
     },
-    "The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الجهاز الذي ردّ ليس الجهاز الذي اقترن به هذا الهاتف، لذلك توقف Psyche. لم يُرسل إليه شيء."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der antwortende Mac ist nicht der, mit dem dieses iPhone gekoppelt ist. Psyche hat daher angehalten. Es wurde nichts gesendet."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El Mac que respondió no es el que emparejó este teléfono, así que Psyche se detuvo. No se envió nada."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le Mac qui a répondu n'est pas celui auquel ce téléphone est associé, Psyche s'est donc arrêté. Rien n'a été envoyé."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "जिस Mac ने जवाब दिया, वह इस फ़ोन से पेयर किया गया Mac नहीं है, इसलिए Psyche रुक गया। कुछ भी नहीं भेजा गया।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il Mac che ha risposto non è quello abbinato a questo telefono, quindi Psyche si è fermato. Non è stato inviato nulla."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "応答した Mac はこの iPhone とペアリングされたものではないため、Psyche は停止しました。何も送信されていません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "응답한 Mac은 이 휴대폰과 페어링된 Mac이 아니므로 Psyche가 중단되었습니다. 아무것도 전송되지 않았습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Mac que respondeu não é o que este telefone pareou, então o Psyche parou. Nada foi enviado a ele."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "回应的 Mac 不是此手机配对的那台，因此 Psyche 已停止。没有向它发送任何内容。"
-          }
-        }
-      }
-    },
     "This block can't be shown on the phone yet": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -15972,77 +15262,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "试试更少的词，或在聊天中询问 Psyche。"
-          }
-        }
-      }
-    },
-    "Try it without a Mac": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Try it without a Mac"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "جرّبه بدون جهاز Mac"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ohne Mac ausprobieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Probar sin Mac"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Essayer sans Mac"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "बिना Mac के आज़माएँ"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prova senza Mac"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac なしで試す"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac 없이 사용해 보기"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Experimentar sem Mac"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不连接 Mac 试用"
           }
         }
       }
@@ -18528,77 +17747,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "关于"
-          }
-        }
-      }
-    },
-    "Access": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Access"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الوصول"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zugriff"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acceso"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accès"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "पहुँच"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accesso"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アクセス"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "접근"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acesso"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "访问权限"
           }
         }
       }
@@ -23285,148 +22433,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "任务"
-          }
-        }
-      }
-    },
-    "Task titles on the Lock Screen": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Task titles on the Lock Screen"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عناوين المهام على شاشة القفل"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aufgabentitel auf dem Sperrbildschirm"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos de tareas en la pantalla de bloqueo"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titres des tâches sur l'écran verrouillé"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "लॉक स्क्रीन पर कार्य शीर्षक"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titoli delle attività nella schermata di blocco"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ロック画面にタスク名を表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잠금 화면에 작업 제목 표시"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Títulos das tarefas na tela de bloqueio"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "锁定屏幕上显示任务标题"
-          }
-        }
-      }
-    },
-    "Task titles on the Lock Screen are off by default.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Task titles on the Lock Screen are off by default."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عناوين المهام على شاشة القفل متوقفة افتراضياً."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aufgabentitel auf dem Sperrbildschirm sind standardmäßig aus."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los títulos de tareas en la pantalla de bloqueo están desactivados de forma predeterminada."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les titres des tâches sur l'écran verrouillé sont désactivés par défaut."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "लॉक स्क्रीन पर कार्य शीर्षक डिफ़ॉल्ट रूप से बंद हैं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I titoli delle attività nella schermata di blocco sono disattivati per impostazione predefinita."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ロック画面のタスク名はデフォルトでオフです。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잠금 화면의 작업 제목은 기본적으로 꺼져 있습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os títulos das tarefas na tela de bloqueio ficam desativados por padrão."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "锁定屏幕上的任务标题默认关闭。"
           }
         }
       }
@@ -28330,77 +27336,6 @@
         }
       }
     },
-    "Skills": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skills"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "المهارات"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fähigkeiten"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Habilidades"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compétences"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कौशल"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Competenze"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スキル"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스킬"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Habilidades"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "技能"
-          }
-        }
-      }
-    },
     "On": {
       "extractionState": "manual",
       "localizations": {
@@ -28539,219 +27474,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "关"
-          }
-        }
-      }
-    },
-    "No skills yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No skills yet."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا توجد مهارات بعد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Fähigkeiten."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay habilidades."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune compétence pour l'instant."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी कोई कौशल नहीं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ancora nessuna competenza."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだスキルはありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 스킬이 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda não há habilidades."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有技能。"
-          }
-        }
-      }
-    },
-    "No description yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No description yet."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا يوجد وصف بعد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Beschreibung."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún sin descripción."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas encore de description."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी कोई विवरण नहीं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ancora nessuna descrizione."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "説明はまだありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 설명이 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda sem descrição."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有描述。"
-          }
-        }
-      }
-    },
-    "Turn skills on or off and add new ones on your Mac.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turn skills on or off and add new ones on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "شغِّل المهارات أو أوقفها وأضف مهارات جديدة من جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Schalte Fähigkeiten auf deinem Mac ein oder aus und füge neue hinzu."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activa o desactiva habilidades y añade nuevas en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Activez ou désactivez les compétences et ajoutez-en de nouvelles sur votre Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कौशल चालू या बंद करें और नए अपने Mac पर जोड़ें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Attiva o disattiva le competenze e aggiungine di nuove sul tuo Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スキルのオン・オフや追加は Mac で行います。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "스킬 켜기·끄기와 추가는 Mac에서 하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ative ou desative habilidades e adicione novas no seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "请在 Mac 上开启或关闭技能，以及添加新技能。"
           }
         }
       }
@@ -28969,148 +27691,6 @@
         }
       }
     },
-    "Default model": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default model"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "النموذج الافتراضي"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standardmodell"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modelo predeterminado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modèle par défaut"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "डिफ़ॉल्ट मॉडल"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modello predefinito"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定のモデル"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본 모델"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modelo padrão"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认模型"
-          }
-        }
-      }
-    },
-    "Usage": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usage"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الاستخدام"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nutzung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uso"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilisation"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "उपयोग"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilizzo"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用量"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용량"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uso"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用量"
-          }
-        }
-      }
-    },
     "Models": {
       "extractionState": "manual",
       "localizations": {
@@ -29178,148 +27758,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "模型"
-          }
-        }
-      }
-    },
-    "Your Mac doesn't list any models yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your Mac doesn't list any models yet."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا يعرض Mac الخاص بك أي نماذج بعد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dein Mac listet noch keine Modelle auf."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu Mac todavía no muestra ningún modelo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Votre Mac ne liste encore aucun modèle."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपका Mac अभी कोई मॉडल नहीं दिखाता।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il Mac non elenca ancora nessun modello."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac にはまだモデルが表示されていません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에 아직 모델이 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seu Mac ainda não lista nenhum modelo."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的 Mac 还没有列出任何模型。"
-          }
-        }
-      }
-    },
-    "Changing the default model needs admin access on this phone. If your Mac refuses, its reason appears below.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Changing the default model needs admin access on this phone. If your Mac refuses, its reason appears below."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يحتاج تغيير النموذج الافتراضي إلى صلاحية المسؤول على هذا الهاتف. إذا رفض Mac الطلب، يظهر سببه أدناه."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Das Standardmodell zu ändern erfordert Admin-Zugriff auf diesem iPhone. Verweigert dein Mac die Änderung, steht der Grund unten."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cambiar el modelo predeterminado requiere acceso de administrador en este teléfono. Si tu Mac lo rechaza, su motivo aparece abajo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Changer le modèle par défaut nécessite un accès administrateur sur ce téléphone. Si votre Mac refuse, sa raison s'affiche ci-dessous."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "डिफ़ॉल्ट मॉडल बदलने के लिए इस फ़ोन पर एडमिन पहुँच चाहिए। अगर आपका Mac इसे मना करता है, तो उसका कारण नीचे दिखेगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cambiare il modello predefinito richiede l'accesso amministratore su questo telefono. Se il Mac lo rifiuta, il motivo appare qui sotto."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定のモデルを変えるには、この iPhone に管理者権限が必要です。Mac が拒否した場合は、その理由を下に表示します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본 모델을 바꾸려면 이 iPhone에 관리자 권한이 필요합니다. Mac이 거부하면 그 이유를 아래에 표시합니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mudar o modelo padrão exige acesso de administrador neste telefone. Se o seu Mac recusar, o motivo aparece abaixo."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在这部手机上更改默认模型需要管理员权限。如果你的 Mac 拒绝，原因会显示在下方。"
           }
         }
       }
@@ -29395,148 +27833,6 @@
         }
       }
     },
-    "Last 7 days, by model": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last 7 days, by model"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "آخر 7 أيام، حسب النموذج"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Letzte 7 Tage, nach Modell"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Últimos 7 días, por modelo"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "7 derniers jours, par modèle"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "पिछले 7 दिन, मॉडल के अनुसार"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ultimi 7 giorni, per modello"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "直近7日間、モデル別"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "최근 7일, 모델별"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Últimos 7 dias, por modelo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最近 7 天，按模型"
-          }
-        }
-      }
-    },
-    "No usage yet.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No usage yet."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا يوجد استخدام بعد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine Nutzung."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay uso."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pas encore d'utilisation."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी कोई उपयोग नहीं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nessun utilizzo ancora."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだ使用量がありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 사용량이 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda não há uso."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "暂无用量。"
-          }
-        }
-      }
-    },
     "This month": {
       "extractionState": "manual",
       "localizations": {
@@ -29604,77 +27900,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "本月"
-          }
-        }
-      }
-    },
-    "Monthly budget": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monthly budget"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الميزانية الشهرية"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Monatsbudget"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Presupuesto mensual"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Budget mensuel"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मासिक बजट"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Budget mensile"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "月間予算"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "월 예산"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orçamento mensal"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "每月预算"
           }
         }
       }
@@ -29963,77 +28188,6 @@
         }
       }
     },
-    "Use this model anyway?": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use this model anyway?"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هل تريد استخدام هذا النموذج على أي حال؟"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses Modell trotzdem verwenden?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿Usar este modelo de todos modos?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utiliser quand même ce modèle ?"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फिर भी यह मॉडल इस्तेमाल करें?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usare comunque questo modello?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このモデルをそのまま使いますか？"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "그래도 이 모델을 사용할까요?"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usar este modelo mesmo assim?"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仍要使用此模型吗？"
-          }
-        }
-      }
-    },
     "Use anyway": {
       "extractionState": "manual",
       "localizations": {
@@ -30101,77 +28255,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "仍然使用"
-          }
-        }
-      }
-    },
-    "Couldn't refresh the models.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't refresh the models."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تعذّر تحديث النماذج."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Modelle konnten nicht aktualisiert werden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudieron actualizar los modelos."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible d’actualiser les modèles."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मॉडल की सूची ताज़ा नहीं हो सकी।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile aggiornare i modelli."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "モデルの一覧を更新できませんでした。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "모델 목록을 새로 고칠 수 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Não foi possível atualizar os modelos."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法刷新模型列表。"
           }
         }
       }
@@ -44873,77 +42956,6 @@
         }
       }
     },
-    "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "متوقف افتراضيًا. عند التشغيل، يمكن لـ Psyche على جهاز Mac أن يسأل عن مكان هذا الهاتف، ولكن فقط أثناء فتح Psyche على هذا الهاتف. لا يتتبعك في الخلفية ولا يحتفظ بسجل للأماكن التي زرتها، ويصل موقعك إلى جهاز Mac فقط."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standardmäßig aus. Wenn aktiv, kann Psyche auf deinem Mac fragen, wo dieses iPhone ist, aber nur, solange Psyche auf diesem iPhone geöffnet ist. Es verfolgt dich nie im Hintergrund und führt keinen Verlauf deiner Aufenthaltsorte. Dein Standort geht nur an deinen Mac."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desactivado por defecto. Si lo activas, Psyche en tu Mac puede preguntar dónde está este teléfono, pero solo mientras Psyche está abierto en él. Nunca te sigue en segundo plano ni guarda un historial de dónde has estado, y tu ubicación solo llega a tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Désactivé par défaut. Une fois activé, Psyche sur votre Mac peut demander où se trouve ce téléphone, mais seulement tant que Psyche est ouvert sur ce téléphone. Il ne vous suit jamais en arrière-plan et ne garde aucun historique de vos déplacements. Votre position n'est envoyée qu'à votre Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "डिफ़ॉल्ट रूप से बंद। चालू होने पर, आपके Mac पर Psyche पूछ सकता है कि यह फ़ोन कहाँ है, लेकिन केवल तब जब Psyche इस फ़ोन पर खुला हो। यह बैकग्राउंड में आपको ट्रैक नहीं करता और आपके जाने की जगहों का इतिहास नहीं रखता, और आपका स्थान केवल आपके Mac को भेजा जाता है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disattivato per impostazione predefinita. Se attivo, Psyche sul tuo Mac può chiedere dove si trova questo telefono, ma solo mentre Psyche è aperto su questo telefono. Non ti segue mai in background e non conserva uno storico dei luoghi in cui sei stato; la tua posizione va solo al tuo Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "初期設定ではオフです。オンにすると、Mac の Psyche がこの iPhone の場所を尋ねることができますが、この iPhone で Psyche を開いている間だけです。バックグラウンドで追跡したり、行った場所の履歴を残したりすることはなく、位置情報は Mac にのみ送られます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본적으로 꺼져 있습니다. 켜면 Mac의 Psyche가 이 iPhone의 위치를 물어볼 수 있지만, 이 iPhone에서 Psyche가 열려 있는 동안에만 가능합니다. 백그라운드에서 위치를 추적하거나 방문 기록을 남기지 않으며, 위치는 Mac으로만 전달됩니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Desativado por padrão. Quando ativado, o Psyche no seu Mac pode perguntar onde este telefone está, mas só enquanto o Psyche estiver aberto neste telefone. Ele nunca rastreia você em segundo plano nem guarda um histórico de onde você esteve, e sua localização vai apenas para o seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认关闭。开启后，Mac 上的 Psyche 可以询问这部 iPhone 在哪里，但仅限 Psyche 在这部 iPhone 上打开期间。它不会在后台追踪你，也不会保存你去过哪里的记录，你的位置只会发送到你的 Mac。"
-          }
-        }
-      }
-    },
     "Location is off for Psyche in the iOS Settings app. Turn it on there, then try again.": {
       "extractionState": "manual",
       "localizations": {
@@ -45011,148 +43023,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 iOS 设置应用中，Psyche 的位置已关闭。请先在那里开启，然后再试一次。"
-          }
-        }
-      }
-    },
-    "Standing permissions": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standing permissions"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الأذونات الدائمة"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dauerhafte Berechtigungen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permisos permanentes"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Autorisations permanentes"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "स्थायी अनुमतियाँ"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Autorizzazioni permanenti"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "常時許可"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "상시 권한"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Permissões permanentes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "长期权限"
-          }
-        }
-      }
-    },
-    "No standing permissions yet. Choosing “Always allow” on an approval adds one here.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No standing permissions yet. Choosing “Always allow” on an approval adds one here."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا توجد أذونات دائمة بعد. عند اختيار «السماح دائمًا» في طلب موافقة تُضاف إلى هنا."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Noch keine dauerhaften Berechtigungen. Wenn du bei einer Freigabe „Immer erlauben“ wählst, erscheint sie hier."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aún no hay permisos permanentes. Al elegir «Permitir siempre» en una aprobación, se añade uno aquí."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucune autorisation permanente pour l’instant. Choisir « Toujours autoriser » sur une approbation en ajoute une ici."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अभी कोई स्थायी अनुमति नहीं है। किसी अनुमोदन पर “हमेशा अनुमति दें” चुनने पर यहाँ एक जुड़ जाती है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ancora nessuna autorizzazione permanente. Scegliendo «Consenti sempre» su un’approvazione ne viene aggiunta una qui."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "常時許可はまだありません。承認で「常に許可」を選ぶと、ここに追加されます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 상시 권한이 없습니다. 승인에서 ‘항상 허용’을 선택하면 여기에 추가됩니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ainda não há permissões permanentes. Escolher “Sempre permitir” em uma aprovação adiciona uma aqui."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有长期权限。在审批中选择“始终允许”后，会在这里添加一条。"
           }
         }
       }
@@ -45299,77 +43169,6 @@
         }
       }
     },
-    "Psyche will ask again the next time it needs this.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche will ask again the next time it needs this."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "سيسأل Psyche مرة أخرى في المرة القادمة التي يحتاج فيها إلى هذا."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche fragt beim nächsten Mal wieder nach, wenn es dies braucht."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche volverá a preguntar la próxima vez que lo necesite."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche redemandera la prochaine fois qu’il en aura besoin."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अगली बार जब Psyche को इसकी ज़रूरत होगी, वह फिर पूछेगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche chiederà di nuovo la prossima volta che ne avrà bisogno."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次に必要になったとき、Psycheはもう一度確認します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다음에 필요할 때 Psyche가 다시 물어봅니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Psyche perguntará de novo na próxima vez que precisar disso."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "下次需要时，Psyche 会再次询问。"
-          }
-        }
-      }
-    },
     "Revoked": {
       "extractionState": "manual",
       "localizations": {
@@ -45512,148 +43311,6 @@
         }
       }
     },
-    "Never used": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Never used"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لم يُستخدم قط"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nie verwendet"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nunca usado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jamais utilisée"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कभी उपयोग नहीं हुआ"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mai usata"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未使用"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용 안 함"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nunca usada"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "从未使用"
-          }
-        }
-      }
-    },
-    "Last used %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last used %@"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "آخر استخدام %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt verwendet %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por última vez %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernière utilisation %@"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अंतिम उपयोग %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ultimo uso %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最終使用 %@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 사용 %@"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último uso %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用 %@"
-          }
-        }
-      }
-    },
     "Expires %@": {
       "extractionState": "manual",
       "localizations": {
@@ -45725,219 +43382,6 @@
         }
       }
     },
-    "Revoking needs admin access. Use your Mac or an admin phone.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revoking needs admin access. Use your Mac or an admin phone."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يتطلب الإلغاء صلاحية المشرف. استخدم جهاز Mac أو هاتفًا بصلاحية المشرف."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zum Widerrufen ist Admin-Zugriff nötig. Nutze deinen Mac oder ein Admin-Telefon."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revocar requiere acceso de administrador. Usa tu Mac o un teléfono administrador."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Révoquer demande un accès administrateur. Utilise ton Mac ou un téléphone administrateur."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "रद्द करने के लिए एडमिन एक्सेस चाहिए। अपने Mac या किसी एडमिन फ़ोन का उपयोग करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Per revocare serve l’accesso amministratore. Usa il tuo Mac o un telefono amministratore."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取り消すには管理者権限が必要です。Macか管理者のiPhoneを使ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "해제하려면 관리자 권한이 필요합니다. Mac이나 관리자 전화기를 사용하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revogar exige acesso de administrador. Use seu Mac ou um telefone administrador."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销需要管理员权限。请使用你的 Mac 或管理员手机。"
-          }
-        }
-      }
-    },
-    "This phone can't see standing permissions.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This phone can't see standing permissions."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا يستطيع هذا الهاتف عرض الأذونات الدائمة."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses Telefon darf die dauerhaften Berechtigungen nicht sehen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este teléfono no puede ver los permisos permanentes."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce téléphone ne peut pas voir les autorisations permanentes."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह फ़ोन स्थायी अनुमतियाँ नहीं देख सकता।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questo telefono non può vedere le autorizzazioni permanenti."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このiPhoneでは常時許可を表示できません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 전화기에서는 상시 권한을 볼 수 없습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este telefone não pode ver as permissões permanentes."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这部手机无法查看长期权限。"
-          }
-        }
-      }
-    },
-    "Couldn't revoke “%@” (%@). The permission is unchanged.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't revoke “%@” (%@). The permission is unchanged."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تعذّر إلغاء «%@» (%@). لم يتغير الإذن."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "„%@“ konnte nicht widerrufen werden (%@). Die Berechtigung ist unverändert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo revocar «%@» (%@). El permiso no ha cambiado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de révoquer « %@ » (%@). L’autorisation n’a pas changé."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“%@” रद्द नहीं हो सका (%@)। अनुमति जैसी थी वैसी ही है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile revocare «%@» (%@). L’autorizzazione è rimasta invariata."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「%@」を取り消せませんでした（%@）。許可は変更されていません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "‘%@’을(를) 해제하지 못했습니다(%@). 권한은 그대로입니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Não foi possível revogar “%@” (%@). A permissão não foi alterada."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法撤销“%@”（%@）。该权限未更改。"
-          }
-        }
-      }
-    },
     "%@ and its subdomains": {
       "extractionState": "manual",
       "localizations": {
@@ -46005,77 +43449,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 及其子域名"
-          }
-        }
-      }
-    },
-    "Notes titled “Prep:” (meeting prep)": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes titled “Prep:” (meeting prep)"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "الملاحظات بعنوان «Prep:» (التحضير للاجتماعات)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notizen mit dem Titel „Prep:“ (Meeting-Vorbereitung)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notas tituladas «Prep:» (preparación de reuniones)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notes intitulées « Prep: » (préparation de réunion)"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“Prep:” शीर्षक वाले नोट्स (मीटिंग की तैयारी)"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Note intitolate «Prep:» (preparazione riunioni)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「Prep:」で始まるメモ（会議の準備）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "제목이 ‘Prep:’인 메모(회의 준비)"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Notas com o título “Prep:” (preparo de reuniões)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标题为“Prep:”的笔记（会议准备）"
           }
         }
       }
@@ -46577,148 +43950,6 @@
         }
       }
     },
-    "Website": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Website"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "موقع ويب"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Website"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sitio web"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Site web"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "वेबसाइट"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sito web"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ウェブサイト"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "웹사이트"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Site"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "网站"
-          }
-        }
-      }
-    },
-    "Connector action": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connector action"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إجراء موصّل"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connector-Aktion"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acción del conector"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Action du connecteur"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कनेक्टर क्रिया"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Azione del connettore"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コネクタの操作"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "커넥터 작업"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ação do conector"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "连接器操作"
-          }
-        }
-      }
-    },
     "Send email": {
       "extractionState": "manual",
       "localizations": {
@@ -46786,148 +44017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "发送邮件"
-          }
-        }
-      }
-    },
-    "Command": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Command"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أمر"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Befehl"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comando"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commande"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कमांड"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comando"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コマンド"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "명령"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comando"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "命令"
-          }
-        }
-      }
-    },
-    "File write": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "File write"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "كتابة ملف"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Datei schreiben"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Escritura de archivo"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Écriture de fichier"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "फ़ाइल लिखना"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scrittura file"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ファイルの書き込み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "파일 쓰기"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gravação de arquivo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "写入文件"
           }
         }
       }
@@ -47003,148 +44092,6 @@
         }
       }
     },
-    "Credential fill": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Credential fill"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تعبئة بيانات الاعتماد"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zugangsdaten ausfüllen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relleno de credenciales"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saisie d’identifiants"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "क्रेडेंशियल भरना"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compilazione credenziali"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "認証情報の入力"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "자격 증명 입력"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preenchimento de credenciais"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "填写凭据"
-          }
-        }
-      }
-    },
-    "Computer use": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computer use"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "استخدام الكمبيوتر"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Computernutzung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uso del ordenador"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilisation de l’ordinateur"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कंप्यूटर उपयोग"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uso del computer"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コンピュータの操作"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "컴퓨터 사용"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uso do computador"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "电脑操作"
-          }
-        }
-      }
-    },
     "This task": {
       "extractionState": "manual",
       "localizations": {
@@ -47212,148 +44159,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "此任务"
-          }
-        }
-      }
-    },
-    "This site": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This site"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هذا الموقع"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diese Website"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este sitio"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce site"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह साइट"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questo sito"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このサイト"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 사이트"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este site"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此网站"
-          }
-        }
-      }
-    },
-    "This session": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This session"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "هذه الجلسة"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diese Sitzung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta sesión"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette session"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह सत्र"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questa sessione"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このセッション"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 세션"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Esta sessão"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本次会话"
           }
         }
       }
@@ -47598,77 +44403,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "Revoke permission: %@": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revoke permission: %@"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إلغاء الإذن: %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Berechtigung widerrufen: %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revocar permiso: %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Révoquer l’autorisation : %@"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अनुमति रद्द करें: %@"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revoca autorizzazione: %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "許可を取り消す: %@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "권한 해제: %@"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Revogar permissão: %@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "撤销权限：%@"
           }
         }
       }
@@ -48383,77 +45117,6 @@
         }
       }
     },
-    "On your Mac, open Settings → Devices & server → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On your Mac, open Settings → Devices & server → Pair another computer. If it says there is no address yet, turn on Allow computers on this network and choose From this network. Then scan the code it shows."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "على جهاز Mac، افتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر. إذا ذكر أنه لا يوجد عنوان بعد، فعّل «السماح لأجهزة هذه الشبكة» واختر «من هذه الشبكة». ثم امسح الرمز الذي يظهر."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln. Wenn dort steht, dass es noch keine Adresse gibt, schalte „Computer in diesem Netzwerk zulassen“ ein und wähle „Aus diesem Netzwerk“. Scanne dann den angezeigten Code."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En tu Mac, abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador. Si indica que aún no hay dirección, activa «Permitir ordenadores de esta red» y elige «Desde esta red». Luego escanea el código que muestra."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sur ton Mac, ouvre Réglages → Appareils et serveur → Associer un autre ordinateur. S’il indique qu’il n’y a pas encore d’adresse, active « Autoriser les ordinateurs de ce réseau » et choisis « Depuis ce réseau ». Scanne ensuite le code affiché."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें। अगर वहाँ लिखा हो कि अभी कोई पता नहीं है, तो “इस नेटवर्क के कंप्यूटर की अनुमति दें” चालू करें और “इस नेटवर्क से” चुनें। फिर दिखाया गया कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer. Se dice che non c’è ancora un indirizzo, attiva «Consenti computer su questa rete» e scegli «Da questa rete». Poi scansiona il codice mostrato."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開きます。まだアドレスがないと表示されたら、「このネットワーク上のコンピュータを許可」をオンにして「このネットワークから」を選んでください。そのあと、表示されたコードを読み取ります。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 엽니다. 아직 주소가 없다고 표시되면 ‘이 네트워크의 컴퓨터 허용’을 켜고 ‘이 네트워크에서’를 선택하세요. 그런 다음 표시된 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador. Se disser que ainda não há endereço, ative «Permitir computadores desta rede» e escolha «Desta rede». Depois escaneie o código exibido."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”。如果提示还没有地址，请打开“允许此网络上的电脑”并选择“从此网络”。然后扫描它显示的代码。"
-          }
-        }
-      }
-    },
     "Your Mac hasn't let this phone in yet": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -48521,148 +45184,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "你的 Mac 还没有让此手机进入"
-          }
-        }
-      }
-    },
-    "Read the pairing code from your Mac": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read the pairing code from your Mac"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "تمت قراءة رمز الاقتران من جهاز Mac"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kopplungscode von deinem Mac gelesen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código de emparejamiento leído desde tu Mac"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Code d’association lu depuis ton Mac"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपके Mac से पेयरिंग कोड पढ़ लिया गया"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Codice di abbinamento letto dal Mac"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac のペアリングコードを読み取りました"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac의 페어링 코드를 읽었어요"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código de pareamento lido do seu Mac"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已读取你的 Mac 上的配对码"
-          }
-        }
-      }
-    },
-    "If your Mac asks, approve %@. It gets read, write and approvals, not admin.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If your Mac asks, approve %@. It gets read, write and approvals, not admin."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إذا سألك جهاز Mac، فوافق على %@. يحصل على القراءة والكتابة والموافقات، وليس صلاحيات المسؤول."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wenn dein Mac fragt, gib %@ frei. Es bekommt Lesen, Schreiben und Freigaben, keinen Admin-Zugriff."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si tu Mac lo pide, aprueba %@. Obtiene lectura, escritura y aprobaciones, no administración."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si ton Mac le demande, approuve %@. Il obtient la lecture, l’écriture et les approbations, pas l’administration."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अगर आपका Mac पूछे, तो %@ को स्वीकृति दें। इसे पढ़ने, लिखने और स्वीकृतियों की अनुमति मिलती है, एडमिन की नहीं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se il Mac lo chiede, approva %@. Ottiene lettura, scrittura e approvazioni, non amministrazione."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac から尋ねられたら %@ を承認してください。読み取り、書き込み、承認の権限が付与され、管理者権限は付与されません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 물으면 %@을(를) 승인하세요. 읽기, 쓰기, 승인 권한을 받으며 관리자 권한은 받지 않아요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se o seu Mac perguntar, aprove %@. Ele recebe leitura, escrita e aprovações, não administração."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "如果你的 Mac 询问，请批准 %@。它将获得读取、写入和审批权限，没有管理员权限。"
           }
         }
       }
@@ -48876,77 +45397,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法连接到 %@ 上的 Mac。请确认它已开机、未休眠，并与此手机在同一网络。Psyche 会一直重试，直到你取消。"
-          }
-        }
-      }
-    },
-    "If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إذا أعدت ضبط Psyche على جهاز Mac أو أعدت تثبيته، فسيكون له هوية جديدة، ويجب أن يقترن هذا الهاتف به من جديد."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wenn du Psyche auf deinem Mac zurückgesetzt oder neu installiert hast, hat es eine neue Identität, und dieses iPhone muss sich neu koppeln."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si restableciste o reinstalaste Psyche en tu Mac, tiene una identidad nueva y este teléfono tiene que emparejarse con él otra vez."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si tu as réinitialisé ou réinstallé Psyche sur ton Mac, il a une nouvelle identité et ce téléphone doit s’y associer à nouveau."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अगर आपने अपने Mac पर Psyche रीसेट या दोबारा इंस्टॉल किया है, तो उसकी नई पहचान बन गई है और इस फ़ोन को उससे फिर से पेयर करना होगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se hai ripristinato o reinstallato Psyche sul Mac, ha una nuova identità e questo telefono deve abbinarsi di nuovo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac で Psyche をリセットまたは再インストールした場合、新しい ID になっているため、この iPhone をもう一度ペアリングする必要があります。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 Psyche를 초기화했거나 다시 설치했다면 새 ID가 생겼으므로 이 휴대폰을 다시 페어링해야 해요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se você redefiniu ou reinstalou o Psyche no seu Mac, ele tem uma nova identidade e este telefone precisa parear com ele de novo."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "如果你在 Mac 上重置或重新安装了 Psyche，它就有了新的身份，此手机需要重新与它配对。"
           }
         }
       }
@@ -49519,77 +45969,6 @@
         }
       }
     },
-    "Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عثر Psyche على جهاز مختلف على عنوان جهاز Mac، لذا لم يرسل شيئًا. إذا كنت على شبكة أخرى، أو أخذ جهاز آخر هذا العنوان، يواصل Psyche المحاولة. اقترن من جديد فقط إذا أعدت ضبط Psyche على جهاز Mac أو أعدت تثبيته."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche hat unter der Adresse deines Mac ein anderes Gerät gefunden und nichts gesendet. Bist du in einem anderen Netzwerk oder hat ein anderes Gerät diese Adresse übernommen, versucht Psyche es weiter. Koppeln nur erneut, wenn du Psyche auf deinem Mac zurückgesetzt oder neu installiert hast."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche encontró un dispositivo distinto en la dirección de tu Mac, así que no envió nada. Si estás en otra red, o si otro dispositivo tomó esta dirección, Psyche sigue intentándolo. Vuelve a emparejar solo si restableciste o reinstalaste Psyche en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche a trouvé un autre appareil à l’adresse de ton Mac et n’a rien envoyé. Si tu es sur un autre réseau, ou si un autre appareil a pris cette adresse, Psyche réessaie. Associe à nouveau seulement si tu as réinitialisé ou réinstallé Psyche sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche को आपके Mac के पते पर कोई दूसरा डिवाइस मिला, इसलिए उसने कुछ नहीं भेजा। अगर आप किसी दूसरे नेटवर्क पर हैं, या किसी और डिवाइस ने यह पता ले लिया है, तो Psyche कोशिश करता रहेगा। फिर से पेयर तभी करें जब आपने अपने Mac पर Psyche रीसेट या दोबारा इंस्टॉल किया हो।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche ha trovato un dispositivo diverso all’indirizzo del tuo Mac e non ha inviato nulla. Se sei su un’altra rete, o un altro dispositivo ha preso questo indirizzo, Psyche continua a riprovare. Abbina di nuovo solo se hai ripristinato o reinstallato Psyche sul Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac のアドレスに別のデバイスがあったため、Psyche は何も送信していません。別のネットワークにいる場合や、別のデバイスがこのアドレスを使っている場合は、Psyche が再試行を続けます。Mac で Psyche をリセットまたは再インストールした場合にのみ、もう一度ペアリングしてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac의 주소에서 다른 기기가 발견되어 Psyche가 아무것도 보내지 않았어요. 다른 네트워크에 있거나 다른 기기가 이 주소를 쓰고 있다면 Psyche가 계속 시도해요. Mac에서 Psyche를 초기화했거나 다시 설치했을 때만 다시 페어링하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Psyche encontrou um dispositivo diferente no endereço do seu Mac e não enviou nada. Se você está em outra rede, ou outro dispositivo pegou esse endereço, o Psyche continua tentando. Pareie de novo só se você redefiniu ou reinstalou o Psyche no seu Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 在你的 Mac 的地址上发现了另一台设备，因此没有发送任何内容。如果你在另一个网络，或其他设备占用了这个地址，Psyche 会继续重试。只有在你重置或重新安装了 Mac 上的 Psyche 时，才需要重新配对。"
-          }
-        }
-      }
-    },
     "Approve this phone on your Mac": {
       "extractionState": "extracted_with_value",
       "localizations": {
@@ -49657,148 +46036,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "在你的 Mac 上批准此手机"
-          }
-        }
-      }
-    },
-    "On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "على جهاز Mac، افتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر. ثم امسح الرمز الذي يظهر."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln. Scanne dann den angezeigten Code."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En tu Mac, abre Ajustes → Dispositivos y servidor → Emparejar otro ordenador. Luego escanea el código que muestra."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sur ton Mac, ouvre Réglages → Appareils et serveur → Associer un autre ordinateur. Scanne ensuite le code affiché."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें। फिर दिखाया गया कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer. Poi scansiona il codice mostrato."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고, 표시된 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador. Depois escaneie o código exibido."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描它显示的代码。"
-          }
-        }
-      }
-    },
-    "Psyche on your Mac is asking whether to let this phone in. Check that the code matches.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche on your Mac is asking whether to let this phone in. Check that the code matches."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يسأل Psyche على جهاز Mac إن كان سيُسمح لهذا الهاتف بالدخول. تحقّق من تطابق الرمز."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche auf deinem Mac fragt, ob dieses iPhone zugelassen werden soll. Prüfe, ob der Code übereinstimmt."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche en tu Mac pregunta si dejar entrar a este teléfono. Comprueba que el código coincida."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche sur ton Mac demande si ce téléphone peut se connecter. Vérifie que le code correspond."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपके Mac पर Psyche पूछ रहा है कि इस फ़ोन को आने दिया जाए या नहीं। जाँचें कि कोड मेल खाता है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche sul Mac chiede se far entrare questo telefono. Controlla che il codice corrisponda."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac の Psyche が、この iPhone を許可するか確認しています。コードが一致するか確かめてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac의 Psyche가 이 휴대폰을 허용할지 묻고 있습니다. 코드가 일치하는지 확인하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Psyche no seu Mac pergunta se deve deixar este telefone entrar. Confira se o código é o mesmo."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你的 Mac 上的 Psyche 正在询问是否允许此手机接入。请核对代码是否一致。"
           }
         }
       }
@@ -55242,77 +51479,6 @@
         }
       }
     },
-    "Connected over": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "متصل عبر"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verbunden über"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connected over"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conectado mediante"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connecté via"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "इसके माध्यम से कनेक्ट"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connesso tramite"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接続方法"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "연결 방식"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conectado por"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "连接方式"
-          }
-        }
-      }
-    },
     "Your Mac": {
       "extractionState": "manual",
       "localizations": {
@@ -55451,77 +51617,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "安全码"
-          }
-        }
-      }
-    },
-    "Psyche notifies you while it's open, and when iOS lets it check in the background.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ينبهك Psyche أثناء فتحه، وعندما يسمح له iOS بالتحقق في الخلفية."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche benachrichtigt dich, solange es geöffnet ist und wenn iOS ihm erlaubt, im Hintergrund nachzusehen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche notifies you while it's open, and when iOS lets it check in the background."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche te avisa mientras está abierto y cuando iOS le deja comprobar en segundo plano."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche vous prévient quand elle est ouverte, et quand iOS l'autorise à vérifier en arrière-plan."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche खुला होने पर और iOS के बैकग्राउंड में जाँच करने देने पर आपको सूचित करता है।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche ti avvisa quando è aperta e quando iOS le permette di controllare in background."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psycheは、開いている間と、iOSがバックグラウンドでの確認を許可したときに通知します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche는 열려 있는 동안과 iOS가 백그라운드 확인을 허용할 때 알려 드립니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Psyche avisa você quando está aberto e quando o iOS permite verificar em segundo plano."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche 会在打开时以及 iOS 允许后台检查时通知你。"
           }
         }
       }
@@ -55739,148 +51834,6 @@
         }
       }
     },
-    "Welcome to Psyche": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "مرحبًا بك في Psyche"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Willkommen bei Psyche"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Welcome to Psyche"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Te damos la bienvenida a Psyche"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bienvenue dans Psyche"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche में आपका स्वागत है"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Benvenuto in Psyche"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psycheへようこそ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche에 오신 것을 환영합니다"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Boas-vindas ao Psyche"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "欢迎使用 Psyche"
-          }
-        }
-      }
-    },
-    "Scan the code on your Mac to connect.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "امسح الرمز المعروض على جهاز Mac للاتصال."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scanne den Code auf deinem Mac, um dich zu verbinden."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan the code on your Mac to connect."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Escanea el código de tu Mac para conectarte."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scanne le code affiché sur ton Mac pour te connecter."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कनेक्ट करने के लिए अपने Mac पर दिखा कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scansiona il codice sul Mac per collegarti."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "接続するには、Mac に表示されたコードを読み取ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "연결하려면 Mac에 표시된 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Escaneie o código no Mac para conectar."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "扫描 Mac 上显示的代码即可连接。"
-          }
-        }
-      }
-    },
     "Scan the code": {
       "extractionState": "manual",
       "localizations": {
@@ -55948,148 +51901,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "扫描代码"
-          }
-        }
-      }
-    },
-    "If it says there is no address yet, turn on Allow computers on this network and choose From this network.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "إذا ذكر أنه لا يوجد عنوان بعد، فعّل «السماح لأجهزة هذه الشبكة» واختر «من هذه الشبكة»."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wenn dort steht, dass es noch keine Adresse gibt, schalte „Computer in diesem Netzwerk zulassen“ ein und wähle „Aus diesem Netzwerk“."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "If it says there is no address yet, turn on Allow computers on this network and choose From this network."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si indica que aún no hay dirección, activa «Permitir ordenadores de esta red» y elige «Desde esta red»."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S’il indique qu’il n’y a pas encore d’adresse, active « Autoriser les ordinateurs de ce réseau » et choisis « Depuis ce réseau »."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अगर वहाँ लिखा हो कि अभी कोई पता नहीं है, तो “इस नेटवर्क के कंप्यूटर की अनुमति दें” चालू करें और “इस नेटवर्क से” चुनें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se dice che non c’è ancora un indirizzo, attiva «Consenti computer su questa rete» e scegli «Da questa rete»."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まだアドレスがないと表示されたら、「このネットワーク上のコンピュータを許可」をオンにして「このネットワークから」を選んでください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "아직 주소가 없다고 표시되면 ‘이 네트워크의 컴퓨터 허용’을 켜고 ‘이 네트워크에서’를 선택하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se disser que ainda não há endereço, ative «Permitir computadores desta rede» e escolha «Desta rede»."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "如果提示还没有地址，请打开“允许此网络上的电脑”并选择“从此网络”。"
-          }
-        }
-      }
-    },
-    "Can't find the code?": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لا تجد الرمز؟"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Code nicht zu finden?"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Can't find the code?"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "¿No encuentras el código?"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu ne trouves pas le code ?"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कोड नहीं मिल रहा?"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non trovi il codice?"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コードが見つからない場合"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "코드를 찾을 수 없나요?"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Não encontra o código?"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "找不到代码？"
           }
         }
       }
@@ -56378,77 +52189,6 @@
         }
       }
     },
-    "Full security code": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "رمز الأمان الكامل"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vollständiger Sicherheitscode"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Full security code"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código de seguridad completo"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Code de sécurité complet"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "पूरा सुरक्षा कोड"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Codice di sicurezza completo"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "セキュリティコード（全体）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "전체 보안 코드"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código de segurança completo"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "完整安全码"
-          }
-        }
-      }
-    },
     "Your Mac shows the same security code next to this phone's request. If they differ, don't connect.": {
       "extractionState": "manual",
       "localizations": {
@@ -56733,77 +52473,6 @@
         }
       }
     },
-    "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يجب أن يطلب منك جهاز Mac الموافقة على هذا الهاتف. تأكد من تطابق رمز الأمان. وإن لم يطلب ذلك، فافتح الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر على جهاز Mac وامسح رمزًا جديدًا."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dein Mac sollte dich bitten, dieses iPhone zu bestätigen. Prüfe, ob der Sicherheitscode übereinstimmt. Wenn er nicht fragt, öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln und scanne einen neuen Code."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu Mac debería pedirte que apruebes este teléfono. Comprueba que el código de seguridad coincide. Si no lo pide, abre en tu Mac Ajustes → Dispositivos y servidor → Emparejar otro ordenador y escanea un código nuevo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ton Mac devrait te demander d’approuver ce téléphone. Vérifie que le code de sécurité correspond. S’il ne demande rien, ouvre sur ton Mac Réglages → Appareils et serveur → Associer un autre ordinateur et scanne un nouveau code."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपका Mac आपसे इस फ़ोन को मंज़ूरी देने के लिए कहेगा। जाँचें कि सुरक्षा कोड मेल खाता है। अगर वह नहीं पूछता, तो अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → Pair another computer खोलें और नया कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il Mac dovrebbe chiederti di approvare questo telefono. Controlla che il codice di sicurezza corrisponda. Se non lo chiede, sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer e scansiona un nuovo codice."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac がこの iPhone の承認を求めてくるはずです。セキュリティコードが一致しているか確認してください。表示されない場合は、Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、新しいコードを読み取ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 이 iPhone을 승인하라는 메시지가 표시됩니다. 보안 코드가 일치하는지 확인하세요. 메시지가 없으면 Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고 새 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Mac deve pedir que você aprove este iPhone. Confira se o código de segurança é o mesmo. Se ele não pedir, no Mac abra Ajustes → Dispositivos e servidor → Parear outro computador e escaneie um novo código."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac 应该会请你批准此 iPhone。请确认安全码一致。如果没有提示，请在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描新的代码。"
-          }
-        }
-      }
-    },
     "Connecting to your Mac…": {
       "extractionState": "manual",
       "localizations": {
@@ -57013,432 +52682,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "这不是你配对过的 Mac。"
-          }
-        }
-      }
-    },
-    "Open Settings → Devices & server → Pair another computer on your Mac, then scan the code it shows.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Settings → Devices & server → Pair another computer on your Mac, then scan the code it shows."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "افتح على جهاز Mac: الإعدادات ← الأجهزة والخادم ← اقتران جهاز آخر، ثم امسح الرمز الذي يظهر."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffne auf deinem Mac Einstellungen → Geräte & Server → Anderen Computer koppeln und scanne dann den angezeigten Code."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abre en tu Mac Ajustes → Dispositivos y servidor → Emparejar otro ordenador y escanea el código que muestra."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ouvre sur ton Mac Réglages → Appareils et serveur → Associer un autre ordinateur, puis scanne le code affiché."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "अपने Mac पर सेटिंग्स → डिवाइस और सर्वर → दूसरा कंप्यूटर जोड़ें खोलें, फिर दिखाया गया कोड स्कैन करें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sul Mac apri Impostazioni → Dispositivi e server → Abbina un altro computer, poi scansiona il codice mostrato."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac で「設定」→「デバイスとサーバー」→「別のコンピュータとペアリング」を開き、表示されたコードを読み取ってください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 설정 → 기기 및 서버 → 다른 컴퓨터 페어링을 열고 표시된 코드를 스캔하세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Mac, abra Ajustes → Dispositivos e servidor → Parear outro computador e escaneie o código exibido."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 Mac 上打开“设置”→“设备与服务器”→“与另一台电脑配对”，然后扫描它显示的代码。"
-          }
-        }
-      }
-    },
-    "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices & server there.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings → Devices & server there."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يمكن لهذا الهاتف مسح مفاتيحه وبياناته المحفوظة الآن، لكن جهاز Mac سيواصل عرضه حتى تزيله من الإعدادات ← الأجهزة والخادم هناك."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieses iPhone kann jetzt seine Schlüssel und gespeicherten Daten löschen. Dein Mac zeigt es aber weiter an, bis du es dort unter Einstellungen → Geräte & Server entfernst."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este teléfono puede borrar ahora sus claves y datos guardados, pero tu Mac lo seguirá mostrando hasta que lo quites en Ajustes → Dispositivos y servidor."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce téléphone peut maintenant effacer ses clés et données enregistrées, mais ton Mac continuera de l'afficher jusqu'à ce que tu le retires dans Réglages → Appareils et serveur."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह फ़ोन अभी अपनी कुंजियाँ और सहेजा गया डेटा मिटा सकता है, लेकिन जब तक आप उसे वहाँ सेटिंग्स → डिवाइस और सर्वर से नहीं हटाते, आपका Mac उसे दिखाता रहेगा।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Questo telefono può ora cancellare chiavi e dati salvati, ma il Mac continuerà a mostrarlo finché non lo rimuovi da Impostazioni → Dispositivi e server."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この iPhone は鍵と保存データを消去できますが、Mac 側で「設定」→「デバイスとサーバー」から削除するまで Mac に表示され続けます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 휴대폰은 지금 키와 저장된 데이터를 지울 수 있지만, Mac에서 설정 → 기기 및 서버에서 제거하기 전까지 Mac에 계속 표시됩니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este telefone pode apagar suas chaves e dados salvos agora, mas seu Mac continuará listando-o até você removê-lo em Ajustes → Dispositivos e servidor."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此手机现在可以清除其密钥和已保存的数据，但在你的 Mac 上于“设置”→“设备与服务器”中移除之前，Mac 仍会列出它。"
-          }
-        }
-      }
-    },
-    "You can also remove this phone in Settings → Devices & server on your Mac.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You can also remove this phone in Settings → Devices & server on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يمكنك أيضًا إزالة هذا الهاتف من الإعدادات ← الأجهزة والخادم على جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Du kannst dieses iPhone auch auf deinem Mac unter Einstellungen → Geräte & Server entfernen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "También puedes quitar este teléfono en Ajustes → Dispositivos y servidor en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu peux aussi retirer ce téléphone dans Réglages → Appareils et serveur sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आप इस फ़ोन को अपने Mac पर सेटिंग्स → डिवाइस और सर्वर में भी हटा सकते हैं।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puoi anche rimuovere questo telefono da Impostazioni → Dispositivi e server sul Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac の「設定」→「デバイスとサーバー」からこの iPhone を削除することもできます。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac에서 설정 → 기기 및 서버에서 이 휴대폰을 제거할 수도 있습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Você também pode remover este telefone em Ajustes → Dispositivos e servidor no Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你也可以在 Mac 上的“设置”→“设备与服务器”中移除此手机。"
-          }
-        }
-      }
-    },
-    "Psyche on your Mac": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche on your Mac"
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche على جهاز Mac"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche auf deinem Mac"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche en tu Mac"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche sur ton Mac"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपके Mac पर Psyche"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche sul Mac"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac 上の Psyche"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mac의 Psyche"
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Psyche no seu Mac"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你 Mac 上的 Psyche"
-          }
-        }
-      }
-    },
-    "You can look at these here. To change one, open Settings on your Mac.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You can look at these here. To change one, open Settings on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يمكنك الاطلاع على هذه الإعدادات هنا. لتغيير أي منها، افتح الإعدادات على جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hier kannst du sie nur ansehen. Zum Ändern öffne die Einstellungen auf deinem Mac."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aquí solo puedes verlos. Para cambiar uno, abre Ajustes en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu peux les consulter ici. Pour en modifier un, ouvre les Réglages sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आप इन्हें यहाँ देख सकते हैं। किसी को बदलने के लिए अपने Mac पर सेटिंग्स खोलें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qui puoi solo consultarli. Per modificarne uno, apri Impostazioni sul Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ここでは確認のみできます。変更するには、Mac で「設定」を開いてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "여기서는 확인만 할 수 있습니다. 변경하려면 Mac에서 설정을 여세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aqui você só pode ver essas opções. Para alterar uma, abra os Ajustes no Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "你可以在这里查看这些内容。如需更改，请在 Mac 上打开“设置”。"
-          }
-        }
-      }
-    },
-    "To add or change computers, open Settings → Devices & server on your Mac.": {
-      "extractionState": "extracted_with_value",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To add or change computers, open Settings → Devices & server on your Mac."
-          }
-        },
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "لإضافة أجهزة كمبيوتر أو تغييرها، افتح الإعدادات ← الأجهزة والخادم على جهاز Mac."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um Computer hinzuzufügen oder zu ändern, öffne auf deinem Mac Einstellungen → Geräte & Server."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para añadir o cambiar ordenadores, abre Ajustes → Dispositivos y servidor en tu Mac."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pour ajouter ou modifier des ordinateurs, ouvre Réglages → Appareils et serveur sur ton Mac."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "कंप्यूटर जोड़ने या बदलने के लिए अपने Mac पर सेटिंग्स → डिवाइस और सर्वर खोलें।"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Per aggiungere o modificare computer, apri Impostazioni → Dispositivi e server sul Mac."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コンピュータを追加または変更するには、Mac で「設定」→「デバイスとサーバー」を開いてください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "컴퓨터를 추가하거나 변경하려면 Mac에서 설정 → 기기 및 서버를 여세요."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para adicionar ou alterar computadores, abra Ajustes → Dispositivos e servidor no Mac."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "如需添加或更改电脑，请在 Mac 上打开“设置”→“设备与服务器”。"
           }
         }
       }
@@ -62625,6 +57868,787 @@
           "stringUnit": {
             "state": "translated",
             "value": "此项内容已不可用。"
+          }
+        }
+      }
+    },
+    "Scan the code on your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan the code on your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "امسح الرمز على جهاز Mac."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanne den Code auf deinem Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escanea el código en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannez le code sur votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने Mac पर कोड स्कैन करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scansiona il codice sul tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac に表示されたコードをスキャンしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에 표시된 코드를 스캔하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escaneie o código no seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "扫描 Mac 上的二维码。"
+          }
+        }
+      }
+    },
+    "On your Mac: Settings > Devices > Pair iPhone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On your Mac: Settings > Devices > Pair iPhone."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "على جهاز Mac: الإعدادات > الأجهزة > إقران iPhone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf deinem Mac: Einstellungen > Geräte > iPhone koppeln."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En tu Mac: Ajustes > Dispositivos > Vincular iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur votre Mac : Réglages > Appareils > Associer l’iPhone."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने Mac पर: सेटिंग > डिवाइस > iPhone जोड़ें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sul tuo Mac: Impostazioni > Dispositivi > Associa iPhone."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac で:設定 > デバイス > iPhone をペアリング。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서: 설정 > 기기 > iPhone 페어링."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seu Mac: Ajustes > Dispositivos > Parear iPhone."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上:设置 > 设备 > 配对 iPhone。"
+          }
+        }
+      }
+    },
+    "Try the demo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try the demo"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جرّب العرض التجريبي"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo ausprobieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Probar la demo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayer la démo"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डेमो आज़माएँ"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova la demo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デモを試す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "데모 사용해 보기"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Experimentar a demonstração"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "试用演示"
+          }
+        }
+      }
+    },
+    "Psyche stopped and sent nothing. If you reset your Mac, pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche stopped and sent nothing. If you reset your Mac, pair again."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أوقف Psyche الاتصال ولم يرسل شيئًا. إذا أعدت ضبط جهاز Mac، فأعد الإقران."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat angehalten und nichts gesendet. Wenn du deinen Mac zurückgesetzt hast, koppele erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche se detuvo y no envió nada. Si restableciste tu Mac, vuelve a vincular."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche s’est arrêté et n’a rien envoyé. Si vous avez réinitialisé votre Mac, associez-le à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche रुक गया और कुछ नहीं भेजा। यदि आपने अपना Mac रीसेट किया है, तो फिर से जोड़ें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche si è fermato e non ha inviato nulla. Se hai ripristinato il Mac, associa di nuovo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は停止し、何も送信しませんでした。Mac をリセットした場合は、もう一度ペアリングしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 멈췄고 아무것도 보내지 않았습니다. Mac을 초기화했다면 다시 페어링하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche parou e não enviou nada. Se você redefiniu o Mac, pareie novamente."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 已停止,没有发送任何内容。如果你重置过 Mac,请重新配对。"
+          }
+        }
+      }
+    },
+    "Psyche sent nothing and keeps trying. If you reset your Mac, pair again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche sent nothing and keeps trying. If you reset your Mac, pair again."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يرسل Psyche شيئًا ويواصل المحاولة. إذا أعدت ضبط جهاز Mac، فأعد الإقران."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche hat nichts gesendet und versucht es weiter. Wenn du deinen Mac zurückgesetzt hast, koppele erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche no envió nada y sigue intentándolo. Si restableciste tu Mac, vuelve a vincular."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche n’a rien envoyé et continue d’essayer. Si vous avez réinitialisé votre Mac, associez-le à nouveau."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche ने कुछ नहीं भेजा और कोशिश करता रहेगा। यदि आपने अपना Mac रीसेट किया है, तो फिर से जोड़ें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche non ha inviato nulla e continua a provare. Se hai ripristinato il Mac, associa di nuovo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche は何も送信せず、再試行を続けます。Mac をリセットした場合は、もう一度ペアリングしてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche가 아무것도 보내지 않았고 계속 시도합니다. Mac을 초기화했다면 다시 페어링하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Psyche não enviou nada e continua tentando. Se você redefiniu o Mac, pareie novamente."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche 没有发送任何内容,并会继续尝试。如果你重置过 Mac,请重新配对。"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "متصل"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कनेक्टेड"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connesso"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続済み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "연결됨"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接"
+          }
+        }
+      }
+    },
+    "Live Activities show progress on the Lock Screen, never task titles.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live Activities show progress on the Lock Screen, never task titles."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعرض الأنشطة الحية التقدم على شاشة القفل، ولا تعرض عناوين المهام أبدًا."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live-Aktivitäten zeigen den Fortschritt auf dem Sperrbildschirm, nie Aufgabentitel."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las Actividades en directo muestran el progreso en la pantalla de bloqueo, nunca los títulos de las tareas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les Live Activities affichent la progression sur l’écran verrouillé, jamais les titres des tâches."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लाइव एक्टिविटी लॉक स्क्रीन पर प्रगति दिखाती हैं, कार्य के शीर्षक कभी नहीं।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le Attività live mostrano l’avanzamento sulla schermata di blocco, mai i titoli delle attività."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブアクティビティはロック画面に進行状況を表示し、タスク名は表示しません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실시간 현황은 잠금 화면에 진행 상황만 표시하며 작업 제목은 표시하지 않습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As Atividades ao Vivo mostram o progresso na tela de bloqueio, nunca os títulos das tarefas."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "实时活动会在锁定屏幕上显示进度,不会显示任务标题。"
+          }
+        }
+      }
+    },
+    "Only while Psyche is open on this phone, and only sent to your Mac.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only while Psyche is open on this phone, and only sent to your Mac."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فقط أثناء فتح Psyche على هذا الهاتف، ويُرسل إلى جهاز Mac فقط."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur solange Psyche auf diesem iPhone geöffnet ist, und nur an deinen Mac gesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo mientras Psyche está abierto en este teléfono, y solo se envía a tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uniquement quand Psyche est ouvert sur ce téléphone, et envoyée uniquement à votre Mac."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केवल तब जब Psyche इस फ़ोन पर खुला हो, और केवल आपके Mac को भेजा जाता है।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo mentre Psyche è aperto su questo telefono, e inviata solo al tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このスマートフォンで Psyche を開いている間だけ、位置情報は Mac にのみ送信されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 휴대폰에서 Psyche가 열려 있는 동안에만, 그리고 Mac으로만 전송됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Somente enquanto o Psyche está aberto neste telefone, e enviada apenas ao seu Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅在此手机上打开 Psyche 时,且只会发送到你的 Mac。"
+          }
+        }
+      }
+    },
+    "On your Mac: Settings > Devices > Pair iPhone. Then scan the code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On your Mac: Settings > Devices > Pair iPhone. Then scan the code."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "على جهاز Mac: الإعدادات > الأجهزة > إقران iPhone. ثم امسح الرمز."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf deinem Mac: Einstellungen > Geräte > iPhone koppeln. Scanne dann den Code."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En tu Mac: Ajustes > Dispositivos > Vincular iPhone. Luego escanea el código."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur votre Mac : Réglages > Appareils > Associer l’iPhone. Puis scannez le code."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने Mac पर: सेटिंग > डिवाइस > iPhone जोड़ें। फिर कोड स्कैन करें।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sul tuo Mac: Impostazioni > Dispositivi > Associa iPhone. Poi scansiona il codice."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac で:設定 > デバイス > iPhone をペアリング。表示されたコードをスキャンします。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서: 설정 > 기기 > iPhone 페어링. 그런 다음 코드를 스캔하세요."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No seu Mac: Ajustes > Dispositivos > Parear iPhone. Depois escaneie o código."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Mac 上:设置 > 设备 > 配对 iPhone。然后扫描二维码。"
+          }
+        }
+      }
+    },
+    "This phone can clear its data now. Your Mac keeps listing it until you remove it in Settings > Devices.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This phone can clear its data now. Your Mac keeps listing it until you remove it in Settings > Devices."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يمكن لهذا الهاتف مسح بياناته الآن. سيبقى مدرجًا على جهاز Mac حتى تزيله من الإعدادات > الأجهزة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone kann seine Daten jetzt löschen. Dein Mac führt es weiter auf, bis du es unter Einstellungen > Geräte entfernst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este teléfono puede borrar sus datos ahora. Tu Mac lo seguirá mostrando hasta que lo quites en Ajustes > Dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce téléphone peut effacer ses données maintenant. Votre Mac continue de le lister jusqu’à ce que vous le retiriez dans Réglages > Appareils."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह फ़ोन अभी अपना डेटा मिटा सकता है। आपका Mac इसे तब तक सूची में रखेगा जब तक आप इसे सेटिंग > डिवाइस में नहीं हटाते।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questo telefono può cancellare i suoi dati adesso. Il Mac lo mostra finché non lo rimuovi da Impostazioni > Dispositivi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このスマートフォンは今すぐデータを消去できます。設定 > デバイスで削除するまで、Mac には表示されたままになります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 휴대폰은 지금 데이터를 지울 수 있습니다. 설정 > 기기에서 제거하기 전까지 Mac에는 계속 표시됩니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este telefone pode apagar os dados agora. O Mac continua listando-o até você removê-lo em Ajustes > Dispositivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此手机现在可以清除自己的数据。在 Mac 的设置 > 设备中移除之前,它仍会显示在列表中。"
+          }
+        }
+      }
+    },
+    "You can also remove this phone on your Mac: Settings > Devices.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can also remove this phone on your Mac: Settings > Devices."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يمكنك أيضًا إزالة هذا الهاتف من جهاز Mac: الإعدادات > الأجهزة."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du kannst dieses iPhone auch auf deinem Mac entfernen: Einstellungen > Geräte."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "También puedes quitar este teléfono en tu Mac: Ajustes > Dispositivos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez aussi retirer ce téléphone sur votre Mac : Réglages > Appareils."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप इस फ़ोन को अपने Mac पर भी हटा सकते हैं: सेटिंग > डिवाइस।"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puoi anche rimuovere questo telefono dal Mac: Impostazioni > Dispositivi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac の設定 > デバイスからこのスマートフォンを削除することもできます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mac에서도 이 휴대폰을 제거할 수 있습니다: 설정 > 기기."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você também pode remover este telefone no Mac: Ajustes > Dispositivos."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你也可以在 Mac 上移除此手机:设置 > 设备。"
           }
         }
       }

@@ -42,7 +42,7 @@ public final class AlertCenter {
     private let threadReloads: ReloadDebouncer
     var isFixtureMode: Bool { isFixture }
     var settings = PhoneSettings(
-        notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
+        notifications: true, liveActivities: true)
     private var coalescer = UpdateCoalescer(interval: 1)
     /// Live Activity updates: a change goes out at most every few seconds, an unchanged one never.
     private let gate = ActivityUpdateGate(minInterval: 5)
@@ -261,9 +261,6 @@ public final class AlertCenter {
         }
     }
 
-    /// Seconds Psyche has kept itself awake today, for Settings.
-    public func awakeSecondsToday() async -> TimeInterval { await awake?.secondsToday() ?? 0 }
-
     /// Starts watching the backend's events. Safe to call again; the shell calls it once the phone is paired.
     public func start() {
         guard observer == nil, !retired else { return }
@@ -313,7 +310,7 @@ public final class AlertCenter {
 
     private func loadSettings() async {
         if let loaded = try? await store.settings() { settings = loaded }
-        awake?.setSwitch(settings.stayConnectedWhileRunning && liveActivitiesOn)
+        awake?.setSwitch(liveActivitiesOn)
     }
 
     var liveActivitiesOn: Bool { settings.notifications && settings.liveActivities }
@@ -431,7 +428,7 @@ public final class AlertCenter {
         let approval = needsYou.first { $0.kind == .approval && $0.taskID == task.id }
         return TaskActivityContent.make(
             task: task, status: approval != nil ? .needsApproval : .running,
-            showTitle: settings.taskTitlesOnLockScreen, fallbackStart: fallbackStart,
+            showTitle: false, fallbackStart: fallbackStart,
             asking: approval?.title,
             inlineApprovalID: approval.flatMap { AlertPolicy.answersInline($0) ? $0.id : nil })
     }
@@ -463,7 +460,7 @@ public final class AlertCenter {
                 case .done, .failed:
                     let failed = outcome == .failed
                     let base = lastContent[id] ?? TaskActivityContent(step: 0, stepCount: 0, status: .running, startedAt: .now)
-                    let final = base.finished(failed: failed).titled(titles[id], show: settings.taskTitlesOnLockScreen)
+                    let final = base.finished(failed: failed).titled(titles[id], show: false)
                     await activities.end(taskID: id, final: final, dismissAfter: failed ? 300 : 120)
                 case .cancelled, .none:
                     await activities.end(taskID: id, final: nil, dismissAfter: 0)

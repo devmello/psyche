@@ -6,7 +6,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// The pairing screens: scan the code from Settings → Devices & server → Pair another computer on the Mac. A
+/// The pairing screens: scan the code from Settings > Devices > Pair iPhone on the Mac. A
 /// valid code pairs at once; the Mac is asked to approve this phone only when it did not accept the code.
 struct PairingFlow: View {
     @Environment(Session.self) private var session
@@ -112,33 +112,19 @@ private struct ScannerView: View {
 
     var body: some View {
         PairingScaffold {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Welcome to Psyche", bundle: .module).psycheTitle(.title)
-                    .foregroundStyle(PsycheColor.text)
-                Text("Scan the code on your Mac to connect.", bundle: .module)
-                    .font(.body).foregroundStyle(PsycheColor.muted)
-            }
+            Text("Scan the code on your Mac.", bundle: .module).psycheTitle(.title)
+                .foregroundStyle(PsycheColor.text)
             viewfinder
             if let error = session.pairingError {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.red)
             }
-            VStack(alignment: .leading, spacing: 12) {
-                Text("On your Mac, open Settings → Devices & server → Pair another computer. Then scan the code it shows.", bundle: .module)
-                    .font(.footnote).foregroundStyle(PsycheColor.muted)
-                DisclosureGroup {
-                    Text("If it says there is no address yet, turn on Allow computers on this network and choose From this network.", bundle: .module)
-                        .font(.footnote).foregroundStyle(PsycheColor.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 6)
-                } label: {
-                    Text("Can't find the code?", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
-                }
-            }
+            Text("On your Mac: Settings > Devices > Pair iPhone.", bundle: .module)
+                .font(.footnote).foregroundStyle(PsycheColor.muted)
         } footer: {
             Button(String(localized: "Enter code by hand", bundle: .module)) { enteringCode = true }
-                .buttonStyle(.psycheInk)
-            Button(String(localized: "Try it without a Mac", bundle: .module)) { session.requestFixtureMode() }
-                .buttonStyle(.psycheOutline)
+                .font(.subheadline)
+            Button(String(localized: "Try the demo", bundle: .module)) { session.requestFixtureMode() }
+                .font(.subheadline)
                 .accessibilityHint(String(localized: "Opens the app with sample content", bundle: .module))
         }
         .onChange(of: scenePhase) { _, phase in if phase == .active { camera.refresh() } }
@@ -297,8 +283,6 @@ private struct PendingView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Approve this iPhone on your Mac", bundle: .module).psycheTitle(.title)
                     .foregroundStyle(PsycheColor.text)
-                Text("Your Mac should ask you to approve this phone. Check that the security code matches. If it doesn't ask, open Settings → Devices & server → Pair another computer on your Mac and scan a new code.", bundle: .module)
-                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             PaperCard(padding: 18, radius: 16) {
                 VStack(spacing: 12) {
@@ -310,48 +294,12 @@ private struct PendingView: View {
                         .foregroundStyle(PsycheColor.text)
                         .frame(maxWidth: .infinity)
                         .accessibilityLabel(String(localized: "Security code \(pending.code.replacingOccurrences(of: " ", with: ", "))", bundle: .module))
-                    HairlineDivider()
-                    Text(connectedOver(pending.endpoint.transport))
-                        .font(.footnote).foregroundStyle(PsycheColor.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            VStack(alignment: .leading, spacing: 14) {
-                step(done: true, String(localized: "Read the pairing code from your Mac", bundle: .module))
-                step(
-                    done: false,
-                    Text("If your Mac asks, approve \(Text(pending.deviceName).fontWeight(.semibold)). It gets read, write and approvals, not admin.", bundle: .module))
-            }
-            DetailsDisclosure(rows: [
-                (String(localized: "Address", bundle: .module), pending.endpoint.host),
-                (String(localized: "Connection", bundle: .module), pending.endpoint.transport.label),
-                (String(localized: "Full security code", bundle: .module), pending.endpoint.fingerprint),
-            ])
         } footer: {
             StatusDot(.needsYou, String(localized: "Waiting for your Mac", bundle: .module), textColor: PsycheColor.muted, font: .subheadline)
                 .frame(maxWidth: .infinity)
             Button(String(localized: "Cancel", bundle: .module)) { session.cancelPairing() }.buttonStyle(.psycheOutline)
-        }
-    }
-
-    private func step(done: Bool, _ text: String) -> some View {
-        step(done: done, Text(text))
-    }
-
-    private func step(done: Bool, _ text: Text) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                // The step waiting on the owner is amber (needs you); a finished one is a gray check.
-                Circle().fill(done ? PsycheColor.muted : PsycheColor.amber)
-                if done {
-                    Image(systemName: "checkmark").font(.caption2.weight(.bold)).dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(PsycheColor.sheet)
-                } else {
-                    Text("2").font(.caption.weight(.semibold)).foregroundStyle(Color.black.opacity(0.8))
-                }
-            }
-            .frame(width: 22, height: 22)
-            .accessibilityHidden(true)
-            text.font(.subheadline).foregroundStyle(PsycheColor.text)
         }
     }
 }
@@ -404,15 +352,11 @@ struct RefusedView: View {
             switch reason {
             case .identityMismatch:
                 Text("This isn't the Mac you paired with.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
-                Text("The Mac that answered isn't the one this phone was paired with, so Psyche stopped. Nothing was sent to it.", bundle: .module)
+                Text("Psyche stopped and sent nothing. If you reset your Mac, pair again.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             case .identityChanged:
                 Text("Psyche can't confirm your Mac.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
-                Text("Psyche found a different device at your Mac's address, so it sent nothing. If you're on another network, or another device took this address, Psyche keeps trying. Pair again only if you reset or reinstalled Psyche on your Mac.", bundle: .module)
-                    .font(.subheadline).foregroundStyle(PsycheColor.muted)
-            }
-            if reason == .identityMismatch {
-                Text("If you reset or reinstalled Psyche on your Mac, it has a new identity, and this phone has to pair with it again.", bundle: .module)
+                Text("Psyche sent nothing and keeps trying. If you reset your Mac, pair again.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }
             Spacer(minLength: 0)

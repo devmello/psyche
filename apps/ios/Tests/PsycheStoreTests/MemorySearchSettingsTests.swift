@@ -139,8 +139,8 @@ struct MemorySearchSettingsTests {
         let events = store.events()
         try await Task.sleep(for: .milliseconds(20))
         var settings = try await store.settings()
-        #expect(settings.taskTitlesOnLockScreen == false)  // off by default
-        settings.taskTitlesOnLockScreen = true
+        #expect(settings.liveActivities == true)  // on by default
+        settings.liveActivities = false
         try await store.updateSettings(settings)
         #expect(try await store.settings() == settings)
         var iterator = events.makeAsyncIterator()

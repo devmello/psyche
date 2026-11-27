@@ -9,8 +9,8 @@ final class SettingsModel {
     struct Loaded: Equatable, Sendable {
         var device: DeviceInfo
         var settings: PhoneSettings
-        /// Read-only; empty when there are none or the Gateway doesn't say.
-        var machines: [MachineSummary] = []
+        /// This month's spend in US dollars; nil when the Mac doesn't say or nothing was spent.
+        var monthCostUsd: Double?
     }
 
     private(set) var phase: LoadPhase<Loaded> = .idle
@@ -29,9 +29,10 @@ final class SettingsModel {
         do {
             async let device = store.device()
             async let settings = store.settings()
-            async let machines = store.machines()
+            async let usage = store.usage()
+            let month = (try? await usage)?.month.costUsd
             phase = .loaded(Loaded(
-                device: try await device, settings: try await settings, machines: (try? await machines) ?? []))
+                device: try await device, settings: try await settings, monthCostUsd: month.flatMap { $0 > 0 ? $0 : nil }))
         } catch {
             if phase.value == nil { phase = .failed(error.localizedDescription) }
         }
@@ -101,7 +102,7 @@ final class SettingsModel {
             offeringLocalRemoval = true
             return false
         } catch {
-            notice = "\(error.localizedDescription) \(String(localized: "You can also remove this phone in Settings \u{2192} Devices & server on your Mac.", bundle: .module))"
+            notice = "\(error.localizedDescription) \(String(localized: "You can also remove this phone on your Mac: Settings > Devices.", bundle: .module))"
             return false
         }
     }
@@ -129,11 +130,8 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmingRepair = false
     @State private var confirmingRemove = false
-    private let store: any PsycheBackend
-
     init(store: any PsycheBackend) {
         _model = State(initialValue: SettingsModel(store: store))
-        self.store = store
     }
 
     var body: some View {
@@ -163,7 +161,7 @@ struct SettingsSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .task {
             await model.load()
@@ -181,7 +179,7 @@ struct SettingsSheet: View {
             }
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("Open Settings \u{2192} Devices & server \u{2192} Pair another computer on your Mac, then scan the code it shows.", bundle: .module)
+            Text("On your Mac: Settings > Devices > Pair iPhone. Then scan the code.", bundle: .module)
         }
         .confirmationDialog(
             String(localized: "Your Mac isn't reachable right now.", bundle: .module), isPresented: $model.offeringLocalRemoval, titleVisibility: .visible
@@ -196,7 +194,7 @@ struct SettingsSheet: View {
             }
             Button(String(localized: "Cancel", bundle: .module), role: .cancel) {}
         } message: {
-            Text("This phone can clear its keys and saved data now, but your Mac will keep listing it until you remove it in Settings \u{2192} Devices & server there.", bundle: .module)
+            Text("This phone can clear its data now. Your Mac keeps listing it until you remove it in Settings > Devices.", bundle: .module)
         }
         .confirmationDialog(String(localized: "Remove this phone?", bundle: .module), isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) {
@@ -222,11 +220,10 @@ struct SettingsSheet: View {
 
         Section(String(localized: "This phone", bundle: .module)) {
             LabeledContent(String(localized: "Name", bundle: .module), value: device.name)
-            // Access, the Mac's address and its security code are one tap away, not on the first screen.
             NavigationLink {
                 ConnectionDetailView(device: device)
             } label: {
-                LabeledContent(String(localized: "Connected over", bundle: .module), value: device.transport)
+                LabeledContent(String(localized: "Connected", bundle: .module), value: device.transport)
             }
             Button(String(localized: "Re-pair with your Mac", bundle: .module)) { confirmingRepair = true }
             Button(String(localized: "Remove this phone", bundle: .module), role: .destructive) { confirmingRemove = true }
@@ -237,18 +234,10 @@ struct SettingsSheet: View {
             Toggle(String(localized: "Allow notifications", bundle: .module), isOn: notificationsBinding(settings))
             Toggle(String(localized: "Live Activities", bundle: .module), isOn: liveActivitiesBinding(settings))
                 .disabled(!settings.notifications)
-            Toggle(String(localized: "Task titles on the Lock Screen", bundle: .module), isOn: binding(\.taskTitlesOnLockScreen, settings))
-                .disabled(!settings.notifications || !settings.liveActivities)
-            Toggle(isOn: binding(\.stayConnectedWhileRunning, settings)) {
-                Text("Stay connected while a task runs", bundle: .module)
-            }
-            .disabled(!settings.notifications || !settings.liveActivities)
-            .accessibilityIdentifier("stayConnectedToggle")
-            AwakeTodayRow(alerts: alerts, isOn: settings.stayConnectedWhileRunning)
         } header: {
             Text("Notifications", bundle: .module)
         } footer: {
-            Text(Self.notificationsFooter)
+            Text("Live Activities show progress on the Lock Screen, never task titles.", bundle: .module)
         }
 
         Section {
@@ -256,21 +245,7 @@ struct SettingsSheet: View {
         } header: {
             Text("Location", bundle: .module)
         } footer: {
-            Text(
-                "Off by default. When on, Psyche on your Mac can ask where this phone is, but only while Psyche is open on this phone. It never tracks you in the background or keeps a history of where you've been, and your location goes only to your Mac.",
-                bundle: .module)
-        }
-
-        Section {
-            NavigationLink(String(localized: "Default model", bundle: .module)) { DefaultModelView(store: store) }
-            NavigationLink(String(localized: "Usage", bundle: .module)) { UsageView(store: store) }
-            NavigationLink(String(localized: "Standing permissions", bundle: .module)) { StandingPermissionsView(store: store) }
-            NavigationLink(String(localized: "Skills", bundle: .module)) { SkillsView(store: store) }
-            NavigationLink(String(localized: "Computers Psyche can use", bundle: .module)) { ComputersView(machines: loaded.machines) }
-        } header: {
-            Text("Psyche on your Mac", bundle: .module)
-        } footer: {
-            Text("You can look at these here. To change one, open Settings on your Mac.", bundle: .module)
+            Text("Only while Psyche is open on this phone, and only sent to your Mac.", bundle: .module)
         }
 
         if session.isDemo {
@@ -290,18 +265,13 @@ struct SettingsSheet: View {
             LabeledContent(String(localized: "Version", bundle: .module)) {
                 Text(Self.version).font(.psycheMono(.footnote))
             }
+            if let cost = loaded.monthCostUsd {
+                LabeledContent(String(localized: "This month", bundle: .module), value: cost.formatted(.currency(code: "USD")))
+            }
         } header: {
             Text("About", bundle: .module)
         } footer: {
             Text("Change everything else on your Mac, in Settings.", bundle: .module)
-        }
-    }
-
-    static func statusText(_ status: MachineSummary.Status) -> Text {
-        switch status {
-        case .online: Text("Online", bundle: .module)
-        case .offline: Text("Offline", bundle: .module)
-        case .degraded: Text("Limited", bundle: .module)
         }
     }
 
@@ -339,20 +309,6 @@ struct SettingsSheet: View {
             })
     }
 
-    static let notificationsFooter = [
-        String(localized: "Task titles on the Lock Screen are off by default.", bundle: .module),
-        String(localized: "Psyche notifies you while it's open, and when iOS lets it check in the background.", bundle: .module),
-        String(
-            localized: "Keeps Psyche running in the background, with a silent audio session, only while a task or chat reply you're watching runs or waits for you. It uses some battery, and stops on Low Power Mode or when the battery is below 20 percent and unplugged.",
-            bundle: .module),
-    ].joined(separator: "\n\n")
-
-    private func binding(_ keyPath: WritableKeyPath<PhoneSettings, Bool>, _ settings: PhoneSettings) -> Binding<Bool> {
-        Binding(
-            get: { settings[keyPath: keyPath] },
-            set: { value in model.update { $0[keyPath: keyPath] = value } })
-    }
-
     static var version: String {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -366,76 +322,18 @@ extension SettingsModel.Loaded {
         device: DeviceInfo(
             name: "Placeholder", scopes: ["Read", "Write"], gatewayHost: "placeholder.example.net",
             gatewayFingerprint: "sha256:0000 0000 0000", transport: "Tailscale"),
-        settings: PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false))
+        settings: PhoneSettings(notifications: true, liveActivities: true))
 }
 
 
-/// "Computers Psyche can use": read-only. Adding or pairing one is done on the Mac.
-private struct ComputersView: View {
-    let machines: [MachineSummary]
-
-    var body: some View {
-        List {
-            Section {
-                if machines.isEmpty {
-                    Text("No computers added yet.", bundle: .module).foregroundStyle(.secondary)
-                } else {
-                    ForEach(machines, id: \.id) { machine in
-                        LabeledContent {
-                            SettingsSheet.statusText(machine.status)
-                        } label: {
-                            Text(machine.name)
-                        }
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-            } footer: {
-                Text("To add or change computers, open Settings \u{2192} Devices & server on your Mac.", bundle: .module)
-            }
-        }
-        .navigationTitle(String(localized: "Computers Psyche can use", bundle: .module))
-        .psycheInlineTitle()
-    }
-}
-
-/// "Kept awake 42 min today": read when the sheet opens and every half minute while it is open and the switch is on.
-private struct AwakeTodayRow: View {
-    let alerts: AlertCenter?
-    let isOn: Bool
-    @State private var seconds: TimeInterval = 0
-
-    var body: some View {
-        let minutes = Int(seconds / 60)
-        HStack {
-            if minutes > 0 {
-                Text("Kept awake \(minutes) min today", bundle: .module)
-            } else {
-                Text("Not kept awake today", bundle: .module)
-            }
-            Spacer(minLength: 0)
-        }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
-        .accessibilityIdentifier("keptAwakeToday")
-        .task(id: isOn) {
-            while !Task.isCancelled {
-                seconds = await alerts?.awakeSecondsToday() ?? 0
-                try? await Task.sleep(for: .seconds(isOn ? 30 : 3600))
-            }
-        }
-    }
-}
-
-
-/// The technical details behind "Connected over": what this phone may do, where your Mac is and its security code.
+/// The details behind "Connected": where your Mac is and its security code.
 private struct ConnectionDetailView: View {
     let device: DeviceInfo
 
     var body: some View {
         Form {
             Section {
-                LabeledContent(String(localized: "Access", bundle: .module), value: device.scopes.joined(separator: ", "))
-                LabeledContent(String(localized: "Connected over", bundle: .module), value: device.transport)
+                LabeledContent(String(localized: "Connected", bundle: .module), value: device.transport)
                 stacked(String(localized: "Your Mac", bundle: .module), device.gatewayHost)
                 stacked(String(localized: "Security code", bundle: .module), device.gatewayFingerprint)
             } footer: {
