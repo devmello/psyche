@@ -1,5 +1,9 @@
-import { ArtifactFrame } from "@psyche/viewers";
-import type { ReactNode } from "react";
+import { lazy, type ReactNode, Suspense } from "react";
+
+// The sandbox frame loads with the first MCP App, not at startup.
+const ArtifactFrame = lazy(async () => ({
+  default: (await import("@psyche/viewers")).ArtifactFrame,
+}));
 
 /**
  * An MCP App in the artifact sandbox (generative-ui-2026 P9). The same frame as an HTML artifact
@@ -23,13 +27,15 @@ export function renderMcpApp({
   ) => Promise<{ isError: boolean; output: unknown }>;
 }): ReactNode {
   return (
-    <ArtifactFrame
-      html={html}
-      title={title}
-      policy={{ allowScripts: true }}
-      minHeight={160}
-      maxHeight={640}
-      rpc={callTool === undefined ? {} : { callTool }}
-    />
+    <Suspense fallback={null}>
+      <ArtifactFrame
+        html={html}
+        title={title}
+        policy={{ allowScripts: true }}
+        minHeight={160}
+        maxHeight={640}
+        rpc={callTool === undefined ? {} : { callTool }}
+      />
+    </Suspense>
   );
 }

@@ -1,7 +1,9 @@
 /**
  * DOM-free entry point (`@psyche/viewers/core`) for the Gateway: registry, detection, text
  * extraction, PDF / sheet / DOCX / email parsing, conversion, artifact sandbox builders and the
- * Markdown document session. Nothing here imports React.
+ * Markdown document session. Nothing here imports React. The heavy writers stay off this barrel so
+ * a bundler never drags them into the renderer: `@psyche/viewers/core/generate` (pptxgenjs, docx,
+ * pdf-lib) and `@psyche/viewers/core/forms` (pdf-lib).
  */
 export * from "./app-rpc.ts";
 export * from "./artifact.ts";
