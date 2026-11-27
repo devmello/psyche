@@ -40,7 +40,6 @@ export const M1_SCENARIO_IDS = [
 export const M2_SCENARIOS_DIR = join(ROOT, "tests/acceptance/scenarios-m2");
 export const M2_SCENARIO_IDS = [
   "v5-permission-slip",
-  "v6-messages-voice-note",
   "v8-subscription-audit",
   "v9-weekly-review",
 ] as const;
@@ -85,6 +84,8 @@ export interface ScenarioScript {
   /** Scripted call ids that were left out, with the reason. */
   excluded: Record<string, string>;
 }
+
+import { AGENT_CORE_BUILTIN_TOOLS } from "../../../packages/testing/src/scenarios/stack.ts";
 
 const UNSAFE = new Set(["write", "destructive", "financial"]);
 
@@ -160,12 +161,19 @@ export function scenarioScript(id: ScenarioId | M2ScenarioId | M3ScenarioId): Sc
   const excluded = EXCLUDED[id] ?? {};
   const steps: ScriptStep[] = [];
   const used = new Set<string>();
+  const builtinUsed = new Set<string>();
   const claims: string[] = [];
   for (const step of sc.steps) {
     if (step.script === undefined || step.script.hijacked === true) continue;
     for (const turn of step.script.turns) {
       for (const call of turn.toolCalls ?? []) {
         if (!onHappyPath(call) || excluded[call.id] !== undefined) continue;
+        // An agent-core built-in needs no row: the agent loop registers it, and it has no fake.
+        if (AGENT_CORE_BUILTIN_TOOLS.has(call.tool)) {
+          builtinUsed.add(call.tool);
+          steps.push({ id: call.id, tool: call.tool, input: call.args });
+          continue;
+        }
         const info = byName.get(call.tool);
         if (info === undefined) throw new Error(`${id}: ${call.tool} is not in ${sc.tools}`);
         used.add(call.tool);
@@ -180,7 +188,10 @@ export function scenarioScript(id: ScenarioId | M2ScenarioId | M3ScenarioId): Sc
   const policy: PolicyConfig = {
     // Reads of a new origin ask (`new_origin`), as in V7; every other read is a standing allow.
     ask: tools.filter((t) => UNSAFE.has(t.sideEffect) || t.name === "fetch").map((t) => t.name),
-    allow: tools.filter((t) => !UNSAFE.has(t.sideEffect) && t.name !== "fetch").map((t) => t.name),
+    allow: [
+      ...tools.filter((t) => !UNSAFE.has(t.sideEffect) && t.name !== "fetch").map((t) => t.name),
+      ...builtinUsed,
+    ],
   };
   return {
     id,

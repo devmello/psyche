@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
 import { createModelRouter } from "@psyche/model-router";
@@ -102,12 +102,34 @@ afterAll(() => {
 describe.skipIf(!LIVE)(`live gates on ${MODEL || "(no model)"}`, () => {
   const setup = LIVE ? modelSetupFromEnv(process.env) : null;
   if (LIVE && setup === null) throw new Error("PSYCHE_MODEL is not set");
-  const provider =
+  const rawProvider =
     setup === null || !("router" in setup)
       ? undefined
       : createModelRouter(setup.router, {
           clock: { now: () => Date.now() },
           ...(setup.keys === undefined ? {} : { keys: setup.keys }),
+        });
+  // Harness-only token meter (PSYCHE_USAGE_LOG): appends each usage event as a JSON line.
+  const provider =
+    rawProvider === undefined || process.env.PSYCHE_USAGE_LOG === undefined
+      ? rawProvider
+      : new Proxy(rawProvider, {
+          get(target, prop, recv) {
+            const v = Reflect.get(target, prop, recv);
+            if (prop !== "stream" || typeof v !== "function") return v;
+            return async function* (...args: unknown[]) {
+              for await (const ev of (
+                v as (...a: unknown[]) => AsyncIterable<{ type: string; usage?: unknown }>
+              ).apply(target, args)) {
+                if (ev.type === "usage")
+                  appendFileSync(
+                    process.env.PSYCHE_USAGE_LOG as string,
+                    `${JSON.stringify({ m: MODEL, u: ev.usage })}\n`,
+                  );
+                yield ev;
+              }
+            };
+          },
         });
 
   // One tiny request first: a refused key or an unreachable model fails here with the provider's
