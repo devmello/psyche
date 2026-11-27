@@ -235,16 +235,22 @@ const RANK: Record<ClassifierLabel, number> = { routine: 0, sensitive: 1, prohib
 
 /**
  * Tools that change settings, give consent or change who has access are never routine, whatever a
- * model says or an existing grant covers. Settings and consent match anywhere in the name
- * (`device.settings.update`, `updateSettings`, `browser.oauth_consent`); grant and permission match
- * whole name segments, so `grants.create` and `drive.permissions.update` count but `program_run` or
- * `permissive_docs` do not.
+ * model says or an existing grant covers. The floor is `SENSITIVE_TOOLS` (the rules classifier's
+ * list: share, delete, send, password, ...) plus this list, which adds singular and camelCase
+ * names (`device.setting.update`, `setPermissions`, `grantAccess`). Substring matches are for stems
+ * no ordinary tool contains; `grant`, `role` and `pref` need a word edge, so `grantee_notes`,
+ * `program_run` and `prefix_file` stay routine. `permissive_docs` has no `permission` in it.
  */
-const FLOORED_TOOL =
-  /settings|oauth|consent|(^|[._-]|__)(grants?|permissions?|entitlements?)($|[._-]|__)/i;
+const CAMEL_EDGE = /(Grant|Role|Pref)s?(?![a-z])/;
+const LOWER_EDGE = /(?<![a-z])(grant|role|pref)s?(?![a-z])/;
+const STEMS =
+  /settings?|oauth|consent|permission|entitlement|authoriz|config|connect[_.-]?account/i;
 
+/** True when a tool name is one the model may not label routine. */
 export function isFlooredTool(tool: string): boolean {
-  return FLOORED_TOOL.test(tool);
+  return (
+    SENSITIVE_TOOLS.test(tool) || STEMS.test(tool) || CAMEL_EDGE.test(tool) || LOWER_EDGE.test(tool)
+  );
 }
 
 /**

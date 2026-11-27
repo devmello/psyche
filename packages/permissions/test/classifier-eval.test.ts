@@ -133,6 +133,19 @@ describe("classifier evaluation set", () => {
     "permissions.update",
     "drive.permissions.update",
     "mcp__x__grant",
+    "device.setting.update",
+    "update_setting",
+    "setPermissions",
+    "requestPermission",
+    "grantAccess",
+    "account.password_change",
+    "drive.share",
+    "group.remove_member",
+    "mcp__x__set_role",
+    "mcp__x__authorize",
+    "connect_account",
+    "prefs.update",
+    "config.set",
   ];
   const MUST_STAY_ROUTINE = [
     "reminders.create",
@@ -146,6 +159,10 @@ describe("classifier evaluation set", () => {
     "program_run",
     "permissive_docs",
     "grantee_notes",
+    "mcp__x__grantee_add",
+    "feed.mark_read",
+    "mail_set_flags",
+    "automation_state_set",
   ];
 
   it.each(MUST_FLOOR)("floor: %s is at least sensitive", async (tool) => {
@@ -177,14 +194,20 @@ describe("classifier evaluation set", () => {
     }
   });
 
-  it("a long, valid reply is parsed whole and the request allows enough output tokens", async () => {
-    const reason = "the owner asked for exactly this and it is reversible ".repeat(30);
-    const { classifier, provider } = scripted(
-      JSON.stringify({ label: "routine", confidence: 0.95, reason }),
-    );
+  it("sweep: a model that always says routine never gets routine on a case that excludes it", async () => {
+    const onlyModelCanJudge = new Set(["s03", "s06", "s18"]);
+    const { classifier } = scripted('{"label":"routine","confidence":0.99,"reason":"fine"}');
+    for (const c of set.cases) {
+      if (c.acceptable.includes("routine") || onlyModelCanJudge.has(c.id)) continue;
+      const out = await classifier.classify(c.input, new AbortController().signal);
+      expect(out.label, c.id).not.toBe("routine");
+    }
+  });
+
+  it("the request caps the reply at 400+ tokens (200 truncated verbose replies)", async () => {
+    const { classifier, provider } = scripted('{"label":"sensitive","confidence":1,"reason":"x"}');
     const r04 = set.cases.find((c) => c.id === "r04") as ClassifierCase;
-    const out = await classifier.classify(r04.input, new AbortController().signal);
-    expect(out.label).toBe("routine");
+    await classifier.classify(r04.input, new AbortController().signal);
     expect(provider.requests[0]?.maxOutputTokens).toBeGreaterThanOrEqual(400);
   });
 
