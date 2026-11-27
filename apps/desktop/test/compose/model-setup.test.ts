@@ -58,7 +58,9 @@ describe("onboarding model setup", () => {
       "models.setKey": () => ({ provider: { id: "anthropic", keyConfigured: true } }),
     });
     const saved = await saveProviderKey(platform, "anthropic", "sk-ant-x");
-    expect(saved).toEqual({ keyRef: "model-anthropic", recoveryKey: "AAAA-BBBB-CCCC" });
+    // The recovery key stays with the Gateway; onboarding neither shows nor keeps it.
+    expect(saved).toEqual({ keyRef: "model-anthropic" });
+    expect(JSON.stringify(saved)).not.toContain("AAAA-BBBB-CCCC");
     expect(calls.map((c) => c.method)).toEqual([
       "vault.status",
       "vault.setup",
@@ -71,7 +73,7 @@ describe("onboarding model setup", () => {
     expect(setKey?.key).toBeTruthy();
   });
 
-  it("unlocks an existing vault and shows no recovery key", async () => {
+  it("unlocks an existing vault", async () => {
     const { platform, calls } = platformWith({
       "vault.status": () => ({ status: { state: "locked" } }),
       "vault.unlock": () => ({ status: { state: "unlocked" } }),
@@ -86,7 +88,7 @@ describe("onboarding model setup", () => {
     ]);
   });
 
-  it("reports a key the provider refuses right after storing it, keeping the recovery key (#504)", async () => {
+  it("reports a key the provider refuses right after storing it (#504)", async () => {
     const { platform } = platformWith({
       "vault.status": () => ({ status: { state: "uninitialized" } }),
       "vault.setup": () => ({ recoveryKey: "AAAA-BBBB-CCCC", status: { state: "unlocked" } }),
@@ -102,7 +104,6 @@ describe("onboarding model setup", () => {
     });
     expect(await saveProviderKey(platform, "anthropic", "sk-ant-x")).toEqual({
       keyRef: "model-anthropic",
-      recoveryKey: "AAAA-BBBB-CCCC",
       refused: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
     });
   });
@@ -116,7 +117,7 @@ describe("onboarding model setup", () => {
     expect(await saveProviderKey(platform, "openai", "sk-x")).toEqual({ keyRef: "model-openai" });
   });
 
-  it("binds the model on Done and reports Gateway, helper and model", async () => {
+  it("binds the model on Done and lists only the model (nothing else needs fixing)", async () => {
     let primary: string | undefined;
     let utility: string | undefined;
     const { platform } = platformWith({
@@ -134,11 +135,7 @@ describe("onboarding model setup", () => {
       model: { modelRef: "anthropic/claude-sonnet-5-5", toolCheck: "passed" },
     } as never;
     const checks = await verifySetup(platform, result, { kind: "paired" });
-    expect(checks.map((c) => [c.id, c.state])).toEqual([
-      ["gateway", "ok"],
-      ["helper", "ok"],
-      ["model", "ok"],
-    ]);
+    expect(checks.map((c) => [c.id, c.state])).toEqual([["model", "ok"]]);
     expect(primary).toBe("anthropic/claude-sonnet-5-5");
     expect(utility).toBe("anthropic/claude-sonnet-5-5");
   });
@@ -177,10 +174,12 @@ describe("onboarding model setup", () => {
       { kind: "offline" },
     );
     expect(checks.map((c) => [c.id, c.state])).toEqual([
-      ["gateway", "ok"],
       ["helper", "warn"],
       ["model", "warn"],
     ]);
+    expect(checks[0]?.detail).toBe(
+      "Psyche Helper hasn't connected yet. Computer use and notifications start once it does.",
+    );
     expect(checks.at(-1)?.detail).toMatch(/^Add a key/);
   });
 
@@ -309,12 +308,10 @@ describe("onboarding model setup", () => {
     const admin = platformWith({}, "paired", { scopes: ["operator.write", "operator.admin"] });
     const notAdmin = platformWith({}, "paired", { scopes: ["operator.write"] });
     const none = { model: { modelRef: "", toolCheck: "untested" } } as never;
+    // An admin device needs no row.
     expect(
       (await verifySetup(admin.platform, none, undefined)).find((c) => c.id === "admin"),
-    ).toMatchObject({
-      state: "ok",
-      detail: "This Mac is the admin device.",
-    });
+    ).toBeUndefined();
     expect(
       (await verifySetup(notAdmin.platform, none, undefined)).find((c) => c.id === "admin")?.state,
     ).toBe("warn");
@@ -331,7 +328,7 @@ describe("onboarding model setup: rejected and refused keys", () => {
     "vault.setup": () => ({ recoveryKey: "AAAA-BBBB-CCCC", status: { state: "unlocked" } }),
   };
 
-  it("carries the new vault's recovery key on the error when models.setKey rejects the key", async () => {
+  it("puts no recovery key on the error when models.setKey rejects the key of a new vault", async () => {
     const { platform } = platformWith({
       ...vaultNew,
       "models.setKey": () => {
@@ -340,11 +337,10 @@ describe("onboarding model setup: rejected and refused keys", () => {
     });
     const err = await saveProviderKey(platform, "anthropic", "sk-wrong").catch((e) => e);
     expect(err).toBeInstanceOf(Error);
-    expect((err as { recoveryKey?: string }).recoveryKey).toBe("AAAA-BBBB-CCCC");
-    expect((err as Error).message).not.toContain("AAAA-BBBB-CCCC");
-    // Hidden from JSON.stringify and spreads, so a later log of the error cannot leak it.
+    // Onboarding never holds the key; it is read later from the vault.
+    expect((err as { recoveryKey?: string }).recoveryKey).toBeUndefined();
     expect(JSON.stringify(err)).not.toContain("AAAA-BBBB-CCCC");
-    expect(Object.keys(err as object)).not.toContain("recoveryKey");
+    expect(Object.getOwnPropertyNames(err as object)).not.toContain("recoveryKey");
   });
 
   it("puts no recovery key on the error when the vault already existed", async () => {

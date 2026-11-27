@@ -3,8 +3,8 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { RecoveryKeyCard } from "../onboarding/OnboardingSteps.tsx";
 import { ConfirmRecoveryForm } from "./ConfirmRecoveryForm.tsx";
+import { RecoveryKeyCard, RecoveryKeyReveal } from "./RecoveryKeyPanel.tsx";
 import { hasCode, messageOf } from "./shared.tsx";
 
 /**
@@ -55,6 +55,8 @@ export function VaultSetupPanel({
     );
   }
   if (!status.recoveryConfirmed) return <ConfirmRecovery status={status} onChanged={onChanged} />;
+  // Confirmed: the key stays viewable (Settings → Privacy & security → Credentials), a plain tap.
+  if (status.recoveryKeyStored === true) return <ViewRecoveryKey status={status} />;
   return null;
 }
 
@@ -111,6 +113,21 @@ function SetupVault({ onCreated }: { onCreated: (recoveryKey: string) => void })
   );
 }
 
+function ViewRecoveryKey({ status }: { status: VaultStatus }): ReactElement {
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm"
+      data-testid="vault-view-recovery"
+    >
+      <p className="font-medium">{t("settings.credentials.vault.recoveryKey.title")}</p>
+      <p className="text-callout text-muted-foreground">
+        {t("settings.credentials.vault.recoveryKey.body")}
+      </p>
+      <RecoveryKeyReveal unlocked={status.state === "unlocked"} />
+    </div>
+  );
+}
+
 function ConfirmRecovery({
   status,
   onChanged,
@@ -123,6 +140,9 @@ function ConfirmRecovery({
       className="flex flex-col gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm"
       data-testid="vault-confirm-recovery"
     >
+      {status.recoveryKeyStored === true ? (
+        <RecoveryKeyReveal unlocked={status.state === "unlocked"} />
+      ) : null}
       <ConfirmRecoveryForm expectUnlocked={status.state === "unlocked"} onConfirmed={onChanged} />
     </div>
   );

@@ -12,7 +12,9 @@ import type { ShellPlatform } from "../shell/platform.ts";
  * Onboarding's Model & provider step against the Gateway (first run from scratch: no `.env`, an
  * empty `PSYCHE_HOME`). The key goes to the vault through `models.setKey`, which creates nothing
  * itself: when the vault does not exist yet this creates it first with the Gateway's own key
- * slot and hands back the recovery key, shown once. The model is bound when the Done step opens.
+ * slot. The vault's recovery key is not shown here: the Gateway keeps it sealed under the vault
+ * key, and Home ("Save your recovery key") and Settings → Credentials show it later. The model is
+ * bound when the Done step opens.
  */
 
 type Call = (method: string, params: unknown, idempotencyKey?: string) => Promise<unknown>;
@@ -30,20 +32,19 @@ function caller(platform: ShellPlatform): Call {
 const codeOf = (err: unknown) => (err as { code?: string } | null)?.code;
 
 /** Creates the vault when there is none (trying the Gateway's slot) and unlocks it. */
-export async function ensureVault(call: Call): Promise<{ recoveryKey?: string }> {
+export async function ensureVault(call: Call): Promise<void> {
   const { status } = (await call("vault.status", {})) as { status: { state: string } };
-  if (status.state === "unlocked") return {};
+  if (status.state === "unlocked") return;
   if (status.state === "locked") {
     await call("vault.unlock", { reason: t("web.setup.vaultReason") }, ik("vault-unlock"));
-    return {};
+    return;
   }
   // The Gateway has exactly one slot; another answers invalid_params without side effects.
   for (const slot of SLOTS) {
     try {
-      const res = (await call("vault.setup", { slot }, ik(`vault-setup-${slot}`))) as {
-        recoveryKey: string;
-      };
-      return { recoveryKey: res.recoveryKey };
+      // The recovery key in the answer is dropped on purpose: it is read later from the vault.
+      await call("vault.setup", { slot }, ik(`vault-setup-${slot}`));
+      return;
     } catch (err) {
       if (codeOf(err) !== "invalid_params") throw err;
     }
@@ -55,24 +56,10 @@ export async function saveProviderKey(
   platform: ShellPlatform,
   provider: string,
   key: string,
-): Promise<{ keyRef: string; recoveryKey?: string; refused?: string }> {
+): Promise<{ keyRef: string; refused?: string }> {
   const call = caller(platform);
-  const vault = await ensureVault(call);
-  try {
-    await call("models.setKey", { providerId: provider, key }, ik(`key-${provider}`));
-  } catch (err) {
-    // The vault was created above and its recovery key is shown once: a rejected key must not
-    // lose it. The flow reads it off the error and holds it until the owner confirms.
-    if (vault.recoveryKey !== undefined && err !== null && typeof err === "object") {
-      // Non-enumerable: a later JSON.stringify(err) or a spread of the error cannot leak it.
-      Object.defineProperty(err, "recoveryKey", {
-        value: vault.recoveryKey,
-        enumerable: false,
-        configurable: true,
-      });
-    }
-    throw err;
-  }
+  await ensureVault(call);
+  await call("models.setKey", { providerId: provider, key }, ik(`key-${provider}`));
   // Check the key at once (#504): a refused key is reported here, in the field, rather than as a
   // chat that never answers. Only a refusal counts; an unreachable endpoint or an older Gateway
   // without models.probe does not stop the step.
@@ -95,7 +82,7 @@ export async function saveProviderKey(
       // Done's check still shows the refusal.
     }
   }
-  return { keyRef: `model-${provider}`, ...vault, ...(refused === undefined ? {} : { refused }) };
+  return { keyRef: `model-${provider}`, ...(refused === undefined ? {} : { refused }) };
 }
 
 /** The six-case tool check (B4) on the chosen model. */
@@ -233,50 +220,36 @@ export async function verifySetup(
   const call = caller(platform);
   const checks: SetupCheck[] = [];
   const status = await platform.gateway.getStatus();
-  checks.push(
-    status.phase === "paired"
-      ? {
-          id: "gateway",
-          label: t("web.setup.gateway"),
-          state: "ok",
-          detail: t("web.setup.gatewayOk"),
-        }
-      : {
-          id: "gateway",
-          label: t("web.setup.gateway"),
-          state: "warn",
-          detail: t("web.setup.gatewayWarn"),
-        },
-  );
-  // Desktop: the first-admin bootstrap (main process) makes this Mac the admin device.
-  if (platform.gateway.deviceId !== undefined && status.phase === "paired") {
-    checks.push(
-      status.scopes?.includes("operator.admin")
-        ? { id: "admin", label: t("web.setup.admin"), state: "ok", detail: t("web.setup.adminOk") }
-        : {
-            id: "admin",
-            label: t("web.setup.admin"),
-            state: "warn",
-            detail: t("web.setup.adminWarn"),
-          },
-    );
+  // Only what needs fixing becomes a row (the Done step lists nothing else): a Gateway, admin
+  // device or helper that is fine says nothing.
+  if (status.phase !== "paired") {
+    checks.push({
+      id: "gateway",
+      label: t("onboarding.done.psycheLabel"),
+      state: "warn",
+      detail: t("onboarding.done.psycheWait"),
+    });
   }
-  if (helper !== undefined && helper.kind !== "unbundled") {
-    checks.push(
-      helper.kind === "paired"
-        ? {
-            id: "helper",
-            label: t("web.setup.helper"),
-            state: "ok",
-            detail: t("web.setup.helperOk"),
-          }
-        : {
-            id: "helper",
-            label: t("web.setup.helper"),
-            state: "warn",
-            detail: t("web.setup.helperWarn"),
-          },
-    );
+  // Desktop: the first-admin bootstrap (main process) makes this Mac the admin device.
+  if (
+    platform.gateway.deviceId !== undefined &&
+    status.phase === "paired" &&
+    !status.scopes?.includes("operator.admin")
+  ) {
+    checks.push({
+      id: "admin",
+      label: t("web.setup.admin"),
+      state: "warn",
+      detail: t("web.setup.adminWarn"),
+    });
+  }
+  if (helper !== undefined && helper.kind !== "unbundled" && helper.kind !== "paired") {
+    checks.push({
+      id: "helper",
+      label: t("web.setup.helper"),
+      state: "warn",
+      detail: t("onboarding.done.helperWait"),
+    });
   }
   const ref = result.model.modelRef.trim();
   let modelCheck: SetupCheck = {

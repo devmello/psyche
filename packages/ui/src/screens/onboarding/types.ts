@@ -180,6 +180,11 @@ export interface OnboardingResult {
     microphone?: PermissionAnswer;
   };
   connectors: ConnectedAccount[];
+  /**
+   * "Make these searchable" (on by default): the host turns on the search sources that match the
+   * connected accounts. Present only when an account is connected.
+   */
+  searchable?: boolean;
   model: ModelChoice;
   /**
    * A re-run that left the Model step out: the Done check reads the model that is set and does
@@ -225,8 +230,8 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
   /** Runs a connect flow (OAuth window); resolves `false` when the user backs out. */
   onConnect?: (type: string, mode: ScopeMode) => Promise<boolean | undefined> | boolean | undefined;
   /**
-   * Stores a provider key in the vault and resolves with its reference, plus the vault's
-   * recovery key when storing it created the vault (shown once in the Model step).
+   * Stores a provider key in the vault and resolves with its reference. A vault this creates
+   * keeps its recovery key (Home and Settings show it later); onboarding does not.
    */
   onSaveKey?: (provider: string, key: string) => Promise<SavedKey> | SavedKey;
   /** Runs the tool-calling check on the chosen model. */
@@ -260,9 +265,10 @@ export interface OnboardingShellProps extends OnboardingExtrasProps {
 
 /**
  * `refused`: the key was stored but the provider refused it on the check right after (#504);
- * the field stays open for another paste, and a recovery key is still shown.
+ * the field stays open for another paste. The vault's recovery key is not part of onboarding: it
+ * waits on Home ("Save your recovery key") and in Settings → Credentials.
  */
-export type SavedKey = string | { keyRef: string; recoveryKey?: string; refused?: string };
+export type SavedKey = string | { keyRef: string; refused?: string };
 
 /** One line of the Done step's "Ready to go" list. */
 export interface SetupCheck {

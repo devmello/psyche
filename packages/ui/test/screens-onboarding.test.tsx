@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -296,7 +296,7 @@ describe("OnboardingFlow", () => {
     await next();
     expect(heading().textContent).toContain("You’re set");
     expect(screen.getByText("Pip is ready.")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Open the main chat" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start chatting" }));
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
     expect(onComplete.mock.calls[0]?.[0]).toEqual({
       persona: {
@@ -312,6 +312,8 @@ describe("OnboardingFlow", () => {
         notifications: "pending",
       },
       connectors: [{ type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" }],
+      // "Make these searchable" is on unless the owner turns it off.
+      searchable: true,
       model: {
         kind: "cloud",
         provider: "anthropic",
@@ -339,71 +341,48 @@ describe("OnboardingFlow", () => {
 });
 
 describe("First run from scratch", () => {
-  it("keeps the vault recovery key until the owner types its last group back", async () => {
+  it("shows no recovery key in onboarding, and Next stays open after the vault is made", async () => {
     const { gateway } = setup({
       step: "model",
-      onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
+      onSaveKey: async () => ({ keyRef: "model-anthropic" }),
     });
     await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
-      "ABCD-EFGH-IJKL",
+    // Positive control: the key was saved, and the step says so.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("status").some((s) => s.textContent?.includes("model-anthropic")),
+      ).toBe(true),
     );
-    expect(
-      screen.getAllByRole("status").some((s) => s.textContent?.includes("model-anthropic")),
-    ).toBe(true);
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
-
-    // A wrong group is refused with Settings' error, clears the field, and keeps the key shown.
-    await userEvent.type(screen.getByLabelText("Last group"), "WXYZ");
-    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "not the last group of the recovery key",
-    );
-    expect((screen.getByLabelText("Last group") as HTMLInputElement).value).toBe("");
-    expect(screen.getByTestId("vault-recovery-key")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
-
-    // The last group is confirmed on the Gateway; the key goes away and Next opens.
-    await userEvent.type(screen.getByLabelText("Last group"), "IJKL");
-    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
-    await waitFor(() => expect(screen.queryByTestId("vault-recovery-key")).toBeNull());
+    expect(screen.queryByTestId("vault-recovery-key")).toBeNull();
+    expect(screen.queryByLabelText("Last group")).toBeNull();
+    expect(screen.queryByText(/recovery key/i)).toBeNull();
     expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
       false,
     );
-    const confirms = gateway().calls.filter((c) => c.method === "vault.confirmRecovery");
-    expect(confirms).toHaveLength(2);
-    expect(confirms.at(-1)?.params).toEqual({ lastGroup: "IJKL" });
+    // Onboarding asks the vault for nothing about the key.
+    const methods = gateway().calls.map((c) => c.method);
+    expect(methods).not.toContain("vault.recoveryKey");
+    expect(methods).not.toContain("vault.confirmRecovery");
   });
 
-  it("shows the recovery key gate after a rejected first paste and an accepted second one", async () => {
-    let calls = 0;
+  it("a rejected first paste leaves no recovery key behind in the step either", async () => {
     setup({
       step: "model",
       onSaveKey: async () => {
-        calls += 1;
-        if (calls === 1) {
-          // The vault was created, then the key was rejected: the error carries the recovery key.
-          throw Object.assign(new Error("that is not an Anthropic API key"), {
-            recoveryKey: "ABCD-EFGH-IJKL",
-          });
-        }
-        return { keyRef: "model-anthropic" };
+        throw Object.assign(new Error("that is not an Anthropic API key"), {
+          recoveryKey: "ABCD-EFGH-IJKL",
+        });
       },
     });
     await userEvent.type(screen.getByLabelText("API key"), "wrong");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
-      "ABCD-EFGH-IJKL",
+    await screen.findByText(/not an Anthropic API key/);
+    expect(screen.queryByTestId("vault-recovery-key")).toBeNull();
+    expect(document.body.textContent).not.toContain("ABCD-EFGH-IJKL");
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
+      false,
     );
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
-
-    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-right");
-    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    await waitFor(() => expect(calls).toBe(2));
-    // Still shown, and Next still held, until the owner confirms it is saved.
-    expect(screen.getByTestId("vault-recovery-key").textContent).toContain("ABCD-EFGH-IJKL");
-    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("Done shows a refused key as a failure and its link goes back to the Model step", async () => {
@@ -427,59 +406,86 @@ describe("First run from scratch", () => {
     expect(heading().textContent).toContain("Choose a model");
   });
 
-  it("copies the recovery key through the host's clipboard and says so (#507)", async () => {
-    const writeClipboard = vi.fn(async (_text: string) => {});
-    setup(
-      {
-        step: "model",
-        onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
-      },
-      { writeClipboard },
-    );
-    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
-    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    const box = await screen.findByTestId("vault-recovery-key");
-    await userEvent.click(within(box).getByRole("button", { name: "Copy" }));
-    expect(writeClipboard).toHaveBeenCalledWith("ABCD-EFGH-IJKL");
-    expect(await within(box).findByRole("button", { name: "Copied" })).toBeTruthy();
-    expect(within(box).getByText("Recovery key copied to the clipboard.")).toBeTruthy();
-  });
-
-  it("says when the key couldn't be copied", async () => {
-    const writeClipboard = vi.fn(async () => {
-      throw new Error("denied");
-    });
-    Object.defineProperty(globalThis.navigator, "clipboard", {
-      value: undefined,
-      configurable: true,
-    });
-    setup(
-      {
-        step: "model",
-        onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
-      },
-      { writeClipboard },
-    );
-    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
-    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
-    const box = await screen.findByTestId("vault-recovery-key");
-    await userEvent.click(within(box).getByRole("button", { name: "Copy" }));
-    expect(await within(box).findByRole("alert")).toHaveProperty(
-      "textContent",
-      "Couldn't copy. Select the key and copy it.",
-    );
-  });
-
-  it("lists the setup checks on Done", async () => {
+  it("Done lists only what needs fixing, in plain words", async () => {
     const onVerify = vi.fn(async () => [
-      { id: "gateway", label: "Gateway", state: "ok" as const, detail: "Running on this Mac." },
+      { id: "gateway", label: "Psyche", state: "ok" as const, detail: "Running on this Mac." },
       { id: "model", label: "Model", state: "warn" as const, detail: "None picked." },
     ]);
     setup({ step: "done", onVerify });
     const list = await screen.findByTestId("setup-checks");
-    expect(list.textContent).toContain("Running on this Mac.");
     expect(list.textContent).toContain("None picked.");
+    // A check that passed is not news.
+    expect(list.textContent).not.toContain("Running on this Mac.");
     expect(onVerify).toHaveBeenCalledOnce();
+  });
+
+  it("Done reads as 'ready' with one button: no facts table, model id, Touch ID row or Try next", async () => {
+    setup({
+      step: "done",
+      initial: { persona: { name: "Pip" } },
+      onVerify: async () => [
+        { id: "gateway", label: "Psyche", state: "ok" as const, detail: "Running on this Mac." },
+        {
+          id: "admin",
+          label: "Admin",
+          state: "ok" as const,
+          detail: "This Mac is the admin device.",
+        },
+        { id: "helper", label: "Psyche Helper", state: "ok" as const, detail: "Connected." },
+        {
+          id: "model",
+          label: "Model",
+          state: "ok" as const,
+          detail: "anthropic/claude-sonnet-5-5, key in the vault.",
+        },
+      ],
+      touchId: undefined,
+    });
+    expect(await screen.findByText("Pip is ready.")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Checking the setup…")).toBeNull());
+    expect(screen.getByRole("button", { name: "Start chatting" })).toBeTruthy();
+    const text = document.body.textContent ?? "";
+    for (const gone of [
+      "Gateway",
+      "Admin",
+      "Setup checks",
+      "anthropic/claude-sonnet-5-5",
+      "Touch ID",
+      "Try next",
+      "Work tracking",
+      "People in your brief",
+    ]) {
+      expect(text, gone).not.toContain(gone);
+    }
+    expect(screen.queryByTestId("setup-checks")).toBeNull();
+    expect(screen.queryByTestId("onboarding-try")).toBeNull();
+  });
+
+  it("'Make these searchable' is on once an account is connected, and its choice is the result's", async () => {
+    const connected = [{ type: "google", label: "Google", mode: "read" as const }];
+    const { onComplete } = setup({
+      defaultStep: "stuff",
+      initial: { connectors: connected },
+      onConnect: async () => true,
+    });
+    const sw = await screen.findByRole("switch", { name: "Make these searchable" });
+    expect(sw.getAttribute("aria-checked")).toBe("true");
+    await userEvent.click(sw);
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    await next();
+    await userEvent.click(await screen.findByRole("button", { name: "Start chatting" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onComplete.mock.calls[0]?.[0].searchable).toBe(false);
+  });
+
+  it("offers no 'Make these searchable' while nothing is connected, and says nothing then", async () => {
+    const { onComplete } = setup({ defaultStep: "stuff", onConnect: async () => true });
+    await screen.findByText(/Nothing connected yet/);
+    expect(screen.queryByRole("switch", { name: "Make these searchable" })).toBeNull();
+    await next();
+    await userEvent.click(await screen.findByRole("button", { name: "Start chatting" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onComplete.mock.calls[0]?.[0]).not.toHaveProperty("searchable");
   });
 });
 
@@ -695,24 +701,25 @@ describe("Short onboarding (QA)", () => {
         { id: "model", label: "Model", state: "ok", detail: "Using a key from your environment." },
       ],
     });
-    await screen.findByText("Using a key from your environment.");
+    await waitFor(() => expect(screen.queryByText("Checking the setup…")).toBeNull());
     expect(screen.getByText("Psyche is ready.")).toBeTruthy();
+    // A passing check is not listed.
+    expect(screen.queryByText("Using a key from your environment.")).toBeNull();
   });
 
-  it("Try next offers buttons that finish setup and say where to open", async () => {
-    for (const [label, target] of [
-      ["Ask a question in Search", "search"],
-      ["Catch up on Home", "home"],
-      ["Start a new chat", "chat"],
-    ] as const) {
-      const { onComplete } = setup({ defaultStep: "done" });
-      await userEvent.click(screen.getByRole("button", { name: label }));
-      await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
-      expect(onComplete.mock.calls[0]?.[0].openAfter).toBe(target);
-      cleanup();
-    }
-    // The gear menu is not mentioned: the ideas are buttons, not prose.
-    setup({ defaultStep: "done" });
+  it("Done has one button, Start chatting, which finishes setup and opens the chat", async () => {
+    const { onComplete } = setup({ defaultStep: "done" });
+    for (const gone of [
+      "Ask a question in Search",
+      "Catch up on Home",
+      "Start a new chat",
+      "Open the main chat",
+    ])
+      expect(screen.queryByRole("button", { name: gone }), gone).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Start chatting" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(onComplete.mock.calls[0]?.[0]).not.toHaveProperty("openAfter");
+    // The gear menu is not mentioned either.
     expect(document.body.textContent).not.toMatch(/gear menu/i);
   });
 

@@ -257,6 +257,8 @@ export const VaultStatus = Type.Object(
     slots: Type.Array(VaultKeySlot),
     /** The owner confirmed the recovery key is stored (setup is incomplete until then). */
     recoveryConfirmed: Type.Boolean(),
+    /** The Gateway still holds the recovery key, sealed under the vault key (`vault.recoveryKey`). */
+    recoveryKeyStored: Type.Optional(Type.Boolean()),
     /** Idle minutes before the vault locks; null = never (the owner turned auto-lock off). */
     autoLockMinutes: Type.Union([Type.Integer({ minimum: 1, maximum: 10_080 }), Type.Null()]),
     /** When the idle timer locks the vault, if unlocked. */

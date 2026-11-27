@@ -1,4 +1,4 @@
-import { useNotifications, useStoreState } from "../data/index.ts";
+import { useGatewayQuery, useNotifications, useStoreState } from "../data/index.ts";
 import { useNow } from "../lib/use-now.ts";
 import { needsYou } from "../screens/inbox/InboxScreen.tsx";
 import { useCatchUp } from "./use-catch-up.ts";
@@ -8,6 +8,9 @@ import { useCatchUp } from "./use-catch-up.ts";
  * ...?" asks. Home's "Needs you" section and the sidebar badge beside Home both read this, so the
  * count is what the section lists. It drops the moment a card is answered, denied or expires, on
  * any device (`notification.resolved`, or the approval leaving "pending" or passing its expiry).
+ *
+ * "Save your recovery key" is one more: while the vault exists, the owner has not confirmed the
+ * key and the Gateway still holds it (`recoveryKeyStored`). It counts once, so the badge matches.
  */
 export function useNeedsYou(fixedNow?: number) {
   // Ticks, so an approval that reaches its deadline leaves the count without another event.
@@ -15,5 +18,23 @@ export function useNeedsYou(fixedNow?: number) {
   const approvals = useStoreState((s) => s.approvals);
   const notifications = needsYou(useNotifications().unresolved, now, approvals);
   const { asks, busy, act } = useCatchUp();
-  return { notifications, asks, busy, act, count: notifications.length + asks.length };
+  const vault = useGatewayQuery("vault.status", {});
+  const v = vault.data?.status;
+  const recoveryKey = {
+    pending:
+      v !== undefined &&
+      v.state !== "uninitialized" &&
+      !v.recoveryConfirmed &&
+      v.recoveryKeyStored === true,
+    unlocked: v?.state === "unlocked",
+    reload: vault.reload,
+  };
+  return {
+    notifications,
+    asks,
+    busy,
+    act,
+    recoveryKey,
+    count: notifications.length + asks.length + (recoveryKey.pending ? 1 : 0),
+  };
 }

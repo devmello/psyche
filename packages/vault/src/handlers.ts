@@ -56,6 +56,7 @@ export function createVaultHandlers(
     "vault.confirmRecovery": async ({ lastGroup }) => ({
       status: await vault.confirmRecovery(lastGroup),
     }),
+    "vault.recoveryKey": async () => ({ recoveryKey: (await vault.recoveryKey()) ?? null }),
     "vault.unlock": async ({ reason, recoveryKey }) => ({
       status:
         recoveryKey === undefined

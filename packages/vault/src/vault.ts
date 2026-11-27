@@ -189,6 +189,12 @@ interface SlotsFile {
   autoLockMinutes?: number | null;
   /** Last group of the recovery key, sealed under the DEK, for `confirmRecovery`. */
   recoveryCheck?: SealedBox;
+  /**
+   * The whole recovery key, sealed under the DEK (never plaintext on disk), so Home and Settings
+   * can show it again after setup. Readable only while the vault is unlocked (`recoveryKey()`).
+   * Absent on vaults made before this field existed: their key was shown once and is not kept.
+   */
+  recoveryKeySealed?: SealedBox;
   slots: Partial<Record<Exclude<VaultKeySlot, "recovery">, WrappedKey>>;
 }
 
@@ -204,6 +210,8 @@ interface Unlocked {
   store: VaultStore;
   dek: Buffer;
 }
+
+const RECOVERY_KEY_AAD = "psyche.vault.recovery-key.v1";
 
 const toIso = (ms: number) => new Date(ms).toISOString();
 
@@ -514,6 +522,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
             : "unlocked",
       slots: present,
       recoveryConfirmed: slots?.recoveryConfirmed ?? false,
+      recoveryKeyStored: slots?.recoveryKeySealed !== undefined,
       autoLockMinutes: this.#autoLock,
       lockAt: this.#lockAt === null ? null : toIso(this.#lockAt),
       itemCount: this.#o.meta.list().length,
@@ -562,6 +571,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
         vaultId: this.#newId(),
         recoveryConfirmed: false,
         recoveryCheck: seal(dek, Buffer.from(lastGroup), "psyche.vault.recovery-check"),
+        recoveryKeySealed: seal(dek, Buffer.from(recoveryKey), RECOVERY_KEY_AAD),
         slots: { [this.#o.wrapper.slot]: wrapped },
       };
       this.#writeJson(this.#recoveryPath, recoveryFile);
@@ -580,6 +590,23 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     } finally {
       zeroize(recovery);
     }
+  }
+
+  /**
+   * The recovery key again, for the owner to save or re-read (Home's "Save your recovery key"
+   * card, Settings → Credentials). Needs the vault unlocked: the key is opened with the DEK, so a
+   * copied vault directory still gives nothing. `undefined` for a vault made before the key was
+   * kept. Each read is audited (never the value).
+   */
+  async recoveryKey(): Promise<string | undefined> {
+    const slots = this.#readSlots();
+    if (slots === undefined) return fail("not_found", "no vault");
+    const u = this.#requireUnlocked();
+    this.#touch();
+    if (slots.recoveryKeySealed === undefined) return undefined;
+    const key = open(u.dek, slots.recoveryKeySealed, RECOVERY_KEY_AAD).toString();
+    await this.#audit("vault.recoveryKey.viewed", {});
+    return key;
   }
 
   /** Setup completes when the owner types back the recovery key's last group. */

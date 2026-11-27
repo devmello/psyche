@@ -188,6 +188,39 @@ describe("vault set up and recovery confirmed from Settings", () => {
     expect(after.status.recoveryConfirmed).toBe(false);
   });
 
+  it("shows the recovery key again to an admin while unlocked, never to others, and never stores or logs it", async () => {
+    const { gw, admin, logs, home } = await start();
+    const created = await admin.call<{ recoveryKey: string }>(
+      "vault.setup",
+      { slot: "keychain" },
+      ik(),
+    );
+    // A plain read (no idempotency key): the result is not kept in the idempotency table.
+    const shown = await admin.call<{ recoveryKey: string | null }>("vault.recoveryKey", {});
+    expect(shown.recoveryKey).toBe(created.recoveryKey);
+    const status = await admin.call<{ status: VaultStatus }>("vault.status", {});
+    expect(status.status.recoveryKeyStored).toBe(true);
+    expect(JSON.stringify(status)).not.toContain(created.recoveryKey);
+
+    const plain = await desktopClient(gw.gateway);
+    cleanups.push(() => plain.close());
+    const refused = await plain.request("vault.recoveryKey", {});
+    expect(refused.ok).toBe(false);
+    expect((refused.error as { code?: string } | undefined)?.code).toBe("forbidden");
+    expect(JSON.stringify(refused)).not.toContain(created.recoveryKey);
+
+    // Locked: nothing is shown.
+    await admin.call("vault.lock", {}, ik());
+    const locked = await admin.request("vault.recoveryKey", {});
+    expect(locked.ok).toBe(false);
+    expect(JSON.stringify(locked)).not.toContain(created.recoveryKey);
+
+    expect(logs.join("\n")).not.toContain(created.recoveryKey);
+    expect(readFileSync(join(home, "vault", "slots.json"), "utf8")).not.toContain(
+      created.recoveryKey,
+    );
+  });
+
   it("sets the idle auto-lock for an admin; a device without admin is refused and nothing changes", async () => {
     const { gw, admin } = await start();
     await admin.call("vault.setup", { slot: "keychain" }, ik());

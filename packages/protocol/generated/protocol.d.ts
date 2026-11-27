@@ -14630,12 +14630,13 @@ export interface VaultConfirmRecoveryResult {
 }
 
 export interface VaultStatus {
-    autoLockMinutes:   number | null;
-    itemCount:         number;
-    lockAt?:           null | string;
-    recoveryConfirmed: boolean;
-    slots:             VaultKeySlot[];
-    state:             VaultStatusState;
+    autoLockMinutes:    number | null;
+    itemCount:          number;
+    lockAt?:            null | string;
+    recoveryConfirmed:  boolean;
+    recoveryKeyStored?: boolean;
+    slots:              VaultKeySlot[];
+    state:              VaultStatusState;
 }
 
 export type VaultKeySlot = "keychain" | "safe_storage" | "key_file" | "recovery";
@@ -14781,6 +14782,10 @@ export interface LinkPaymentMethod {
     isDefault: boolean;
     last4:     string;
     nickname?: null | string;
+}
+
+export interface VaultRecoveryKeyResult {
+    recoveryKey: null | string;
 }
 
 export interface VaultSetAutoLockParams {

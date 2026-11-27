@@ -69,6 +69,19 @@ export const VaultMethods = {
     description:
       "Completes setup once the owner proves the recovery key is stored. Side-effecting.",
   }),
+  "vault.recoveryKey": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      /** Null when the vault was made before the key was kept (it was shown once and is gone). */
+      recoveryKey: Type.Union([Type.String(), Type.Null()]),
+    }),
+    scope: "operator.admin",
+    // Not side-effecting on purpose: those results are kept in the idempotency table, and this
+    // one must never be written anywhere in plaintext.
+    sideEffecting: false,
+    description:
+      "Returns the vault's recovery key so the owner can save it. Needs the vault unlocked; the key is stored only sealed under the vault key. Admin only; each read is audited.",
+  }),
   "vault.unlock": defineMethod({
     params: Type.Object({
       /** Shown in the Touch ID / password prompt. */

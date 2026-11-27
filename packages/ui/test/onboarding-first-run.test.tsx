@@ -179,8 +179,7 @@ describe("re-run is pre-filled and leaves out only what is set", () => {
 
   it("says the model is kept, and the result says so", async () => {
     const { onComplete } = flow({ completed: ["model"], rerun: true, defaultStep: "done" });
-    expect(screen.getByText("Unchanged")).toBeTruthy();
-    await click("Open the main chat");
+    await click("Start chatting");
     expect(onComplete.mock.calls[0]?.[0]).toMatchObject({ modelKept: true });
   });
 
