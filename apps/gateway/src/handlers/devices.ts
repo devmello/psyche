@@ -23,6 +23,7 @@ import { keyFingerprint } from "../auth.ts";
 import { configWarnings } from "../config.ts";
 import type { Call, GatewayContext, HandlerDef, LiveConnection } from "../context.ts";
 import { announceMachine, machineInfoOf, uniqueMachineName } from "../nodes/machines.ts";
+import { assertPairingRequestBound, forgetPairingBinding } from "../security/pairing-bindings.ts";
 
 // --- B2: the local admin CLI (linux-helper-only design §7.3, security §10) ------------------------
 
@@ -81,6 +82,10 @@ export function approvePairing(
   if (request?.kind !== "device" || !request.deviceId) {
     throw new PsycheError("not_found", `pairing request ${input.pairingRequestId} not found`);
   }
+  // `pairing_requests` is not sealed: the device and key it names are trusted only if they are
+  // the ones this Gateway bound when it made the request (refused after a restart, alert if
+  // rewritten).
+  assertPairingRequestBound(db, request);
   if (input.code !== undefined && input.code.toUpperCase() !== request.code) {
     throw new PsycheError("forbidden", "The code does not match the one shown on the device");
   }
@@ -105,6 +110,7 @@ export function approvePairing(
     pairedAt: db.now(),
     decidedByDeviceId: input.decidedByDeviceId,
   });
+  forgetPairingBinding(db, request.id);
   return {
     device: done.device,
     request: decided,
@@ -327,6 +333,7 @@ export const devicesHandlers: Record<string, HandlerDef> = {
         decision: "denied",
         decidedByDeviceId: call.identity.deviceId,
       });
+      forgetPairingBinding(call.ctx.db, pairingRequest.id);
       call.ctx.bus.bumpStateVersion();
       const deviceId = pairingRequest.deviceId;
       if (deviceId)

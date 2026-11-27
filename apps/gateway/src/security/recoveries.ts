@@ -21,6 +21,7 @@ import { applyPairingDecision, approvePairing } from "../handlers/devices.ts";
 import type { Logger } from "../log.ts";
 import { type PresenceState, resetPresenceEnrollment } from "../presence-gate.ts";
 import { cleanLabel, cleanText } from "./alerts.ts";
+import { assertPairingRequestBound, forgetPairingBinding } from "./pairing-bindings.ts";
 import type { StateSeal } from "./state-seal.ts";
 
 /**
@@ -483,9 +484,14 @@ export class SecurityRecoveries {
     const { db } = this.#d;
     const code = String(params.code ?? "").toUpperCase();
     const requested = parseScopes(params.scopes);
-    const request = listPairingRequests(db, { status: "pending" }).find(
+    const candidates = listPairingRequests(db, { status: "pending" }).filter(
       (p) => p.kind === "device" && p.code === code,
     );
+    // The row is not sealed: its device and key count only as this Gateway bound them when it
+    // made the request. Any row with this code that differs (rewritten outside Psyche: alert) or
+    // is not known (made before a restart) refuses the whole request; nothing is recorded.
+    for (const p of candidates) assertPairingRequestBound(db, p);
+    const request = candidates[0];
     if (request?.deviceId == null) {
       throw new PsycheError("not_found", `no pending pairing request with code ${code}`);
     }
@@ -741,8 +747,9 @@ export class SecurityRecoveries {
             }).device,
         )();
         if (approved === undefined) throw new PsycheError("not_found", "the device is gone");
-        // The card of a request still pending (same device and key, checked above) is answered:
-        // approved while it is live, marked expired otherwise. Bookkeeping only.
+        // The card of a request still pending (same device and key, checked above) is answered.
+        // Bookkeeping only. `decidePairingRequest` is always asked to approve: it does so while the
+        // request is live, and one past its expiry it marks `expired` itself and throws.
         if (request?.status === "pending") {
           try {
             decidePairingRequest(db, request.id, { decision: "approved", decidedByDeviceId: null });
@@ -750,6 +757,7 @@ export class SecurityRecoveries {
             // expired or decided meanwhile: the device is paired either way
           }
         }
+        if (request !== undefined) forgetPairingBinding(db, request.id);
         this.#d.onDeviceChanged?.(approved);
         return `approved ${approved.name} with ${approved.scopes.join(",")}`;
       }

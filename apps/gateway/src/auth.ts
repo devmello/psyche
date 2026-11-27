@@ -44,6 +44,7 @@ import type { GatewayIdentity } from "./identity.ts";
 import { machinePairingCardsEnabled, uniqueMachineName } from "./nodes/machines.ts";
 import { recordPeerRefusal } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import { pairingRequestBound, rememberPairingBinding } from "./security/pairing-bindings.ts";
 import { stateSealFor } from "./security/state-seal.ts";
 import { helperRestartHint } from "./transports/peer-check.ts";
 
@@ -804,7 +805,10 @@ export function verifyChallenge(
 
     // Not eligible for auto-approval: the owner approves via devices.approve.
     const live = findPendingPairingForDevice(db, params.deviceId, nowIso);
-    if (live) {
+    // A pending request this Gateway did not make as it now reads (from before a restart, or
+    // rewritten outside Psyche) could never be approved: drop it and give the device a fresh code.
+    if (live && !pairingRequestBound(db, live)) expirePendingPairingsForDevice(db, params.deviceId);
+    else if (live) {
       return {
         result: { phase: "pending", pairingRequestId: live.id, code: live.code },
         identity: null,
@@ -858,6 +862,9 @@ export function verifyChallenge(
       transport: peer.transport === "ws" ? "ws" : "unix",
       remoteAddress: peer.remoteAddress,
     });
+    // The true binding (this hello's device id and key), which the stored row is checked against
+    // wherever a request pairs a device.
+    rememberPairingBinding(db, request, now.getTime());
     return {
       result: { phase: "pending", pairingRequestId: request.id, code: request.code },
       identity: null,

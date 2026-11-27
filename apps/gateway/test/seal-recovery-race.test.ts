@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { createPairingRequest, getDevice, insertDevice, openDb, type PsycheDb } from "@psyche/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { keyFingerprint } from "../src/auth.ts";
+import { approvePairing } from "../src/handlers/devices.ts";
+import { rememberPairingBinding } from "../src/security/pairing-bindings.ts";
 import { SecurityRecoveries } from "../src/security/recoveries.ts";
 import { StateSeal } from "../src/security/state-seal.ts";
 
@@ -31,11 +33,11 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-async function setup() {
+async function setup(initialPresence: "off" | "ready" = "ready") {
   const d = openDb(dbPath);
   open.push(d);
   const seal = await StateSeal.open(d, { home, now: () => new Date(clock) });
-  let presence: "off" | "ready" = "ready";
+  let presence: "off" | "ready" = initialPresence;
   let forgot = 0;
   const rec = new SecurityRecoveries({
     db: d,
@@ -308,34 +310,165 @@ describe("genuine recoveries still work (positive controls)", () => {
   });
 });
 
+const CODE = "ABCD23";
+const FULL = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
+
+function device(d: PsycheDb, id: string) {
+  return insertDevice(d, {
+    id,
+    name: id,
+    platform: "macos",
+    role: "client",
+    publicKey: randomBytes(32).toString("base64url"),
+    scopes: [],
+  });
+}
+
+/**
+ * A, the owner's new device, with the pairing request the Gateway made for it (and bound, as
+ * `auth.ts` does at the hello, unless `bind` is false: a request from before a restart); B, the
+ * unpaired device the attacker's own hello made.
+ */
+async function pairingSetup(o: { expiresAt?: string; bind?: boolean; presence?: "off" | "ready" }) {
+  const s = await setup(o.presence);
+  const a = device(s.d, "owner-a");
+  const b = device(s.d, "attacker-b");
+  const req = createPairingRequest(s.d, {
+    kind: "device",
+    code: CODE,
+    deviceId: a.id,
+    display: a.name,
+    publicKeyFingerprint: keyFingerprint(a.publicKey),
+    ...(o.expiresAt === undefined ? {} : { expiresAt: o.expiresAt }),
+  });
+  if (o.bind !== false) rememberPairingBinding(s.d, req, Date.now());
+  return { ...s, a, b, req };
+}
+
+/** The attack: A's pending request rewritten from outside to name B (device and key). */
+function swapToB(reqId: string, b: { id: string; publicKey: string }): void {
+  foreign((f) =>
+    f.sqlite
+      .prepare(
+        "UPDATE pairing_requests SET device_id = ?, public_key_fingerprint = ?, status = 'pending', expires_at = '2099-01-01T00:00:00.000Z' WHERE id = ?",
+      )
+      .run(b.id, keyFingerprint(b.publicKey), reqId),
+  );
+}
+
+const requestRow = (d: PsycheDb, id: string) =>
+  d.sqlite.prepare("SELECT status, outcome FROM security_requests WHERE id = ?").get(id) as {
+    status: string;
+    outcome: string;
+  };
+
+describe("a pairing request rewritten before the owner approves it", () => {
+  it("psyched devices approve: refused, nothing recorded or paired, alert raised", async () => {
+    const { d, rec, a, b, req } = await pairingSetup({});
+    swapToB(req.id, b);
+    cliRequest("q1", "devices.approve", { code: CODE });
+    rec.tick();
+    expect(requestRow(d, "q1").status).toBe("refused");
+    expect(requestRow(d, "q1").outcome).toMatch(/changed outside Psyche/);
+    expect(rec.waitingCount()).toBe(0);
+    expect(getDevice(d, a.id)?.pairedAt).toBeNull();
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(alertKinds(d)).toContain("state_changed_outside");
+  });
+
+  it("positive control: untouched, psyched devices approve records A and pairs A when due", async () => {
+    const { d, seal, rec, a, b } = await pairingSetup({});
+    cliRequest("q1", "devices.approve", { code: CODE });
+    rec.tick();
+    expect(requestRow(d, "q1").status).toBe("waiting");
+    expect(alertKinds(d)).not.toContain("state_changed_outside");
+    clock += DELAY + 1;
+    seal.ensure();
+    rec.tick();
+    expect(getDevice(d, a.id)?.scopes).toEqual(FULL);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+  });
+
+  it("first-admin shortcut: refused, nothing paired, alert raised", async () => {
+    const { d, rec, a, b, req } = await pairingSetup({ presence: "off" });
+    swapToB(req.id, b);
+    cliRequest("q1", "devices.approve", { code: CODE });
+    rec.tick();
+    expect(requestRow(d, "q1").status).toBe("refused");
+    expect(getDevice(d, a.id)?.pairedAt).toBeNull();
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(getDevice(d, b.id)?.scopes).toEqual([]);
+    expect(alertKinds(d)).toContain("state_changed_outside");
+    expect(alertKinds(d)).not.toContain("local_first_admin");
+  });
+
+  it("positive control: untouched, the first-admin shortcut makes A admin at once", async () => {
+    const { d, rec, a, b } = await pairingSetup({ presence: "off" });
+    cliRequest("q1", "devices.approve", { code: CODE });
+    rec.tick();
+    expect(requestRow(d, "q1").status).toBe("applied");
+    expect(getDevice(d, a.id)?.scopes).toEqual(FULL);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(alertKinds(d)).toContain("local_first_admin");
+  });
+
+  it("card tap (approvePairing): refused, nothing paired, alert raised after the rollback", async () => {
+    const { d, a, b, req } = await pairingSetup({});
+    swapToB(req.id, b);
+    expect(() =>
+      d.sqlite.transaction(() =>
+        approvePairing(d, {
+          pairingRequestId: req.id,
+          scopes: ["operator.admin"],
+          decidedByDeviceId: null,
+        }),
+      )(),
+    ).toThrow(/changed outside Psyche/);
+    await Promise.resolve();
+    expect(getDevice(d, a.id)?.pairedAt).toBeNull();
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(alertKinds(d)).toContain("state_changed_outside");
+  });
+
+  it("positive control: untouched, the card tap pairs A", async () => {
+    const { d, a, b, req } = await pairingSetup({});
+    const { device: done } = d.sqlite.transaction(() =>
+      approvePairing(d, {
+        pairingRequestId: req.id,
+        scopes: ["operator.read"],
+        decidedByDeviceId: null,
+      }),
+    )();
+    expect(done.id).toBe(a.id);
+    expect(getDevice(d, a.id)?.scopes).toEqual(["operator.read"]);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+  });
+
+  it("after a restart (no binding), an old request is refused on every path, with no alert", async () => {
+    const { d, rec, a, req } = await pairingSetup({ bind: false });
+    expect(() =>
+      d.sqlite.transaction(() =>
+        approvePairing(d, {
+          pairingRequestId: req.id,
+          scopes: ["operator.read"],
+          decidedByDeviceId: null,
+        }),
+      )(),
+    ).toThrow(/before Psyche restarted/);
+    cliRequest("q1", "devices.approve", { code: CODE });
+    rec.tick();
+    expect(requestRow(d, "q1").status).toBe("refused");
+    expect(requestRow(d, "q1").outcome).toMatch(/before Psyche restarted/);
+    await Promise.resolve();
+    expect(getDevice(d, a.id)?.pairedAt).toBeNull();
+    expect(alertKinds(d)).not.toContain("state_changed_outside");
+  });
+});
+
 describe("devices.approve pairs only the device recorded at intake", () => {
-  const CODE = "ABCD23";
-  const FULL = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
-
-  function device(d: PsycheDb, id: string) {
-    return insertDevice(d, {
-      id,
-      name: id,
-      platform: "macos",
-      role: "client",
-      publicKey: randomBytes(32).toString("base64url"),
-      scopes: [],
-    });
-  }
-
   /** A, the owner's new device, with its pairing request; B, the attacker's unpaired device. */
   async function waitingApproval(expiresAt?: string) {
-    const s = await setup();
-    const a = device(s.d, "owner-a");
-    const b = device(s.d, "attacker-b");
-    const req = createPairingRequest(s.d, {
-      kind: "device",
-      code: CODE,
-      deviceId: a.id,
-      display: a.name,
-      publicKeyFingerprint: keyFingerprint(a.publicKey),
-      ...(expiresAt === undefined ? {} : { expiresAt }),
-    });
+    const s = await pairingSetup({ expiresAt });
     cliRequest("q1", "devices.approve", { code: CODE });
     s.seal.ensure();
     s.rec.tick();
@@ -345,7 +478,7 @@ describe("devices.approve pairs only the device recorded at intake", () => {
       s.seal.ensure();
       s.rec.tick();
     };
-    return { ...s, a, b, req, due };
+    return { ...s, due };
   }
 
   type Dev = { id: string; publicKey: string };
