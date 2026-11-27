@@ -14,11 +14,11 @@ struct PlanForkModelTests {
     // MARK: The scrub count lines
 
     @Test func aScrubbedBranchSaysHowMuchStaysOnTheMac() async throws {
-        let detail = try await store.planFork(id: FixtureData.tripForkID)
+        let detail = try await store.planFork(id: FixtureData.scrubbedForkID)
         // Counts, not gaps: "4 more on your Mac" over both branches, and no total where a cost is withheld.
         #expect(detail.hiddenItems == 4)
         #expect(PlanForkText.moreOnMac(1).contains("1") && PlanForkText.moreOnMac(4).contains("4"))
-        let out = try #require(detail.branch("fbr_out"))
+        let out = try #require(detail.branch("fbr_near"))
         #expect(detail.totalLines(out) == [PlanForkText.totalOnMac])
         #expect(detail.textHidden)
         #expect(!PlanForkText.readOnMac.isEmpty)

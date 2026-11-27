@@ -5,7 +5,7 @@ import Foundation
 /// plan checks the hashes the way the Gateway does and marks the fork taken; nothing leaves the phone.
 struct PlanForkState: Sendable {
     var forks: [String: PlanForkDetail] = [
-        FixtureData.leaseForkID: FixtureData.leaseFork, FixtureData.tripForkID: FixtureData.tripFork,
+        FixtureData.leaseForkID: FixtureData.leaseFork, FixtureData.scrubbedForkID: FixtureData.scrubbedFork,
     ]
     var staged: [String: [NightShiftItem]] = [FixtureData.leaseRenewBranchID: FixtureData.leaseStagedItems]
     /// What this phone asked to take, so a test can see what a fixture take bound.
@@ -18,7 +18,7 @@ extension FixtureData {
     // MARK: Fork a plan
 
     public static let leaseForkID = "fork_lease"
-    public static let tripForkID = "fork_trip"
+    public static let scrubbedForkID = "fork_scrubbed"
     public static let leaseRenewBranchID = "fbr_renew"
     public static let leaseMoveBranchID = "fbr_move"
 
@@ -117,16 +117,16 @@ extension FixtureData {
     }
 
     /// A fork the Gateway scrubbed for a phone: its branches read Memory, so their text and some items stay on the Mac.
-    public static var tripFork: PlanForkDetail {
+    public static var scrubbedFork: PlanForkDetail {
         let out = PlanForkBranch(
-            id: "fbr_out", ord: 0, label: "Dinner out", premise: "Assume you book a table for Saturday at 18:00.", status: .reported,
+            id: "fbr_near", ord: 0, label: "Move closer to work", premise: "Assume you move near the office by June.", status: .reported,
             report: PlanForkReport(
-                costs: [PlanForkCost(id: "c1", label: "Dinner for two", amount: 140, currency: "USD", period: .once, estimate: true, sources: [.web])]),
+                costs: [PlanForkCost(id: "c1", label: "Rent near the office", amount: 2_600, currency: "USD", period: .month, estimate: true, sources: [.web])]),
             scrub: PlanForkScrub(hiddenItems: 3, textHidden: true, totalsHidden: true), readOwnerOnly: true)
         let home = PlanForkBranch(
-            id: "fbr_home", ord: 1, label: "Cook at home", premise: "Assume you cook on Saturday.", status: .reported,
+            id: "fbr_stay", ord: 1, label: "Stay where I am", premise: "Assume you stay and keep the commute.", status: .reported,
             report: PlanForkReport(
-                costs: [PlanForkCost(id: "c1", label: "Groceries", amount: 55, currency: "USD", period: .once, estimate: true, sources: [.web])]),
+                costs: [PlanForkCost(id: "c1", label: "Commute passes", amount: 180, currency: "USD", period: .month, estimate: true, sources: [.web])]),
             scrub: PlanForkScrub(hiddenItems: 1, textHidden: true, totalsHidden: false), readOwnerOnly: true)
         let comparison = PlanComparison(
             headline: "",
@@ -134,11 +134,11 @@ extension FixtureData {
                 PlanComparisonRow(
                     dimension: .cost, label: "",
                     cells: [
-                        PlanComparisonCell(branchID: "fbr_out", itemIDs: ["c1"]), PlanComparisonCell(branchID: "fbr_home", itemIDs: ["c1"]),
+                        PlanComparisonCell(branchID: "fbr_near", itemIDs: ["c1"]), PlanComparisonCell(branchID: "fbr_stay", itemIDs: ["c1"]),
                     ], differs: true)
             ])
         return PlanForkDetail(
-            fork: PlanForkInfo(id: tripForkID, threadID: "thr_trip", status: .ready, budgetUsd: 1, spentUsd: 0.22, comparison: comparison),
+            fork: PlanForkInfo(id: scrubbedForkID, threadID: "thr_lease", status: .ready, budgetUsd: 1, spentUsd: 0.22, comparison: comparison),
             branches: [out, home])
     }
 

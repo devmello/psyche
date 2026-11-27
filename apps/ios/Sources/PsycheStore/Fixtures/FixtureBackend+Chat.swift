@@ -518,6 +518,7 @@ extension FixtureData {
                     id: "l7", kind: .wrapUp, title: "Wrap-up",
                     detail: "Asked about the cap and the pet fee. Waiting on Sam's reply."),
                 .planFork(id: "l8", forkID: FixtureData.leaseForkID),
+                .planFork(id: "l9", forkID: FixtureData.scrubbedForkID),
             ]),
         "thr_trip": ChatThread(
             id: "thr_trip", title: "Maya's visit", status: "Oct 24", statusKind: .neutral,
@@ -544,7 +545,6 @@ extension FixtureData {
                         RelatedThread(id: "thr_q3", title: "Q3 review", status: "Running · step 3 of 7"),
                     ]),
                 .widget(id: "t7", widgetID: "wdg_saturday_route"),
-                .planFork(id: "t8", forkID: FixtureData.tripForkID),
                 .unknown(id: "t6", type: "map_route"),
             ]),
     ]
