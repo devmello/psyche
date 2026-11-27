@@ -97,7 +97,7 @@ async function start() {
   });
   const admin: TestClient = await adminClient(gw.gateway);
   cleanups.push(() => admin.close());
-  return { gw, admin, logs, home };
+  return { gw, admin, logs, home, db };
 }
 
 describe("vault set up and recovery confirmed from Settings", () => {
@@ -186,6 +186,63 @@ describe("vault set up and recovery confirmed from Settings", () => {
 
     const after = await admin.call<{ status: VaultStatus }>("vault.status", {});
     expect(after.status.recoveryConfirmed).toBe(false);
+  });
+
+  it("keeps no key material in the idempotency row of vault.setup, and a retry still replays", async () => {
+    const { admin, db } = await start();
+    const key = ik();
+    const created = await admin.call<{ recoveryKey: string; status: VaultStatus }>(
+      "vault.setup",
+      { slot: "keychain" },
+      key,
+    );
+    // Positive control: the caller got the key in the answer.
+    expect(created.recoveryKey).toMatch(/^([A-Z2-7]{4}-){12}[A-Z2-7]{4}$/);
+    const rows = db.sqlite
+      .prepare("SELECT result FROM gateway_idempotency WHERE method = ?")
+      .all("vault.setup") as { result: string }[];
+    expect(rows).toHaveLength(1);
+    const stored = rows[0]?.result ?? "";
+    expect(stored).not.toContain(created.recoveryKey);
+    for (const group of created.recoveryKey.split("-")) expect(stored).not.toContain(group);
+    expect(JSON.parse(stored).recoveryKey).toBe("");
+    // The same key replays the stored answer (status intact), not a second vault.
+    const replay = await admin.call<{ recoveryKey: string; status: VaultStatus }>(
+      "vault.setup",
+      { slot: "keychain" },
+      key,
+    );
+    expect(replay.status.state).toBe("unlocked");
+    expect(replay.recoveryKey).toBe("");
+  });
+
+  it("the migration blanks a recovery key an older Gateway stored in a vault.setup row", async () => {
+    const { db } = await start();
+    const old = JSON.stringify({ status: { state: "unlocked" }, recoveryKey: "AAAA-BBBB-CCCC" });
+    const other = JSON.stringify({ recoveryKey: "keep-me-alone" });
+    const insert = db.sqlite.prepare(
+      "INSERT INTO gateway_idempotency (id, device_id, method, idempotency_key, params_hash, result, created_at) VALUES (?, 'd', ?, ?, 'h', ?, '2026-11-01T00:00:00.000Z')",
+    );
+    insert.run("old1", "vault.setup", "k1", old);
+    insert.run("old2", "other.method", "k2", other);
+    const sql = readFileSync(
+      join(
+        __dirname,
+        "../../../packages/db/migrations/202611271000_gateway_blank-vault-setup-replay.sql",
+      ),
+      "utf8",
+    );
+    db.sqlite.exec(sql);
+    const get = (id: string) =>
+      (
+        db.sqlite.prepare("SELECT result FROM gateway_idempotency WHERE id = ?").get(id) as {
+          result: string;
+        }
+      ).result;
+    expect(get("old1")).not.toContain("AAAA-BBBB-CCCC");
+    expect(JSON.parse(get("old1")).status.state).toBe("unlocked");
+    // Only vault.setup rows are touched.
+    expect(get("old2")).toBe(other);
   });
 
   it("shows the recovery key again to an admin while unlocked, never to others, and never stores or logs it", async () => {
