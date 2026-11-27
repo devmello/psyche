@@ -8,13 +8,14 @@ import { isMessageId, t } from "../../i18n/core.ts";
 import { groupFingerprint } from "../../lib/fingerprint.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { useSlots } from "../../slots.tsx";
 import {
   HOST_HELPER_STATUS_KEY,
   HostHelperCheckGroup,
   type HostHelperStatus,
   parseHostHelperStatus,
 } from "./HostHelperCheckGroup.tsx";
-import { MachinesGroup } from "./MachinesGroup.tsx";
+import { PairIphoneGroup } from "./PairComputerGroup.tsx";
 import { PasswordPresenceGroup, type PasswordPresenceRow } from "./PasswordPresenceGroup.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
@@ -35,7 +36,7 @@ import {
   TouchIdKeySetup,
 } from "./TouchIdKeySetup.tsx";
 
-/** Devices & nodes (UI design §3.18; architecture §7, §11; security §10). */
+/** Devices (UI design §3.18; architecture §7, §11; security §10). */
 
 /** A device scope as the owner reads it ("Read", "Admin"). */
 export const scopeLabel = (s: DeviceScope): string => t(`settings.devices.scope.${s}`);
@@ -106,8 +107,8 @@ export interface DevicesPanelProps extends LoadProps {
   hostHelperStatus?: HostHelperStatus | undefined;
   now?: number;
   thisDeviceId?: string;
-  /** "Computers Psyche can use": the connected group (absent in the pure panel's stories). */
-  machines?: ReactElement | null;
+  /** Leads the pane: "Pair iPhone" (absent in the pure panel's stories). */
+  lead?: ReactElement | null;
   onApprove?: (request: PairingRequest, scopes: DeviceScope[]) => void;
   onDeny?: (request: PairingRequest) => void;
   onRevoke?: (device: Device) => void;
@@ -126,7 +127,7 @@ export function DevicesPanel({
   hostHelperStatus,
   now,
   thisDeviceId,
-  machines = null,
+  lead = null,
   onApprove,
   onDeny,
   onRevoke,
@@ -144,8 +145,8 @@ export function DevicesPanel({
 
   return (
     <SectionFrame
-      title={t("settings.devices.title")}
-      description={t("settings.devices.description")}
+      title={t("simplifyB4.devices.title")}
+      description={t("simplifyB4.devices.description")}
     >
       <LoadGate
         label={t("settings.devices.loadLabel")}
@@ -179,7 +180,7 @@ export function DevicesPanel({
         {passwordPresence ? <PasswordPresenceGroup row={passwordPresence} /> : null}
         {hostHelperStatus ? <HostHelperCheckGroup status={hostHelperStatus} /> : null}
 
-        {machines}
+        {lead}
 
         <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
@@ -194,10 +195,7 @@ export function DevicesPanel({
                       <StatusChip tone="accent">{t("settings.devices.thisDevice")}</StatusChip>
                     ) : null}
                     <span className="text-callout text-muted-foreground">
-                      {t("settings.devices.platformRole", {
-                        platform: platformLabel(d.platform),
-                        role: d.role,
-                      })}
+                      {platformLabel(d.platform)}
                     </span>
                     {onRevoke && d.id !== thisDeviceId ? (
                       <span className="ms-auto">
@@ -218,18 +216,6 @@ export function DevicesPanel({
                       </span>
                     ) : null}
                   </div>
-                  <ul
-                    className="flex flex-wrap gap-1"
-                    aria-label={t("settings.devices.scopesOf", { name: d.name })}
-                  >
-                    {d.scopes.map((s) => (
-                      <li key={s}>
-                        <StatusChip tone={s === "operator.admin" ? "approval" : "neutral"}>
-                          {scopeLabel(s)}
-                        </StatusChip>
-                      </li>
-                    ))}
-                  </ul>
                   {d.id === thisDeviceId &&
                   isDesktopPlatform(d.platform) &&
                   d.scopes.includes("operator.admin") ? (
@@ -239,15 +225,33 @@ export function DevicesPanel({
                         : t("settings.devices.thisMacAdmin")}
                     </p>
                   ) : null}
-                  <p className="text-callout text-muted-foreground">
-                    {t("settings.devices.key")}{" "}
-                    <code className="font-mono">{keyFingerprint(d.publicKey)}</code>{" "}
-                    {d.lastSeenAt
-                      ? t("settings.devices.keyLastSeen", {
-                          when: formatRelative(d.lastSeenAt, clock),
-                        })
-                      : t("settings.devices.keyLastSeenNever")}
-                  </p>
+                  <details className="text-callout text-muted-foreground">
+                    <summary className="cursor-pointer">{t("simplifyB4.devices.details")}</summary>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <span>{t("simplifyB4.devices.canDo")}</span>
+                      <ul
+                        className="flex flex-wrap gap-1"
+                        aria-label={t("simplifyB4.devices.canDoOf", { name: d.name })}
+                      >
+                        {d.scopes.map((s) => (
+                          <li key={s}>
+                            <StatusChip tone={s === "operator.admin" ? "approval" : "neutral"}>
+                              {scopeLabel(s)}
+                            </StatusChip>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-callout text-muted-foreground">
+                        {t("settings.devices.key")}{" "}
+                        <code className="font-mono">{keyFingerprint(d.publicKey)}</code>{" "}
+                        {d.lastSeenAt
+                          ? t("settings.devices.keyLastSeen", {
+                              when: formatRelative(d.lastSeenAt, clock),
+                            })
+                          : t("settings.devices.keyLastSeenNever")}
+                      </p>
+                    </div>
+                  </details>
                 </li>
               ))}
             </ul>
@@ -271,9 +275,12 @@ export function DevicesPanel({
           ) : null}
         </Group>
 
-        <Group title={t("settings.devices.nodes")} description={t("settings.devices.nodesHint")}>
+        <Group
+          title={t("simplifyB4.devices.helpers")}
+          description={t("simplifyB4.devices.helpersHint")}
+        >
           {nodes.length === 0 ? (
-            <EmptyNotice text={t("settings.devices.noNodes")} />
+            <EmptyNotice text={t("simplifyB4.devices.noHelpers")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {nodes.map((n) => (
@@ -326,20 +333,6 @@ export function DevicesPanel({
                         </p>
                       ))
                   )}
-                  <ul
-                    className="flex flex-wrap gap-1"
-                    aria-label={t("settings.devices.capabilitiesOf", {
-                      kind: nodeKindLabel(n.kind),
-                    })}
-                  >
-                    {n.capabilities.map((c) => (
-                      <li key={c.name}>
-                        <code className="rounded bg-gray-4 px-1 font-mono text-callout">
-                          {c.name}
-                        </code>
-                      </li>
-                    ))}
-                  </ul>
                 </li>
               ))}
             </ul>
@@ -418,7 +411,7 @@ function PendingDevice({
       ) : null}
       {remote && gatewayFingerprint ? (
         <p className="text-callout text-label-secondary">
-          {t("settings.devices.gatewayKey", {
+          {t("simplifyB4.devices.hostKey", {
             // From the local network the key is the only proof of who answered: show all of it.
             fingerprint: lan
               ? (gatewayFingerprint
@@ -429,26 +422,31 @@ function PendingDevice({
           })}
         </p>
       ) : null}
-      <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
-        <legend className="mb-1 text-callout text-muted-foreground">
-          {t("settings.devices.scopesFor", { name: request.display })}
-        </legend>
-        {PAIR_SCOPES.map((s) => (
-          <div key={s} className="flex items-center gap-1.5">
-            <Checkbox
-              id={`${id}-${s}`}
-              checked={scopes.includes(s)}
-              onCheckedChange={(v) => toggle(s, v === true)}
-            />
-            <Label htmlFor={`${id}-${s}`} className="font-normal">
-              {scopeLabel(s)}
-            </Label>
-          </div>
-        ))}
-      </fieldset>
-      {remote ? (
-        <p className="text-callout text-label-secondary">{t("settings.devices.adminOptIn")}</p>
-      ) : null}
+      <details className="text-callout text-muted-foreground">
+        <summary className="cursor-pointer">
+          {t("simplifyB4.devices.canDoOf", { name: request.display })}
+        </summary>
+        <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
+          <legend className="sr-only">
+            {t("simplifyB4.devices.canDoOf", { name: request.display })}
+          </legend>
+          {PAIR_SCOPES.map((s) => (
+            <div key={s} className="flex items-center gap-1.5">
+              <Checkbox
+                id={`${id}-${s}`}
+                checked={scopes.includes(s)}
+                onCheckedChange={(v) => toggle(s, v === true)}
+              />
+              <Label htmlFor={`${id}-${s}`} className="font-normal">
+                {scopeLabel(s)}
+              </Label>
+            </div>
+          ))}
+        </fieldset>
+        {remote ? (
+          <p className="text-callout text-label-secondary">{t("settings.devices.adminOptIn")}</p>
+        ) : null}
+      </details>
       <div className="flex gap-2">
         {onApprove ? (
           <Button
@@ -502,6 +500,7 @@ export function DevicesSection({
   };
 }): ReactElement {
   const call = useCall();
+  const { remoteHost } = useSlots();
   // Only a Linux Gateway records a peer check of its helper; elsewhere there is nothing to show.
   const hostStatusQ = useGatewayQuery("settings.get", { keys: [HOST_HELPER_STATUS_KEY] });
   const [bundled, setBundled] = useState<BundledHelperKey | null | undefined>(undefined);
@@ -571,7 +570,11 @@ export function DevicesSection({
           ),
         onRemove: (deviceId) => settled(call("devices.presenceKey.remove", { deviceId })),
       }}
-      machines={<MachinesGroup {...(now === undefined ? {} : { now })} />}
+      lead={
+        remoteHost === undefined ? (
+          <PairIphoneGroup {...(now === undefined ? {} : { now })} />
+        ) : null
+      }
       loading={devicesQ.loading && devicesQ.data === undefined}
       error={devicesQ.error ?? nodesQ.error}
       onRetry={reloadAll}
