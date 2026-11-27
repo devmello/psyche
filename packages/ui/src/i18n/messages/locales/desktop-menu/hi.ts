@@ -11,6 +11,8 @@ export const desktopMenu: Partial<Catalogue> = {
   "desktop.menu.actualSize": "वास्तविक आकार",
   "desktop.menu.zoomIn": "ज़ूम इन",
   "desktop.menu.zoomOut": "ज़ूम आउट",
+  "desktop.menu.toggleSidebar": "साइडबार दिखाएँ या छिपाएँ",
+  "desktop.menu.compactSidebar": "संक्षिप्त साइडबार",
   "desktop.menu.closeWindow": "विंडो बंद करें",
   "desktop.menu.openPsyche": "Psyche खोलें",
   "desktop.menu.quickEntry": "त्वरित प्रविष्टि",

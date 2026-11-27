@@ -17,6 +17,10 @@ import { app, Menu, type MenuItemConstructorOptions } from "electron";
 export interface MenuActions {
   newSideChat(): void;
   palette(): void;
+  /** View → Toggle Sidebar (⌘B): the sidebar, or the threads drawer when compact. */
+  toggleSidebar(): void;
+  /** View → Compact Sidebar (⌘⌥B): full sidebar or rail. */
+  toggleCompactSidebar(): void;
   closeThreadView(): void;
   quitEntirely(): void;
   /** Opens the Settings window (⌘,; docs/design/redesign-2026.md §4). */
@@ -41,6 +45,17 @@ function viewMenu(
   return {
     label: label("desktop.menu.view"),
     submenu: [
+      {
+        label: label("desktop.menu.toggleSidebar"),
+        accelerator: "CmdOrCtrl+B",
+        click: a.toggleSidebar,
+      },
+      {
+        label: label("desktop.menu.compactSidebar"),
+        accelerator: "CmdOrCtrl+Alt+B",
+        click: a.toggleCompactSidebar,
+      },
+      { type: "separator" },
       {
         label: label("shell.shortcut.palette"),
         accelerator: "CmdOrCtrl+K",

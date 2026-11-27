@@ -12,6 +12,8 @@ export const desktopMenu = {
   "desktop.menu.actualSize": "Actual Size",
   "desktop.menu.zoomIn": "Zoom In",
   "desktop.menu.zoomOut": "Zoom Out",
+  "desktop.menu.toggleSidebar": "Toggle Sidebar",
+  "desktop.menu.compactSidebar": "Compact Sidebar",
   "desktop.menu.closeWindow": "Close window",
   "desktop.menu.openPsyche": "Open Psyche",
   "desktop.menu.quickEntry": "Quick entry",
