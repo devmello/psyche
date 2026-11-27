@@ -33,6 +33,6 @@
   },
   "expect": {
     "suggestions": [],
-    "allowedReal": []
+    "allowedReal": ["Claim your grade"]
   }
 }

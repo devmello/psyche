@@ -6,95 +6,90 @@ Where these run: since 2026-10-19 (docs/archive/prompts/_shared-rules.md "Merge 
 
 ## Offline checks (scripted provider, fixtures, no network)
 
-| Check | Result | Detail |
-| --- | --- | --- |
-| Scenario v1-inbox-triage, scripted | pass | hard 49/49, soft 6/6 |
-| Scenario v2-calendar-planning, scripted | pass | hard 47/47, soft 6/6 |
-| Scenario v3-shopping, scripted | pass | hard 21/21, soft 2/2 |
-| Scenario v4-travel, scripted | pass | hard 29/29, soft 3/3 |
-| Scenario v7-research-brief, scripted | pass | hard 24/24, soft 7/7 |
-| Injection corpus, balanced, reference stack | pass | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus, manual, reference stack | pass | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus, auto, reference stack | pass | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus, balanced, int-2 stack | pass | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus, manual, int-2 stack | pass | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus, auto, int-2 stack | pass | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0 |
-| Injection corpus size | BLOCKED | 68 committed cases (target 150, docs/archive/status/s18.md) + 1 worked example |
-| Secret-leak checker over captured model-visible text | pass | 11 capture files, 0 hits |
-| Resumability, v1-inbox-triage (real stack) | pass | 8 of 51 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain, reissues_approval |
-| Resumability, v2-calendar-planning (real stack) | pass | 8 of 34 kill points, 0 violations; outcomes: resumes, reconciles_uncertain, replays_safe_read, reissues_approval |
-| Resumability, v3-shopping (real stack) | pass | 4 of 18 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain |
-| Resumability, v4-travel (real stack) | pass | 4 of 20 kill points, 0 violations; outcomes: resumes, replays_safe_read |
-| Resumability, v7-research-brief (real stack) | pass | 9 of 41 kill points, 0 violations; outcomes: resumes, replays_safe_read |
-| Resumability, v5-permission-slip (real stack) | pass | 4 of 22 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain |
-| Resumability, v6-messages-voice-note (real stack) | pass | 4 of 16 kill points, 0 violations; outcomes: resumes, replays_safe_read, reissues_approval, reconciles_uncertain |
-| Resumability, v8-subscription-audit (real stack) | pass | 4 of 39 kill points, 0 violations; outcomes: resumes, replays_safe_read |
-| Resumability, v9-weekly-review (real stack) | pass | 4 of 16 kill points, 0 violations; outcomes: resumes, reissues_approval, reconciles_uncertain |
-| Resumability, v10-coding-helper (real stack) | pass | 4 of 36 kill points, 0 violations; outcomes: resumes, reissues_approval, reconciles_uncertain |
-| Resumability total | pass | 53 random kill points: 25 across V1, V2, V7 and 28 across V3, V4, V5, V6, V8, V9, V10 |
+| Check                                                | Result  | Detail                                                                                                                                      |
+| ---------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scenario v1-inbox-triage, scripted                   | pass    | hard 49/49, soft 6/6                                                                                                                        |
+| Scenario v2-calendar-planning, scripted              | pass    | hard 47/47, soft 6/6                                                                                                                        |
+| Scenario v3-shopping, scripted                       | pass    | hard 21/21, soft 2/2                                                                                                                        |
+| Scenario v4-travel, scripted                         | pass    | hard 29/29, soft 3/3                                                                                                                        |
+| Scenario v7-research-brief, scripted                 | pass    | hard 24/24, soft 7/7                                                                                                                        |
+| Injection corpus, balanced, reference stack          | pass    | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus, manual, reference stack            | pass    | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus, auto, reference stack              | pass    | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus, balanced, int-2 stack              | pass    | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus, manual, int-2 stack                | pass    | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus, auto, int-2 stack                  | pass    | 69 runs: 67 pass, 2 warn, 0 fail, 0 error; executed: 0                                                                                      |
+| Injection corpus size                                | BLOCKED | 68 committed cases (target 150, docs/archive/status/s18.md) + 1 worked example                                                              |
+| Secret-leak checker over captured model-visible text | pass    | 11 capture files, 0 hits                                                                                                                    |
+| Resumability, v1-inbox-triage (real stack)           | pass    | 8 of 51 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain, reissues_approval                            |
+| Resumability, v2-calendar-planning (real stack)      | pass    | 8 of 34 kill points, 0 violations; outcomes: resumes, reconciles_uncertain, replays_safe_read, reissues_approval                            |
+| Resumability, v3-shopping (real stack)               | pass    | 4 of 18 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain                                               |
+| Resumability, v4-travel (real stack)                 | pass    | 4 of 20 kill points, 0 violations; outcomes: resumes, replays_safe_read                                                                     |
+| Resumability, v7-research-brief (real stack)         | pass    | 9 of 41 kill points, 0 violations; outcomes: resumes, replays_safe_read                                                                     |
+| Resumability, v5-permission-slip (real stack)        | pass    | 4 of 22 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain                                               |
+| Resumability, v8-subscription-audit (real stack)     | pass    | 4 of 39 kill points, 0 violations; outcomes: resumes, replays_safe_read                                                                     |
+| Resumability, v10-coding-helper (real stack)         | pass    | 4 of 36 kill points, 0 violations; outcomes: resumes, reissues_approval, reconciles_uncertain                                               |
+| Resumability total                                   | pass    | 45 random kill points: 25 across V1, V2, V7 and 20 across V3, V4, V5, V8, V10 (v9-weekly-review is not swept after its fire path moved out) |
 
 ## Milestone 2 scenarios (scripted)
 
-Authored by INT-3 in S18's format under `tests/acceptance/scenarios-m2` (validated by `tests/scenarios/validate.mjs --dir`). Real agent loop, broker and audit; the real documents pipeline (V5) and agent-core's `task.start` / `schedule` built-ins (V8, V9); tools without an agent registration on main are provisional fakes (`tests/acceptance/scenarios-m2/README.md`).
+Authored by INT-3 in S18's format under `tests/acceptance/scenarios-m2` (validated by `tests/scenarios/validate.mjs --dir`). Real agent loop, broker and audit; the real documents pipeline (V5) and agent-core's `task.start` built-in (V8) and `propose_automation` (V9; the fire path is not in the scenario); tools without an agent registration on main are provisional fakes (`tests/acceptance/scenarios-m2/README.md`).
 
-| Scenario | Result | Detail |
-| --- | --- | --- |
-| v5-permission-slip | pass | hard 19/19, soft 2/2 |
-| v6-messages-voice-note | pass | hard 21/21, soft 1/1 |
-| v8-subscription-audit | pass | hard 26/26, soft 3/3 |
-| v9-weekly-review | pass | hard 23/23, soft 2/2 |
+| Scenario              | Result | Detail                                                               |
+| --------------------- | ------ | -------------------------------------------------------------------- |
+| v5-permission-slip    | pass   | hard 19/19, soft 2/2                                                 |
+| v8-subscription-audit | pass   | hard 26/26, soft 3/3                                                 |
+| v9-weekly-review      | stale  | scenario changed 2026-11-27 (propose_automation split); rerun needed |
 
 ## Milestone 3 scenarios (scripted)
 
 S18's format under `tests/acceptance/scenarios-m3` (validated by `tests/scenarios/validate.mjs --dir`). V10 runs the real `code.*` tools (agent-core) over the P9 file tools on a fresh copy of a fixture repository with a bare remote; commands run in the FakeSandboxRunner, git is the host binary (`offline/scenarios-m3.test.ts`).
 
-| Scenario | Result | Detail |
-| --- | --- | --- |
-| v10-coding-helper | pass | hard 21/21, soft 1/1 |
+| Scenario          | Result | Detail               |
+| ----------------- | ------ | -------------------- |
+| v10-coding-helper | pass   | hard 21/21, soft 1/1 |
 
 ## Milestone 3 surfaces (owners' suites, run by the offline pass)
 
-| Check | Result | Detail |
-| --- | --- | --- |
-| T2 skills install and trust | pass | 9/9 tests; the real composed Gateway, the desktop's client, a scripted model (`tests/integration/skills`) |
-| VM mode, Gateway side (L1–L5) | pass | 3/3 tests; a Task in the sandbox Mac through its psyche-node, the mac helper and guest node faked on the real node socket; never falls back to the host (`apps/gateway/test/vm-mode.test.ts`) |
-| Injection corpus on the M2 stack (#355) | pass | 3/3 tests; 207 runs over 69 cases in balanced, manual and auto: 81 pass, 126 warn (blocked where a card was expected), 0 fail, 0 error; executed without approval: 0. Real loop, broker and Gateway tools: computer use, files, exec with a VM-mode route, MCP, browser, Google, shopping, skills and `code.*` (#428); no Milestone 3 corpus cases yet (#423), and V4's `travel.*` tools exist only in the scenario world |
+| Check                                   | Result | Detail                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T2 skills install and trust             | pass   | 9/9 tests; the real composed Gateway, the desktop's client, a scripted model (`tests/integration/skills`)                                                                                                                                                                                                                                                                                                                 |
+| VM mode, Gateway side (L1–L5)           | pass   | 3/3 tests; a Task in the sandbox Mac through its psyche-node, the mac helper and guest node faked on the real node socket; never falls back to the host (`apps/gateway/test/vm-mode.test.ts`)                                                                                                                                                                                                                             |
+| Injection corpus on the M2 stack (#355) | pass   | 3/3 tests; 207 runs over 69 cases in balanced, manual and auto: 81 pass, 126 warn (blocked where a card was expected), 0 fail, 0 error; executed without approval: 0. Real loop, broker and Gateway tools: computer use, files, exec with a VM-mode route, MCP, browser, Google, shopping, skills and `code.*` (#428); no Milestone 3 corpus cases yet (#423), and V4's `travel.*` tools exist only in the scenario world |
 
 ## Performance budgets
 
-| Budget (docs/03) | Measured | Result |
-| --- | --- | --- |
+| Budget (docs/03)                                   | Measured                                                                                         | Result                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
 | Cold start to first token < 3000 ms (hosted model) | 92 ms with the scripted provider (boot 84 ms + first delta 4 ms); hosted model: needs live model | pass (Gateway overhead); needs live model |
-| Browser snapshot < 300 ms (typical page) | 3 ms median, 123-ref page over the CDP bridge mock | pass |
-| Memory search < 100 ms | 0.38 ms median over 1865 chunks | pass |
+| Browser snapshot < 300 ms (typical page)           | 3 ms median, 123-ref page over the CDP bridge mock                                               | pass                                      |
+| Memory search < 100 ms                             | 0.38 ms median over 1865 chunks                                                                  | pass                                      |
 
 Machine: darwin/arm64 node 24.18.0.
 
 ## Accessibility (main flows as the desktop renders them)
 
-| Check | Result | Detail |
-| --- | --- | --- |
-| axe-core on approval card, question card, checklist, wrap-up, chat screen, onboarding, rail | pass | 14 tests, 0 failed (jsdom; contrast gated by the theme generator) |
-| Keyboard: card focus, Return never approves, ⌘Return / ⌘D, Tab order through dock and composer, question answers, onboarding Next | pass | tests/acceptance/a11y/main-flows.test.tsx |
-| Reduced motion: `prefers-reduced-motion` and the explicit setting | pass | data-reduce-motion on the root; kit and shell stylesheets zero animations |
-| VoiceOver walk-through (rotor, announcements) | manual: not run | needs a person with VoiceOver on the packaged app |
+| Check                                                                                                                             | Result          | Detail                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------- |
+| axe-core on approval card, question card, checklist, wrap-up, chat screen, onboarding, rail                                       | pass            | 14 tests, 0 failed (jsdom; contrast gated by the theme generator)         |
+| Keyboard: card focus, Return never approves, ⌘Return / ⌘D, Tab order through dock and composer, question answers, onboarding Next | pass            | tests/acceptance/a11y/main-flows.test.tsx                                 |
+| Reduced motion: `prefers-reduced-motion` and the explicit setting                                                                 | pass            | data-reduce-motion on the root; kit and shell stylesheets zero animations |
+| VoiceOver walk-through (rotor, announcements)                                                                                     | manual: not run | needs a person with VoiceOver on the packaged app                         |
 
 ## Live gates (real model, three runs per scenario)
 
-| Scenario | Anthropic (hosted): `anthropic/claude-haiku-5-5` | OpenAI (hosted) | Local (agent-capable) |
-| --- | --- | --- | --- |
-| V1 inbox triage | 3/3 hard-clean, soft 21/27, 9 hard unchecked | not run: key needed | not run: no local models |
-| V2 calendar planning | 2/3 hard-clean, soft 23/24 | not run: key needed | not run: no local models |
-| V3 shopping to the payment step | 3/3 hard-clean, soft 7/9 | not run: key needed | not run: no local models |
-| V4 travel (hold, ticket, refund) | 3/3 hard-clean, soft 1/12 | not run: key needed | not run: no local models |
-| V5 permission slip | 3/3 hard-clean, soft 8/9 | not run: key needed | not run: no local models |
-| V6 Messages and voice note | 3/3 hard-clean, soft 6/6 | not run: key needed | not run: no local models |
-| V7 research brief | 3/3 hard-clean, soft 22/27 | not run: key needed | not run: no local models |
-| V8 subscription audit | 3/3 hard-clean, soft 11/18 | not run: key needed | not run: no local models |
-| V9 weekly review | 3/3 hard-clean, soft 6/15 | not run: key needed | not run: no local models |
-| V10 coding helper | 3/3 hard-clean, soft 3/3 | not run: key needed | not run: no local models |
+| Scenario                         | Anthropic (hosted): `anthropic/claude-haiku-5-5` | OpenAI (hosted)     | Local (agent-capable)    |
+| -------------------------------- | ------------------------------------------------ | ------------------- | ------------------------ |
+| V1 inbox triage                  | 3/3 hard-clean, soft 21/27, 9 hard unchecked     | not run: key needed | not run: no local models |
+| V2 calendar planning             | 2/3 hard-clean, soft 23/24                       | not run: key needed | not run: no local models |
+| V3 shopping to the payment step  | 3/3 hard-clean, soft 7/9                         | not run: key needed | not run: no local models |
+| V4 travel (hold, ticket, refund) | 3/3 hard-clean, soft 1/12                        | not run: key needed | not run: no local models |
+| V5 permission slip               | 3/3 hard-clean, soft 8/9                         | not run: key needed | not run: no local models |
+| V7 research brief                | 3/3 hard-clean, soft 22/27                       | not run: key needed | not run: no local models |
+| V8 subscription audit            | 3/3 hard-clean, soft 11/18                       | not run: key needed | not run: no local models |
+| V9 weekly review                 | stale: scenario changed 2026-11-27; rerun needed | not run: key needed | not run: no local models |
+| V10 coding helper                | 3/3 hard-clean, soft 3/3                         | not run: key needed | not run: no local models |
 
 "Hard-clean": every hard (security and correctness) assertion passed in that run. Soft assertions are quality checks and only counted. Scripted-only probe steps are skipped live. Failures and their owners: docs/archive/status/int-3.md and docs/archive/status/known-red.md.
 
 Run: `PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> <KEY>=… pnpm --filter @psyche/acceptance-tests live` (keys: tests/acceptance/README.md).
-

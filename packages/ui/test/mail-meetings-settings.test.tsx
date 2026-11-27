@@ -11,6 +11,7 @@ import {
 } from "../src/screens/settings/MailMeetingsSection.tsx";
 import { paneForKey, searchSettings } from "../src/screens/settings/SettingsScreen.tsx";
 import { settingLabel } from "../src/screens/settings/setting-labels.ts";
+import { UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** Settings → Mail & meetings and the onboarding mail step (mail-and-meetings-2026 §7.3, §7.5). */
@@ -28,10 +29,29 @@ describe("Settings → Mail & meetings", () => {
     );
   });
 
-  it("shows pause and read-only first, then one group per workflow", () => {
+  const inAdvanced = (el: HTMLElement) => el.closest("details") !== null;
+
+  it("shows four rows at rest and folds everything else under Advanced", () => {
     render(<MailMeetingsPanel {...base} />);
-    const groups = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(groups).toEqual([
+    const rest = screen
+      .getAllByRole("heading", { level: 3 })
+      .filter((h) => !inAdvanced(h))
+      .map((h) => h.textContent);
+    expect(rest).toEqual(["Inbox digest", "Follow-ups", "Meeting prep", "Meeting notes"]);
+    expect(screen.getAllByRole("switch").filter((el) => !inAdvanced(el))).toHaveLength(4);
+    for (const name of [
+      "Inbox digest",
+      "Track replies you’re waiting on",
+      "Meeting prep",
+      "Meeting notes from recordings",
+    ]) {
+      expect(inAdvanced(screen.getByRole("switch", { name }))).toBe(false);
+    }
+    const advanced = screen
+      .getAllByRole("heading", { level: 3 })
+      .filter(inAdvanced)
+      .map((h) => h.textContent);
+    expect(advanced).toEqual([
       "Everything at once",
       "Accounts",
       "Inbox digest",
@@ -42,6 +62,56 @@ describe("Settings → Mail & meetings", () => {
       "Meeting notes",
       "Checking for new mail",
     ]);
+    // Every live setting stays reachable, the transcription fields included.
+    expect(
+      inAdvanced(screen.getByRole("switch", { name: "Pause all mail and meeting workflows" })),
+    ).toBe(true);
+    for (const name of [
+      "Days",
+      "Wait before it shows up",
+      "Most preps a day",
+      "While you’re active",
+    ]) {
+      expect(inAdvanced(screen.getByRole("combobox", { name }))).toBe(true);
+    }
+    expect(inAdvanced(screen.getByText("Transcription endpoint"))).toBe(true);
+  });
+
+  it("asks for an account at rest only when there is none", () => {
+    const { rerender } = render(<MailMeetingsPanel {...base} />);
+    expect(
+      screen.queryByText("No mail account is connected. Connect one in Connectors."),
+    ).toBeNull();
+    rerender(<MailMeetingsPanel {...base} accounts={[]} />);
+    const none = screen.getByText("No mail account is connected. Connect one in Connectors.");
+    expect(inAdvanced(none)).toBe(false);
+  });
+
+  it("keeps the pause switch at rest while paused, so it can be turned back on", () => {
+    render(<MailMeetingsPanel {...base} values={{ "workflows.paused": true }} />);
+    const pause = screen.getByRole("switch", { name: "Pause all mail and meeting workflows" });
+    expect(inAdvanced(pause)).toBe(false);
+    expect(pause.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("names the chosen agent, not Wren, in every hint", () => {
+    render(
+      <UiSlotsProvider value={{ persona: { name: "Ada", creature: "moth" } }}>
+        <MailMeetingsPanel {...base} />
+      </UiSlotsProvider>,
+    );
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("What Ada does with your mail and calendar");
+    expect(text).toContain("Ada proposes no actions");
+    expect(text).toContain("A folder Ada may read");
+    expect(text).toContain("How often Ada looks for new mail");
+    expect(text).not.toContain("Wren");
+    expect(text).not.toContain("{persona}");
+  });
+
+  it("falls back to Psyche when no persona is set", () => {
+    render(<MailMeetingsPanel {...base} />);
+    expect(document.body.textContent).toContain("What Psyche does with your mail and calendar");
   });
 
   it("starts every workflow off and the style learning off", () => {
