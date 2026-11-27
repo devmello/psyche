@@ -274,7 +274,7 @@ const APPROVAL: ApprovalRequest = {
   requestedBy: { runId: "batch_run", taskId: null, threadId: null },
   requestedAt: "2026-10-18T10:12:00Z",
   expiresAt: "2026-10-18T10:22:00Z",
-  surfaces: ["desktop", "web"],
+  surfaces: ["desktop", "offMac"],
   scopesOffered: ["once"],
   deviceOnly: false,
   requiresAuthentication: false,

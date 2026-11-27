@@ -86,7 +86,7 @@ export type FeedbackScope = Static<typeof FeedbackScope>;
 
 export const FeedbackSurface = Type.String({
   maxLength: 128,
-  description: '"desktop", "web" or "channel:<channelId>"',
+  description: '"desktop", "offMac" or "channel:<channelId>"',
 });
 
 /** One signal. Evidence only: it changes nothing until a lesson is made from it. */

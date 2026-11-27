@@ -84,7 +84,7 @@ export function describePermissionBrokerConformance(
       },
       sideEffect: call.sideEffect,
       ...(call.target === undefined ? {} : { target: call.target }),
-      surfaces: options.surfaces ?? ["desktop", "web"],
+      surfaces: options.surfaces ?? ["desktop", "offMac"],
       ...(options.scopesOffered === undefined ? {} : { scopesOffered: options.scopesOffered }),
       taint: false,
     });

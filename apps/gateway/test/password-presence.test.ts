@@ -146,7 +146,7 @@ async function authCard(
     grantKey: bindingHash,
     requestedBy: { runId, taskId: null, threadId: null },
     sideEffect: "financial",
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     scopesOffered: ["once"],
     taint: false,
   });

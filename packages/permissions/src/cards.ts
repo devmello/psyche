@@ -1,4 +1,5 @@
 import type { ApprovalRequest, InputRequest, JsonObject, Question } from "@psyche/protocol";
+import { isOffMacSurface } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
 import type { TaintSource } from "./types.ts";
 
@@ -191,7 +192,7 @@ const NONE_WHEN_EMPTY: Record<string, readonly string[]> = {
 
 export type CardSurfaceKind =
   | "desktop"
-  | "web"
+  | "offMac"
   | "notification"
   /** Any other surface (an old approval row's removed chat channel). */
   | "chat";
@@ -199,7 +200,7 @@ export type CardSurfaceKind =
 /** Characters a surface can show before a card would be cut. */
 export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
   desktop: Number.POSITIVE_INFINITY,
-  web: Number.POSITIVE_INFINITY,
+  offMac: Number.POSITIVE_INFINITY,
   notification: 180,
   chat: 1000,
 };
@@ -237,16 +238,18 @@ export function cardHeader(a: Pick<ApprovalRequest, "kind" | "sideEffect" | "tai
 }
 
 export function surfaceKind(surface: string): CardSurfaceKind {
-  if (surface === "desktop" || surface === "web" || surface === "notification") return surface;
+  if (surface === "desktop" || surface === "notification") return surface;
+  // A stored legacy `web` is the same marker.
+  if (isOffMacSurface(surface)) return "offMac";
   // A paired phone or tablet (`device:<deviceId>`) is the device itself, not a chat.
   if (surface.startsWith("device:")) return "desktop";
   return "chat";
 }
 
-/** Chat surfaces: everything that is not the paired device itself (desktop, web, notification). */
+/** Chat surfaces: everything that is not the paired device itself (desktop, offMac, notification). */
 export function isChatSurface(surface: string): boolean {
   const kind = surfaceKind(surface);
-  return kind !== "desktop" && kind !== "web" && kind !== "notification";
+  return kind !== "desktop" && kind !== "offMac" && kind !== "notification";
 }
 
 /** `punycodeHosts` over every string in a (sanitized) details tree. */

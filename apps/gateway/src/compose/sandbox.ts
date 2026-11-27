@@ -228,7 +228,7 @@ export function composeSandbox(
   const egress = createSandboxEgress({
     broker: services.broker,
     context: (scope) => live.get(key(scope))?.at(-1),
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     ...(services.logger === undefined ? {} : { logger: services.logger }),
   });
   const track = (scope: SandboxScope, ctx: DecisionContext) => {

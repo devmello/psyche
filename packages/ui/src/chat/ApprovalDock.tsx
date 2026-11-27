@@ -1,3 +1,4 @@
+import { isOffMacSurface } from "@psyche/protocol";
 import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useState } from "react";
 import { ApprovalCard, FOCUS_APPROVAL_EVENT } from "../blocks/ApprovalCard.tsx";
@@ -125,7 +126,7 @@ export function ApprovalDock({
                     }
                     {...(mode === undefined ? {} : { mode })}
                     otherSurfaces={open.approval.surfaces.filter(
-                      (s) => s !== "desktop" && s !== "web",
+                      (s) => s !== "desktop" && !isOffMacSurface(s),
                     )}
                     onAnswer={async (decision, scope, extras) => {
                       await answer(open.approval.id, decision, scope, extras);

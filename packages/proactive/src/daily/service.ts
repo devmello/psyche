@@ -635,7 +635,7 @@ export class DailyService {
         body: n.body,
         ...(n.route === undefined ? {} : { route: n.route }),
         dedupeKey: n.dedupeKey,
-        surfaces: ["desktop", "web", "notification"],
+        surfaces: ["desktop", "offMac", "notification"],
       });
     } catch (err) {
       o.onError?.(err);
@@ -691,7 +691,7 @@ export class DailyService {
           body,
           route: `/feed/${id}`,
           dedupeKey: dedupe,
-          surfaces: ["desktop", "web", "notification"],
+          surfaces: ["desktop", "offMac", "notification"],
         });
       } catch (err) {
         o.onError?.(err);

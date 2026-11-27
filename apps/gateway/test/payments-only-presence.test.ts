@@ -141,7 +141,7 @@ async function card(
     grantKey: hash,
     requestedBy: { runId: null, taskId: null, threadId: null },
     sideEffect,
-    surfaces: ["desktop", "web", "notification"],
+    surfaces: ["desktop", "offMac", "notification"],
     scopesOffered: ["once"],
     taint: false,
   });
