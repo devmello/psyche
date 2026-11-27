@@ -654,8 +654,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.pausedHint":
     "オンの間は何も読み書きせず、あとから埋め戻されることもありません。",
   "settings.learning.weeklyCard": "毎週の「学んだこと」カード",
-  "settings.learning.weeklyCardHint":
-    "毎週日曜に、確認する内容があるときだけフィードに投稿します。",
+  "settings.learning.weeklyCardHint": "毎週日曜に、確認する内容があるときだけホームに投稿します。",
   "settings.learning.open": "{persona}が学んだこと",
   "settings.learning.openButton": "成長を開く",
   "settings.learning.forgetAll": "{persona}が学んだことをすべて忘れさせる",

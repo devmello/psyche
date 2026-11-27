@@ -13,7 +13,9 @@ import { charts } from "./charts/es.ts";
 import { chatA } from "./chat-a/es.ts";
 import { computerWatch } from "./computer-watch/es.ts";
 import { dailyA } from "./daily-a/es.ts";
+import { desktopMenu } from "./desktop-menu/es.ts";
 import { desktopSimple } from "./desktop-simple/es.ts";
+import { desktopTray } from "./desktop-tray/es.ts";
 import { final202611 } from "./final-2026-11/es.ts";
 import { friction } from "./friction/es.ts";
 import { galleryA } from "./gallery-a/es.ts";
@@ -3996,6 +3998,8 @@ export const es: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

@@ -670,7 +670,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Mentre è attivo non viene letto né scritto nulla, e dopo non viene recuperato nulla.",
   "settings.learning.weeklyCard": "Scheda settimanale “Cosa ho imparato”",
   "settings.learning.weeklyCardHint":
-    "Un post nel Feed la domenica, solo quando c’è qualcosa da rivedere.",
+    "Un post in Home la domenica, solo quando c’è qualcosa da rivedere.",
   "settings.learning.open": "Cosa ha imparato {persona}",
   "settings.learning.openButton": "Apri Crescita",
   "settings.learning.forgetAll": "Dimentica tutto ciò che {persona} ha imparato",

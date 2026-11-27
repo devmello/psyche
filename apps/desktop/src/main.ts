@@ -2097,20 +2097,25 @@ void app.whenReady().then(async () => {
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) await serveAppProtocol();
   lockDownDefaultSession();
   Menu.setApplicationMenu(
-    buildAppMenu({
-      newSideChat: () => command({ type: "newSideChat" }),
-      palette: () => command({ type: "palette" }),
-      closeThreadView: () => {
-        const focused = webContents.getFocusedWebContents();
-        const wc = focused && windows?.isAppContents(focused) ? focused : windows?.appContents()[0];
-        if (wc) wc.send(IPC.shellCommand, { type: "closeThreadView" } satisfies ShellCommand);
+    buildAppMenu(
+      {
+        newSideChat: () => command({ type: "newSideChat" }),
+        palette: () => command({ type: "palette" }),
+        closeThreadView: () => {
+          const focused = webContents.getFocusedWebContents();
+          const wc =
+            focused && windows?.isAppContents(focused) ? focused : windows?.appContents()[0];
+          if (wc) wc.send(IPC.shellCommand, { type: "closeThreadView" } satisfies ShellCommand);
+        },
+        quitEntirely,
+        settings: () => windows?.showSettings(),
+        zoomIn: () => void zoom.zoomIn(),
+        zoomOut: () => void zoom.zoomOut(),
+        zoomReset: () => void zoom.reset(),
       },
-      quitEntirely,
-      settings: () => windows?.showSettings(),
-      zoomIn: () => void zoom.zoomIn(),
-      zoomOut: () => void zoom.zoomOut(),
-      zoomReset: () => void zoom.reset(),
-    }),
+      undefined,
+      app.getLocale(),
+    ),
   );
 
   // Liquid Glass spike: off unless PSYCHE_GLASS=native on an unpackaged macOS run.

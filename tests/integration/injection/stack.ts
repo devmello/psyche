@@ -255,7 +255,7 @@ export class Int2ToolGate implements ToolGate {
       ...(targetKind ? { targetKind } : {}),
       ...(target === undefined ? {} : { target }),
       // What the composed Gateway passes the loop (apps/gateway/src/compose/index.ts).
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       ...(approvalKind === "memory_protected_write"
         ? { scopesOffered: ["once" as const] }
         : decision.scopesOffered === undefined
