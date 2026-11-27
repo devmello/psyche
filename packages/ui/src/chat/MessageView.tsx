@@ -8,7 +8,7 @@ import {
   LayoutPanelTop,
   Pencil,
 } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { memo, type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
 import { RegisteredBlock } from "../blocks/registry.tsx";
@@ -89,7 +89,7 @@ export interface MessageViewProps {
  * Chat message anatomy (UI design §3.2). User: end-aligned light bubble (gray-3). Agent: no
  * bubble, 20 px avatar, name and time per run. System: centered, small, gray-11, Psyche's voice.
  */
-export function MessageView({
+function MessageViewImpl({
   message,
   streamingText,
   quoted,
@@ -343,3 +343,6 @@ export function MessageView({
     </article>
   );
 }
+
+/** Memoized: a row re-renders only when its own props change (a stream frame touches one row). */
+export const MessageView = memo(MessageViewImpl);
