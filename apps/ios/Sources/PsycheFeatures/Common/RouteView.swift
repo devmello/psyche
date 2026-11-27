@@ -26,6 +26,7 @@ struct RouteView: View {
         case .claims: ClaimsView(store: store)
         case .entity(let id): EntityRouteView(id: id, store: store)
         case .inbox: InboxView(store: store)
+        case .feedItem(let id): FeedItemView(id: id, store: store)
         case .scheduled: ScheduledView(store: store)
         case .space(let id): SpaceView(id: id, store: store)
         case .nightShift(let id): NightShiftReviewView(reviewID: id, store: store)

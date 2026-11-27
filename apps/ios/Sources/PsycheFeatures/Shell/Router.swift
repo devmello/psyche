@@ -177,6 +177,7 @@ public final class Router {
         sheet = nil
         guard let route = Route(appPath: appPath) else {
             tab = .home
+            homePath = []  // an unknown route lands on Home itself, not on whatever page was pushed there
             return
         }
         switch route {
@@ -184,9 +185,11 @@ public final class Router {
         case .planFork(let threadID, let forkID): showPlanFork(threadID: threadID, forkID: forkID)
         case .project, .person, .entity, .claims: tab = .memory; memoryPath = [route]
         case .file, .artifact: tab = .library; libraryPath = [route]
-        case .inbox, .scheduled, .space, .nightShift: tab = .home; homePath = [route]
+        case .inbox, .scheduled, .space, .nightShift, .feedItem: tab = .home; homePath = [route]
         case .task(let id): openTask(id)
-        case .tab(let root): tab = root
+        case .tab(let root):
+            tab = root
+            if root == .home { homePath = [] }  // `/agent/approvals`: Home, where Needs you lists them
         case .settings: sheet = .settings
         }
     }

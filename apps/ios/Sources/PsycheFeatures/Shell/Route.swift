@@ -15,6 +15,9 @@ public enum Route: Hashable, Sendable {
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)
+    /// A feed post (`/feed/<id>`, `/feed?post=<id>`: the morning brief, mail digest and meeting prep notifications), a
+    /// read-only page pushed on Home.
+    case feedItem(id: String)
     /// Home's "More" pages: Notifications, and Scheduled tasks (with the past runs).
     case inbox
     case scheduled
@@ -36,8 +39,8 @@ public enum Route: Hashable, Sendable {
     /// in Scheduled now), and the Gateway's search routes: `/library/<view>?item=<id>` opens that Library item,
     /// `/agent/activity/<id>` the task's run page. `/agent/approvals` opens Home, where Needs you lists them. The
     /// query of `/chat/<id>?message=…` is ignored. `/agent/soul` and `/agent/soul?file=<path>` open the People tab
-    /// (the files are for the Mac) and `/agent/soul?entity=<id>` an entity. Feed, Ideas and Goals are gone from the
-    /// phone, so their routes are unknown and open Home. A file path that is absolute, has a `\`, `//`, an empty, `.` or `..`
+    /// (the files are for the Mac) and `/agent/soul?entity=<id>` an entity. `/feed/<id>` and `/feed?post=<id>` open a feed post. Ideas and Goals are gone
+    /// from the phone, so their routes are unknown and open Home. A file path that is absolute, has a `\`, `//`, an empty, `.` or `..`
     /// segment, or a control character is refused (nil), as is a bad `%` escape. Returns nil for anything unknown
     /// (including `/home`); callers then open Home.
     public init?(appPath: String) {
@@ -63,6 +66,10 @@ public enum Route: Hashable, Sendable {
             } else {
                 self = .file(id: parts[1])
             }
+        case ("feed", 2): self = .feedItem(id: parts[1])
+        case ("feed", 1):
+            guard let post = Self.queryValue("post", in: query) else { return nil }
+            self = .feedItem(id: post)
         case ("home", 1) where Self.queryValue("review", in: query) != nil:
             self = .nightShift(id: Self.queryValue("review", in: query) ?? "")
         case ("home", 1): self = .tab(.home)

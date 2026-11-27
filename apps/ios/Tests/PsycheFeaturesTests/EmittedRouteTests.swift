@@ -6,13 +6,13 @@ import Testing
 /// the phone opens for it. A nil is a route the phone refuses, and the caller opens Home.
 @Suite struct EmittedRouteTests {
     @Test(arguments: [
-        // Goals, Feed posts and Ideas are not on the phone any more: nil, so the caller opens Home.
+        // Goals and Ideas are not on the phone any more: nil, so the caller opens Home. A feed post opens its page.
         ("/goals/goal_1", nil),
         ("/goals", nil),
         ("/goals?add=1", nil),
-        ("/feed/post_1", nil),
+        ("/feed/post_1", Route.feedItem(id: "post_1")),
         ("/feed", nil),
-        ("/feed?post=p1", nil),
+        ("/feed?post=p1", Route.feedItem(id: "p1")),
         ("/ideas", nil),
         // Tasks: compose, computer use and the Live Activity tap.
         ("/tasks/task_9", Route.task(id: "task_9")),

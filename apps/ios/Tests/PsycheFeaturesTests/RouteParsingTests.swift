@@ -17,8 +17,10 @@ import Testing
         ("/library/all?item=mail%3Am1", Route.file(id: "mail:m1")),
         ("/library/all?item=mail:m1", Route.file(id: "mail:m1")),
         ("/library/documents?item=doc1", Route.file(id: "doc1")),
-        // Feed, Ideas and Goals are gone from the phone: the host opens Home.
-        ("/feed?post=p1", nil),
+        // A feed post opens its read-only page. Ideas and Goals are gone from the phone: the host opens Home.
+        ("/feed?post=p1", Route.feedItem(id: "p1")),
+        ("/feed/p1", Route.feedItem(id: "p1")),
+        ("/feed", nil),
         ("/ideas?idea=i1", nil),
         ("/goals/g1", nil),
         ("/agent/soul?entity=e1", Route.entity(id: "e1")),

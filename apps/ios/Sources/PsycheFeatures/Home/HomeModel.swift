@@ -10,7 +10,7 @@ let liveReloadDelay: Duration = .milliseconds(400)
 final class HomeModel {
     private(set) var phase: LoadPhase<HomeSnapshot> = .idle
     private(set) var unreadInbox = 0
-    /// A quiet line shown for a moment (a failed nudge, "Live Activities arrive…").
+    /// A quiet line shown for a moment (a failed follow-up, "Live Activities arrive…").
     private(set) var notice: String?
     private let store: any PsycheBackend
     private var noticeTask: Task<Void, Never>?
@@ -66,14 +66,6 @@ final class HomeModel {
                 snapshot.today.removeAll { $0.id == item.id }
                 phase = .loaded(snapshot)
             }
-        } catch {
-            show(error.localizedDescription)
-        }
-    }
-
-    func act(on nudge: Nudge, _ action: NudgeAction) async {
-        do {
-            try await store.actOnNudge(id: nudge.id, action: action)
         } catch {
             show(error.localizedDescription)
         }
