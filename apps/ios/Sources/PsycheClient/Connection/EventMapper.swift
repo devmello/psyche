@@ -69,6 +69,8 @@ struct EventMapper {
                 return ([], .none)
             }
 
+        case "planFork.updated":
+            return ([.changed(.planForks)], .none)
         case "approval.created", "approval.updated", "question.created", "question.updated":
             return ([.changed(.home), .changed(.activity)], .none)
         case "notification.created", "notification.updated", "notification.resolved", "notification.opened",

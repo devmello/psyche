@@ -27,6 +27,15 @@ struct EventMapperTests {
         }
     }
 
+    @Test func aPlanForkUpdateIsAHintToRefetchTheFork() async {
+        var m = mapper()
+        let update: JSONValue = .object([
+            "forkId": "fork_1", "threadId": "thr_1", "status": "running", "spentUsd": .number(0.1),
+            "branches": .array([.object(["id": "b1", "status": "running"])]),
+        ])
+        #expect(await m.map(frame("planFork.updated", update), ownDeviceID: "d").events == [.changed(.planForks)])
+    }
+
     @Test func proactiveAndScreenEventsMapToTheTopicsTheirScreensListenTo() async {
         var m = mapper()
         for event in ["feed.post", "feed.updated", "idea.updated", "goal.updated", "proposal.updated"] {

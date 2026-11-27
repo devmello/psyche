@@ -18,6 +18,7 @@ struct RouteView: View {
         switch route {
         case .thread(let id):
             ThreadView(id: id, store: store)
+        case .planFork(_, let forkID): PlanForkView(forkID: forkID, store: store)
         case .project(let id): ProjectPage(id: id, store: store)
         case .person(let id): PersonPage(id: id, store: store)
         case .file(let id): LibraryItemView(id: id)

@@ -162,6 +162,19 @@ public final class Router {
         }
     }
 
+    /// The Plans view of one fork, pushed over its chat. From the fork card the chat is already open and the view is pushed
+    /// on top; from a link, the chat opens first. A view already on top is not pushed twice.
+    func showPlanFork(threadID: String, forkID: String) {
+        sheet = nil
+        if selectedThread != threadID {
+            selectedThread = threadID
+            chatPath = []
+        }
+        tab = .chat
+        let route = Route.planFork(threadID: threadID, forkID: forkID)
+        if chatPath.last != route { chatPath.append(route) }
+    }
+
     func openThread(_ id: String) {
         sheet = nil
         selectedThread = id
@@ -178,6 +191,7 @@ public final class Router {
         }
         switch route {
         case .thread(let id): openThread(id)
+        case .planFork(let threadID, let forkID): showPlanFork(threadID: threadID, forkID: forkID)
         case .project, .person, .entity, .memoryFiles, .memoryFile, .learning, .claims, .recentChanges, .reviewQueue: tab = .memory; memoryPath = [route]
         case .file, .artifact: tab = .library; libraryPath = [route]
         case .inbox, .scheduled, .overview, .ideas, .space: tab = .home; homePath = [route]

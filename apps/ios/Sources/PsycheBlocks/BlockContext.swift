@@ -1,4 +1,5 @@
 import PsycheStore
+import SwiftUI
 
 /// How a message the user sent is doing. Only the user's own messages carry one.
 public enum MessageDelivery: Equatable, Sendable {
@@ -23,6 +24,9 @@ public struct BlockContext {
     public var openThread: @MainActor (String) -> Void
     public var openFile: @MainActor (String) -> Void
     public var retry: @MainActor (String) -> Void
+    /// The fork card and the "plan taken" line (`plan_fork`, `plan_taken`). The Chat feature draws them: they read their
+    /// fork from the Gateway and push the Plans view, which the blocks module knows nothing about.
+    public var planForkBlock: @MainActor (ChatItem) -> AnyView
 
     public init(
         chosen: [String: String] = [:],
@@ -33,7 +37,8 @@ public struct BlockContext {
         openRoute: @escaping @MainActor (String) -> Void = { _ in },
         openThread: @escaping @MainActor (String) -> Void = { _ in },
         openFile: @escaping @MainActor (String) -> Void = { _ in },
-        retry: @escaping @MainActor (String) -> Void = { _ in }
+        retry: @escaping @MainActor (String) -> Void = { _ in },
+        planForkBlock: @escaping @MainActor (ChatItem) -> AnyView = { _ in AnyView(EmptyView()) }
     ) {
         self.chosen = chosen
         self.canAnswer = canAnswer
@@ -44,5 +49,6 @@ public struct BlockContext {
         self.openThread = openThread
         self.openFile = openFile
         self.retry = retry
+        self.planForkBlock = planForkBlock
     }
 }

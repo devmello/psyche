@@ -27,6 +27,7 @@ public actor FixtureBackend {
     var followupsState = FollowupsState()
     var grantsState = GrantsState()
     var nightShiftState = NightShiftState()
+    var planForkState = PlanForkState()
     /// The scripted run of the watched task (`startRunningDemo`).
     var demoTask: Task<Void, Never>?
     /// `memory.life.answer` calls so far, and an error to answer them with (tests: the model budget).
@@ -37,7 +38,7 @@ public actor FixtureBackend {
     var searchHitsHidden = false
     public func hideSearchHits(_ hidden: Bool) { searchHitsHidden = hidden }
 
-    private let latency: Duration
+    let latency: Duration
     /// Registered synchronously in `events()`, so an event published right after `events()` returns is never missed.
     private nonisolated let subscribers = LiveSubscribers()
 
