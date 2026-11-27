@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from "electron";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
   app: { name: "Psyche", isPackaged: true, quit: () => {} },
@@ -40,6 +40,11 @@ describe("application menu", () => {
 });
 
 describe("application menu language", () => {
+  // The app loads the system language at startup (main-i18n.ts); the menu reads only what is loaded.
+  beforeAll(async () => {
+    const { createLoadedI18n } = await import("@psyche/ui/i18n-core");
+    await createLoadedI18n({ locale: "de" });
+  });
   const noop = () => {};
   const actions = {
     newSideChat: noop,

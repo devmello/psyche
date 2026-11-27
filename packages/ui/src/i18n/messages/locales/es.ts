@@ -13,6 +13,7 @@ import { charts } from "./charts/es.ts";
 import { chatA } from "./chat-a/es.ts";
 import { computerWatch } from "./computer-watch/es.ts";
 import { dailyA } from "./daily-a/es.ts";
+import { desktopDialog } from "./desktop-dialog/es.ts";
 import { desktopMenu } from "./desktop-menu/es.ts";
 import { desktopSimple } from "./desktop-simple/es.ts";
 import { desktopTray } from "./desktop-tray/es.ts";
@@ -4003,6 +4004,7 @@ export const es: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

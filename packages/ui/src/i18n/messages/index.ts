@@ -19,6 +19,7 @@ import { connectorsPage } from "./connectors-page.ts";
 import { context } from "./context.ts";
 import { daily } from "./daily.ts";
 import { design } from "./design.ts";
+import { desktopDialog } from "./desktop-dialog.ts";
 import { desktopMenu } from "./desktop-menu.ts";
 import { desktopSimple } from "./desktop-simple.ts";
 import { desktopTray } from "./desktop-tray.ts";
@@ -159,6 +160,7 @@ export const en = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,
