@@ -13,6 +13,7 @@ import {
   rowJson,
   SCHEMA_GUARDED_TABLES,
   SEAL_FORMAT,
+  SEALED_ROW_MIGRATIONS,
   SEALED_SETTING_FN,
   SEALED_TABLES,
   type SealedTable,
@@ -1381,13 +1382,17 @@ export class StateSeal {
       this.#markUntrusted(this.#o.restored === true ? "restore_unverified" : "ledger_mismatch", []);
       return;
     }
-    const changes = diff(this.#rows(), check.entries);
     // The verified ledger is the truth; what the repair writes is resolved on top of it.
     this.#shadow = new Map(check.entries);
     this.#shadowComplete = true;
     this.#highGen = row.gen;
+    // What this build's migrations changed in sealed rows, restated from the ledger (not adopted
+    // from the database): the authority before anything is compared.
+    const migrated = this.#applyMigrations();
+    const changes = diff(this.#rows(), this.#shadow);
     if (changes.length > 0) this.#repairOrFail(changes, "boot", true);
     this.#resolve();
+    this.#notifyRevoked(migrated, true);
     if (this.#o.restored === true && this.#untrusted === null) {
       // A restore moves time back: every waiting recovery waits its full 24 hours again.
       this.#restartWaitingRecoveries();
@@ -1405,6 +1410,80 @@ export class StateSeal {
       }
       this.alerts.add("state_resealed", { restored: true });
     }
+  }
+
+  /**
+   * At a trusted boot: each listed migration (`SEALED_ROW_MIGRATIONS`) that `_migrations` records
+   * is applied again to the sealed rows it matches, and the result becomes the authority. A row
+   * the database holds as that result, or still as sealed (an install whose seal undid the
+   * migration before this fix), is written through the seal (so the ledger follows) without an
+   * alert. Any other value is still a change made outside Psyche: the repair that follows writes
+   * the migrated row and raises the alert. Returns the devices the migrations revoked.
+   */
+  #applyMigrations(): string[] {
+    const sqlite = this.#db.sqlite;
+    const at = this.#now().toISOString();
+    const quiet: { spec: SealedTable; pk: string; values: Record<string, unknown> }[] = [];
+    const revoked: string[] = [];
+    const applied: string[] = [];
+    for (const m of SEALED_ROW_MIGRATIONS) {
+      const spec = SEALED_TABLES.find((t) => t.table === m.table);
+      if (spec === undefined || !migrationApplied(sqlite, m.id)) continue;
+      const prefix = keyOf(spec.table, "");
+      for (const [k, json] of [...this.#shadow]) {
+        if (!k.startsWith(prefix)) continue;
+        const sealed = JSON.parse(json) as Record<string, unknown>;
+        if (!m.matches(sealed)) continue;
+        const pk = k.slice(prefix.length);
+        const now = this.#currentRow(spec, pk);
+        const current =
+          now === undefined ? undefined : (JSON.parse(now) as Record<string, unknown>);
+        const ranAt = current?.[m.timeColumn];
+        const values = { ...sealed, ...m.set(isIsoTime(ranAt) ? ranAt : at) };
+        this.#shadow.set(k, JSON.stringify(values));
+        if (!applied.includes(m.id)) applied.push(m.id);
+        if (spec.table === "devices") revoked.push(pk);
+        if (
+          current !== undefined &&
+          (sameRow(spec, current, sealed) || sameRow(spec, current, values))
+        ) {
+          quiet.push({ spec, pk, values });
+        }
+      }
+    }
+    if (quiet.length === 0) return revoked;
+    this.#repairing = true;
+    try {
+      sqlite.transaction(() => {
+        for (const q of quiet) {
+          const v = decodeRow(q.spec, JSON.stringify(q.values));
+          const cols = q.spec.columns;
+          sqlite
+            .prepare(
+              `UPDATE main.${q.spec.table} SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE ${q.spec.pk} = ?`,
+            )
+            .run(...cols.map((c) => v[c]), q.pk);
+        }
+      })();
+    } catch (err) {
+      // Rolled back: the repair that follows writes the same rows (with the alert).
+      this.#o.log?.log("error", "could not seal what a migration changed", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return revoked;
+    } finally {
+      this.#repairNoted.clear();
+      this.#repairing = false;
+    }
+    // Written by the seal itself: the rows as they are now are the authority.
+    for (const q of quiet) {
+      const k = keyOf(q.spec.table, q.pk);
+      const row = this.#currentRow(q.spec, q.pk);
+      if (row === undefined) this.#shadow.delete(k);
+      else this.#shadow.set(k, row);
+    }
+    this.#audit("security.state.migrated", { migrations: applied, rows: quiet.length });
+    return revoked;
   }
 
   /**
@@ -1802,6 +1881,29 @@ function diff(
   // Parents first (SEALED_TABLES order), so a restored passkey finds its device.
   const order = (c: SealChange) => SEALED_TABLES.indexOf(c.spec);
   return out.sort((a, b) => order(a) - order(b));
+}
+
+/** `_migrations` records the migration (it ran in `openDb`, before the seal opened). */
+function migrationApplied(sqlite: PsycheDb["sqlite"], id: string): boolean {
+  try {
+    return sqlite.prepare("SELECT 1 FROM main._migrations WHERE id = ?").get(id) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/** A UTC ISO time as SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ')` or `toISOString()` writes it. */
+function isIsoTime(v: unknown): v is string {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/.test(v);
+}
+
+/** Two parsed canonical rows hold the same value in every sealed column. */
+function sameRow(
+  spec: SealedTable,
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  return spec.columns.every((c) => a[c] === b[c]);
 }
 
 /** Tables whose rows grant access: a re-seal never adopts one it cannot vouch for. */
