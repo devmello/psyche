@@ -28,7 +28,7 @@ struct QuestionSheet: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        StatusDot(.needsYou, "Needs your answer · \(item.source)", font: .footnote.weight(.semibold))
+                        StatusDot(.needsYou, String(localized: "Needs your answer · \(item.source)", bundle: .module), font: .footnote.weight(.semibold))
                         Text(item.title).font(.title2.weight(.semibold))
                         Text(verbatim: [String(localized: "Question", bundle: .module), item.source, item.time].joined(separator: " \u{B7} "))
                             .font(.footnote).foregroundStyle(.secondary)

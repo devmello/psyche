@@ -89,7 +89,7 @@ struct UserBubble: View {
                     .font(.footnote).foregroundStyle(PsycheColor.muted)
             case .failed(let reason):
                 HStack(spacing: 6) {
-                    StatusDot(.failed, "Didn't send", textColor: PsycheColor.muted)
+                    StatusDot(.failed, String(localized: "Didn't send", bundle: .module), textColor: PsycheColor.muted)
                     Button(String(localized: "Retry", bundle: .module), action: retry)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(PsycheColor.inkText)
@@ -477,7 +477,7 @@ struct ApprovalBlock: View {
                     StatusDot(.done, resolution, textColor: PsycheColor.muted, font: .footnote.weight(.semibold))
                         .transition(motion.transition(.fade))
                 } else {
-                    StatusDot(.needsYou, "Needs your OK · \(item.approval?.kindLabel ?? "Approval")", font: .footnote.weight(.semibold))
+                    StatusDot(.needsYou, String(localized: "Needs your OK · \(item.approval?.kindLabel ?? String(localized: "Approval", bundle: .module))", bundle: .module), font: .footnote.weight(.semibold))
                         .transition(motion.transition(.fade))
                 }
                 Text(item.title).font(.callout.weight(.semibold)).foregroundStyle(PsycheColor.text)
