@@ -579,7 +579,7 @@ export interface ShellPlatform {
  */
 export interface HostAppInfo {
   appVersion: string;
-  /** `process.platform`, e.g. "darwin". */
+  /** The OS platform name from Node, e.g. "darwin". */
   platform: string;
   /** `process.arch`: "arm64" or "x64". */
   arch: string;
