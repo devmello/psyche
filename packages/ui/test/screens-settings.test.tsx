@@ -396,7 +396,8 @@ describe("Permissions", () => {
         | undefined;
       expect(matrix?.mcp__notion__search).toBe("deny");
     });
-    expect(screen.getByText("tools/list hash ok")).toBeTruthy();
+    // S28: no "hash ok" chip; only a changed tool list shows a chip (below).
+    expect(screen.queryByText("tools/list hash ok")).toBeNull();
   });
 
   it("leaves Apple apps' actions to their Connectors card, reached from the note", async () => {
