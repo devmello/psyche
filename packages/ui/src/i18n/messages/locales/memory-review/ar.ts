@@ -49,6 +49,7 @@ export const memoryReview: Partial<Catalogue> = {
   "memoryReview.never.entity": "عدم تعلّم هذا عن {name} أبدًا",
   "memoryReview.never.sender": "عدم تعلّم هذا من هذا المرسل أبدًا",
   "memoryReview.group.confirmAll": "تأكيد الكل ({n, number})",
+  "memoryReview.confirmEverything": "تأكيد الكل ({n, number})",
   "memoryReview.group.discardAll": "تجاهل الكل ({n, number})",
   "memoryReview.keys": "J / K تنقّل · Y تأكيد · E تعديل · N تجاهل",
   "memoryReview.failed": "تعذّر تحديث الذاكرة: {reason}",

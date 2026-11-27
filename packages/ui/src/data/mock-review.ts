@@ -23,6 +23,8 @@ import {
 
 export interface ReviewWorld {
   items: ReviewItem[];
+  /** Facts the trust migration moved to review that still wait (absent = none). */
+  movedPending?: number;
   quarantine: QuarantineItem[];
   runs: MemoryRun[];
   exclusions?: EverythingExclusion[];
@@ -63,6 +65,7 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       pending: n("pending"),
       autoAccepted: n("auto_accepted"),
       quarantined: w.quarantine.filter((q) => q.decided === null).length,
+      movedPending: w.movedPending ?? 0,
     };
   };
   return {

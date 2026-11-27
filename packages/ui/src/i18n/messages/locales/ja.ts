@@ -218,7 +218,7 @@ export const ja: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper はまだこのアプリを操作できません。もう一度試して、macOS に聞かれたら「OK」を選んでください。",
   "errors.reason.full_disk_access_missing":
-    "メッセージを読むには、Psyche Helper にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche Helper を再起動してください。",
+    "メッセージを読むには、Psyche (Helper) にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche (Helper) を再起動してください。",
   "errors.reason.prompt_refused_by_macos":
     "macOS が許可の確認を表示しませんでした。代わりにシステム設定 → プライバシーとセキュリティで Psyche Helper を許可してください。",
   "errors.reason.app_not_running":
@@ -1736,7 +1736,7 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "システム設定を開く",
   "settings.computerUse.fullDiskAccess.name": "フルディスクアクセス",
   "settings.computerUse.fullDiskAccess.why":
-    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche Helper を追加してください。",
+    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche (Helper) を追加してから、再起動してください。",
   "settings.computerUse.fullDiskAccess.open": "システム設定でフルディスクアクセスを開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":

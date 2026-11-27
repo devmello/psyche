@@ -204,7 +204,7 @@ export const de: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper darf diese App noch nicht steuern. Versuche es erneut und wähle „OK“, wenn macOS fragt.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper braucht Festplattenvollzugriff, um Nachrichten zu lesen. Schalte ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff ein und starte Psyche Helper dann neu.",
+    "Psyche (Helper) braucht Festplattenvollzugriff, um Nachrichten zu lesen. Schalte ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff ein und starte Psyche (Helper) dann neu.",
   "errors.reason.prompt_refused_by_macos":
     "macOS hat die Berechtigungsabfrage nicht gezeigt. Erlaube Psyche Helper stattdessen unter Systemeinstellungen → Datenschutz & Sicherheit.",
   "errors.reason.app_not_running":
@@ -1790,7 +1790,7 @@ export const de: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Systemeinstellungen öffnen",
   "settings.computerUse.fullDiskAccess.name": "Festplattenvollzugriff",
   "settings.computerUse.fullDiskAccess.why":
-    "lässt {persona} deine Nachrichten lesen. macOS fragt dafür nicht nach: Füge Psyche Helper in der Liste hinzu.",
+    "lässt {persona} deine Nachrichten lesen. macOS fragt dafür nicht nach: Füge Psyche (Helper) in der Liste hinzu und starte es danach neu.",
   "settings.computerUse.fullDiskAccess.open":
     "Festplattenvollzugriff in den Systemeinstellungen öffnen",
   "settings.computerUse.apps": "Apps",

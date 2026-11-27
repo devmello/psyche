@@ -253,7 +253,7 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "لا يستطيع Psyche Helper التحكم في هذا التطبيق بعد. حاول مجددًا واختر «موافق» عندما يسأل macOS.",
   "errors.reason.full_disk_access_missing":
-    "يحتاج Psyche Helper إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche Helper.",
+    "يحتاج Psyche (Helper) إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "لم يعرض macOS طلب الإذن. اسمح لـ Psyche Helper في إعدادات النظام ← الخصوصية والأمن بدلًا من ذلك.",
   "errors.reason.app_not_running": "هذا التطبيق غير مفتوح. افتحه ثم حاول مجددًا.",
@@ -1791,7 +1791,7 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.fullDiskAccess.name": "الوصول الكامل إلى القرص",
   "settings.computerUse.fullDiskAccess.why":
-    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche Helper إلى القائمة.",
+    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche (Helper) إلى القائمة ثم أعد تشغيله.",
   "settings.computerUse.fullDiskAccess.open": "فتح «الوصول الكامل إلى القرص» في إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":

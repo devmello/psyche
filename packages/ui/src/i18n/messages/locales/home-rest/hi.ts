@@ -44,5 +44,11 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.brief": "ब्रीफ़ सेटिंग्ज़",
   "home.more.memoryReview": "मेमोरी समीक्षा",
   "home.quiet": "अभी आपको कुछ नहीं करना है। अनुमोदन, आपका दैनिक ब्रीफ़ और नए विचार यहाँ दिखेंगे।",
+  "home.helperPaused": "सहायक के ऑफ़लाइन रहने तक मेल और संदेश रुके हुए हैं।",
+  "home.helperPaused.open": "डिवाइस खोलें",
+  "home.movedFacts":
+    "{n, plural, one {दूसरों के संदेशों से सीखा गया # तथ्य आपकी समीक्षा का इंतज़ार कर रहा है।} other {दूसरों के संदेशों से सीखे गए # तथ्य आपकी समीक्षा का इंतज़ार कर रहे हैं।}}",
+  "home.movedFacts.review": "समीक्षा करें",
+  "home.movedFacts.dismiss": "हटाएँ",
   "home.loadFailed": "{what} लोड नहीं हो सका।",
 };
