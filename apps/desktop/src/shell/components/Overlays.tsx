@@ -315,8 +315,8 @@ export function ModelPicker(props: {
           <p data-testid="model-picker-empty">{t("desktop.modelPicker.empty")}</p>
         ) : null}
         {groups?.map((g) => (
-          <div key={g.provider} role="group" aria-label={g.provider}>
-            <div>{g.provider}</div>
+          <fieldset key={g.provider} style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend>{g.provider}</legend>
             {g.models.map((m) => (
               <button
                 key={m.ref}
@@ -330,7 +330,7 @@ export function ModelPicker(props: {
                 {m.name}
               </button>
             ))}
-          </div>
+          </fieldset>
         ))}
         {groups !== null && groups.length > 0 && !other ? (
           <button type="button" data-testid="model-other" onClick={() => setOther(true)}>
