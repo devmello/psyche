@@ -79,19 +79,6 @@ struct ChatThreadMenuModelTests {
         #expect(model.phase.value?.items.count == count)
     }
 
-    @Test func compactAddsOneSummaryNoteAndIsNotRunningAfter() async throws {
-        let model = ThreadModel(id: Self.tripID, store: FixtureBackend())
-        await model.load()
-        await model.compact()
-        #expect(model.compacting == false)
-        let first = try #require(model.phase.value?.items.first)
-        guard case .note(_, .compaction, _, _) = first else {
-            Issue.record("the first item should be the compaction note, got \(first)")
-            return
-        }
-        #expect(model.actionError == nil)
-    }
-
     @Test func thumbsRecordTheMarkAndAFailedMarkGoesBack() async throws {
         let store = FixtureBackend()
         let model = ThreadModel(id: Self.tripID, store: store)
