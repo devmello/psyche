@@ -15,7 +15,7 @@ describe("the unsaved-edits dialog in the system language (D1)", () => {
     await vi.waitFor(() => {
       resetUnsavedFilesForTests();
       reportFilesDirty(page(), true);
-      const ask = vi.fn(() => 0);
+      const ask = vi.fn((_o: Electron.MessageBoxSyncOptions) => 0);
       confirmQuitWithUnsaved(ask);
       const options = ask.mock.calls[0]?.[0] as Electron.MessageBoxSyncOptions | undefined;
       expect(options?.message).toBe(CATALOGUES.de["screens.files.discardAsk"]);
