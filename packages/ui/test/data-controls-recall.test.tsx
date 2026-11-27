@@ -1,57 +1,23 @@
-import { render, screen, within } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { MemoryStoreGroups } from "../src/screens/settings/DataControlsSection.tsx";
 
-/** Settings → Memory → Advanced: "How memory is recalled" (Markdown only · plus embeddings). */
+/** The Markdown/embeddings recall-mode radio is retired (owner decision 2026-11-25). */
 
-const checked = (el: HTMLElement) =>
-  (el as HTMLInputElement).checked === true || el.getAttribute("aria-checked") === "true";
-
-function renderPanel(
-  values: Record<string, unknown> = {},
-  recall?: React.ComponentProps<typeof MemoryStoreGroups>["recall"],
-) {
-  const onChange = vi.fn();
-  render(
-    <MemoryStoreGroups
-      values={values}
-      onChange={onChange}
-      persona="Wren"
-      {...(recall === undefined ? {} : { recall })}
-    />,
-  );
-  return { onChange };
-}
-
-describe("Data controls: memory recall mode", () => {
-  it("defaults to Markdown only and shows no status line", () => {
-    renderPanel();
-    const group = screen.getByRole("radiogroup", { name: "How memory is recalled" });
-    expect(checked(within(group).getByRole("radio", { name: /^Markdown only/ }))).toBe(true);
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("writes memory.recall.mode when the owner picks embeddings", async () => {
-    const { onChange } = renderPanel();
-    const group = screen.getByRole("radiogroup", { name: "How memory is recalled" });
-    await userEvent.click(within(group).getByRole("radio", { name: /^Markdown plus embeddings/ }));
-    expect(onChange).toHaveBeenCalledWith("memory.recall.mode", "embeddings");
-  });
-
-  it("says when the model is missing and recall falls back to words", () => {
-    renderPanel(
-      { "memory.recall.mode": "embeddings" },
-      { mode: "embeddings", state: "text_only", fallback: "model_missing" },
+describe("Memory store groups: no recall-mode radio", () => {
+  it("shows no recall mode, even when the setting is still stored as embeddings", () => {
+    render(
+      <MemoryStoreGroups
+        values={{ "memory.recall.mode": "embeddings" }}
+        onChange={() => undefined}
+        persona="Wren"
+        store={{ encrypted: false, state: "off", reason: null, restartNeeded: false }}
+      />,
     );
-    expect(screen.getByRole("status").textContent).toMatch(/not downloaded yet.*words only/);
-  });
-
-  it("shows how much is indexed once semantic recall is running", () => {
-    renderPanel(
-      { "memory.recall.mode": "embeddings" },
-      { mode: "embeddings", state: "semantic", vectors: 12, chunks: 20 },
-    );
-    expect(screen.getByRole("status").textContent).toContain("12 of 20");
+    // Positive control: the group beside it still draws.
+    expect(screen.getByRole("switch", { name: "Encrypt memory on disk" })).toBeTruthy();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.queryByText("How memory is recalled")).toBeNull();
+    expect(screen.queryByRole("radio", { name: /Markdown/ })).toBeNull();
   });
 });

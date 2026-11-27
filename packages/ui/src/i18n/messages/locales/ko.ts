@@ -72,6 +72,7 @@ import { simplifyB1 } from "./simplify-b1/ko.ts";
 import { simplifyB2 } from "./simplify-b2/ko.ts";
 import { simplifyB3 } from "./simplify-b3/ko.ts";
 import { simplifyB4 } from "./simplify-b4/ko.ts";
+import { simplifyB6 } from "./simplify-b6/ko.ts";
 import { simplifyB7 } from "./simplify-b7/ko.ts";
 import { simplifyB8 } from "./simplify-b8/ko.ts";
 import { simplifyB9 } from "./simplify-b9/ko.ts";
@@ -3903,6 +3904,7 @@ export const ko: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB3,
+  ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,
   ...simplifyB7,

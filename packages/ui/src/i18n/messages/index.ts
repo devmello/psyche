@@ -69,6 +69,7 @@ import { simplifyB1 } from "./simplify-b1.ts";
 import { simplifyB2 } from "./simplify-b2.ts";
 import { simplifyB3 } from "./simplify-b3.ts";
 import { simplifyB4 } from "./simplify-b4.ts";
+import { simplifyB6 } from "./simplify-b6.ts";
 import { simplifyB7 } from "./simplify-b7.ts";
 import { simplifyB8 } from "./simplify-b8.ts";
 import { simplifyB9 } from "./simplify-b9.ts";
@@ -166,6 +167,7 @@ export const en = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB3,
+  ...simplifyB6,
   ...simplifyB9,
   ...simplifyB2,
   ...simplifyB7,

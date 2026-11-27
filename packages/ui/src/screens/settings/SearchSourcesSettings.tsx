@@ -6,7 +6,7 @@ import { t } from "../../i18n/core.ts";
 import { describeError, reasonText } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { isWindows } from "../../lib/platform.ts";
-import { bool, Group, type SettingsValues, StatusChip, SwitchField } from "./shared.tsx";
+import { Advanced, bool, Group, type SettingsValues, StatusChip, SwitchField } from "./shared.tsx";
 
 /**
  * Settings → Search sources (docs/design/search-roadmap-2026.md §2): the owner chooses which
@@ -152,7 +152,7 @@ export function SearchSourcesSettingsGroup({
   return (
     <Group
       title={t("settings.searchSources.title")}
-      description={t("settings.searchSources.description")}
+      description={t("simplify.b6.search.description")}
     >
       {onChange === undefined ? null : (
         <SwitchField
@@ -199,117 +199,138 @@ export function SearchSourcesSettingsGroup({
                     {kb(s.textBytes)}
                   </span>
                 ) : null}
-                <Button
-                  type="button"
-                  variant="plain"
-                  size="sm"
-                  disabled={!s.enabled || busy}
-                  aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
-                  {...(s.enabled
-                    ? {}
-                    : {
-                        title: t("settings.searchSources.rebuild.turnOnFirst", { source: s.label }),
-                      })}
-                  onClick={() => void press(s.id)}
-                >
-                  {busy
-                    ? t("settings.searchSources.rebuilding")
-                    : t("settings.searchSources.rebuild")}
-                </Button>
               </div>
-              {note === undefined ? null : (
-                <div role="status" data-testid={`rebuild-${s.id}`} className="pt-1">
-                  <StatusChip tone={note.tone}>{note.text}</StatusChip>
-                </div>
-              )}
               {s.enabled ? (
-                <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
-                  <input
-                    type="checkbox"
-                    checked={s.agent}
-                    disabled={!s.agent && s.cannotAgent !== undefined}
-                    aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
-                    onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
-                  />
-                  {t("settings.searchSources.agent")}
-                </label>
-              ) : null}
-              {s.enabled && !s.agent && s.cannotAgent !== undefined ? (
-                <p className="text-caption text-label-secondary">
-                  {t("settings.searchSources.cannotAgent", { why: s.cannotAgent })}
-                </p>
-              ) : null}
-              {s.enabled && s.id === "files" ? (
-                <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={s.ocr}
-                    aria-label={t("settings.searchSources.ocrLabel", { source: s.label })}
-                    onChange={(e) => void configure({ source: s.id, ocr: e.target.checked })}
-                  />
-                  <span className="flex flex-col">
-                    {t("settings.searchSources.ocr")}
-                    <span>{t("settings.searchSources.ocrHint")}</span>
-                  </span>
-                </label>
-              ) : null}
-              {s.enabled ? (
-                <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
-                  {t("settings.searchSources.processing")}
-                  <select
-                    className="rounded-md border border-separator bg-transparent px-1 py-0.5"
-                    aria-label={t("settings.searchSources.processingLabel", { source: s.label })}
-                    value={s.processing}
-                    onChange={(e) =>
-                      void configure({
-                        source: s.id,
-                        processing: e.target.value as "cloud" | "local" | "none",
-                      })
-                    }
-                  >
-                    <option value="cloud">{t("settings.searchSources.processing.cloud")}</option>
-                    <option value="local">{t("settings.searchSources.processing.local")}</option>
-                    <option value="none">{t("settings.searchSources.processing.none")}</option>
-                  </select>
-                </label>
+                <Advanced title={t("simplify.b6.search.options")}>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="plain"
+                      size="sm"
+                      disabled={!s.enabled || busy}
+                      aria-label={t("settings.searchSources.rebuildLabel", { source: s.label })}
+                      {...(s.enabled
+                        ? {}
+                        : {
+                            title: t("settings.searchSources.rebuild.turnOnFirst", {
+                              source: s.label,
+                            }),
+                          })}
+                      onClick={() => void press(s.id)}
+                    >
+                      {busy
+                        ? t("settings.searchSources.rebuilding")
+                        : t("settings.searchSources.rebuild")}
+                    </Button>
+                    {note === undefined ? null : (
+                      <div role="status" data-testid={`rebuild-${s.id}`} className="pt-1">
+                        <StatusChip tone={note.tone}>{note.text}</StatusChip>
+                      </div>
+                    )}
+                    {s.enabled ? (
+                      <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
+                        <input
+                          type="checkbox"
+                          checked={s.agent}
+                          disabled={!s.agent && s.cannotAgent !== undefined}
+                          aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
+                          onChange={(e) =>
+                            void configure({ source: s.id, agent: e.target.checked })
+                          }
+                        />
+                        {t("settings.searchSources.agent")}
+                      </label>
+                    ) : null}
+                    {s.enabled && !s.agent && s.cannotAgent !== undefined ? (
+                      <p className="text-caption text-label-secondary">
+                        {t("settings.searchSources.cannotAgent", { why: s.cannotAgent })}
+                      </p>
+                    ) : null}
+                    {s.enabled && s.id === "files" ? (
+                      <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={s.ocr}
+                          aria-label={t("settings.searchSources.ocrLabel", { source: s.label })}
+                          onChange={(e) => void configure({ source: s.id, ocr: e.target.checked })}
+                        />
+                        <span className="flex flex-col">
+                          {t("settings.searchSources.ocr")}
+                          <span>{t("settings.searchSources.ocrHint")}</span>
+                        </span>
+                      </label>
+                    ) : null}
+                    {s.enabled ? (
+                      <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
+                        {t("settings.searchSources.processing")}
+                        <select
+                          className="rounded-md border border-separator bg-transparent px-1 py-0.5"
+                          aria-label={t("settings.searchSources.processingLabel", {
+                            source: s.label,
+                          })}
+                          value={s.processing}
+                          onChange={(e) =>
+                            void configure({
+                              source: s.id,
+                              processing: e.target.value as "cloud" | "local" | "none",
+                            })
+                          }
+                        >
+                          <option value="cloud">
+                            {t("settings.searchSources.processing.cloud")}
+                          </option>
+                          <option value="local">
+                            {t("settings.searchSources.processing.local")}
+                          </option>
+                          <option value="none">
+                            {t("settings.searchSources.processing.none")}
+                          </option>
+                        </select>
+                      </label>
+                    ) : null}
+                  </div>
+                </Advanced>
               ) : null}
             </SwitchField>
           );
         })}
       {data !== undefined ? (
-        <div className="flex flex-col gap-2 pt-2">
-          <label className="flex flex-col gap-1 text-body text-label-primary">
-            {t("settings.searchSources.excludeContacts")}
-            <input
-              className="rounded-md border border-separator bg-transparent px-2 py-1 text-body"
-              placeholder={t("settings.searchSources.excludeContactsHint")}
-              value={contacts ?? data.exclude.contacts.join(", ")}
-              onChange={(e) => setContacts(e.target.value)}
-              onBlur={() => {
-                if (contacts !== undefined)
-                  void configure({ exclude: { contacts: split(contacts) } });
-                setContacts(undefined);
-              }}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-body text-label-primary">
-            {t("settings.searchSources.excludeFolders")}
-            <input
-              className="rounded-md border border-separator bg-transparent px-2 py-1 text-body"
-              placeholder={t("settings.searchSources.excludeFoldersPlaceholder")}
-              value={folders ?? data.exclude.folders.join(", ")}
-              onChange={(e) => setFolders(e.target.value)}
-              onBlur={() => {
-                if (folders !== undefined) void configure({ exclude: { folders: split(folders) } });
-                setFolders(undefined);
-              }}
-            />
-          </label>
-          <p className="text-caption text-label-secondary">
-            {t("settings.searchSources.indexSize", { size: kb(data.indexBytes) })}
-          </p>
-        </div>
+        <Advanced title={t("simplify.b6.search.skip")}>
+          <div className="flex flex-col gap-2 pt-2">
+            <label className="flex flex-col gap-1 text-body text-label-primary">
+              {t("settings.searchSources.excludeContacts")}
+              <input
+                className="rounded-md border border-separator bg-transparent px-2 py-1 text-body"
+                placeholder={t("settings.searchSources.excludeContactsHint")}
+                value={contacts ?? data.exclude.contacts.join(", ")}
+                onChange={(e) => setContacts(e.target.value)}
+                onBlur={() => {
+                  if (contacts !== undefined)
+                    void configure({ exclude: { contacts: split(contacts) } });
+                  setContacts(undefined);
+                }}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-body text-label-primary">
+              {t("settings.searchSources.excludeFolders")}
+              <input
+                className="rounded-md border border-separator bg-transparent px-2 py-1 text-body"
+                placeholder={t("settings.searchSources.excludeFoldersPlaceholder")}
+                value={folders ?? data.exclude.folders.join(", ")}
+                onChange={(e) => setFolders(e.target.value)}
+                onBlur={() => {
+                  if (folders !== undefined)
+                    void configure({ exclude: { folders: split(folders) } });
+                  setFolders(undefined);
+                }}
+              />
+            </label>
+            <p className="text-caption text-label-secondary">
+              {t("settings.searchSources.indexSize", { size: kb(data.indexBytes) })}
+            </p>
+          </div>
+        </Advanced>
       ) : null}
     </Group>
   );

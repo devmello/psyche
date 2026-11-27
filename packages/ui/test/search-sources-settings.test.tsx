@@ -207,11 +207,11 @@ describe("Rebuild", () => {
       </StoryWorld>,
     );
 
-  it("is disabled for a source that is off, and says to turn it on first", () => {
+  it("is offered only for a source that is on (the options fold away for one that is off)", () => {
     show({ status, onConfigure: vi.fn(), onRebuild: vi.fn() });
-    const button = screen.getByRole("button", { name: "Rebuild Messages" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(button.title).toBe("Turn Messages on first");
+    expect(screen.queryByRole("button", { name: "Rebuild Messages" })).toBeNull();
+    // Positive control: a source that is on has it, under its Options fold.
+    expect(screen.getByRole("button", { name: "Rebuild Mail" })).toBeTruthy();
   });
 
   it("goes busy while the call is out, then says how many items were rebuilt", async () => {
@@ -327,9 +327,7 @@ describe("Contacts and Index on battery", () => {
     const sw = screen.getByRole("switch", { name: "Contacts" });
     expect(sw.getAttribute("aria-checked")).toBe("false");
     expect(screen.getByText(/Street addresses, notes and groups are never read/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Rebuild Contacts" }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(screen.queryByRole("button", { name: "Rebuild Contacts" })).toBeNull();
     // No agent checkbox while it is off; switching on is a plain configure call.
     expect(screen.queryByRole("checkbox", { name: "Agent search for Contacts" })).toBeNull();
     await userEvent.click(sw);

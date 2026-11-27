@@ -319,8 +319,8 @@ describe("Settings search and panes", () => {
     for (const key of keys)
       expect(paneForKey(key), key).toBe(key.startsWith("memory.work") ? "work" : "surfaces");
     expect(paneForKey("memory.everything")).toBe("everything");
-    expect(resolveSection("work")).toEqual({ page: "memory", pane: "work" });
-    expect(resolveSection("surfaces")).toEqual({ page: "memory", pane: "surfaces" });
+    expect(resolveSection("work")).toEqual({ page: "memory" });
+    expect(resolveSection("surfaces")).toEqual({ page: "memory" });
   });
 
   it("jumps from a search for a setting to its pane and row", () => {

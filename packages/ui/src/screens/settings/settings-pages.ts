@@ -33,6 +33,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { t } from "../../i18n/core.ts";
+import type { MessageId } from "../../i18n/index.ts";
 
 /**
  * The Settings window's structure (docs/design/settings-2026.md): seven pages in the sidebar, each
@@ -93,10 +94,15 @@ interface SettingsEntry<Id extends string> {
 }
 
 /** A pane (an old section): its label is `settings.nav.<id>`. */
-const entry = (id: SettingsPaneId, icon: LucideIcon): SettingsEntry<SettingsPaneId> => ({
+const entry = (
+  id: SettingsPaneId,
+  icon: LucideIcon,
+  labelKey?: MessageId,
+): SettingsEntry<SettingsPaneId> => ({
   id,
   icon,
   get label() {
+    if (labelKey !== undefined) return t(labelKey);
     // Message ids are camelCase; the route id keeps its hyphen.
     return t(`settings.nav.${id === "computer-use" ? "computerUse" : id}`);
   },
@@ -169,7 +175,7 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("vm", MonitorCog),
   entry("data", Database),
   entry("devices", MonitorSmartphone),
-  entry("server", Server),
+  entry("server", Server, "simplify.b6.nav.server"),
 ];
 
 /**
@@ -185,8 +191,14 @@ export const SETTINGS_PAGES: readonly SettingsPage[] = [
   ),
   page("model", Cpu, ["model", "usage"]),
   page("connectors", Plug, ["connectors", "search", "mail"]),
-  page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"]),
-  page("daily", CalendarClock, ["daily", "skills", "specialists"]),
+  // Memory is one body (Basics, Sources, Work, Where memory shows, Review rules under Advanced) and
+  // one deeper pane, People and privacy. The merged panes stay route ids, hidden, and redirect.
+  page("memory", Brain, ["learning", "memory", "everything", "work", "surfaces", "people"], {
+    main: "learning",
+    hidden: ["memory", "everything", "work", "surfaces"],
+  }),
+  // Specialists is an Advanced row inside Skills now.
+  page("daily", CalendarClock, ["daily", "skills", "specialists"], { hidden: ["specialists"] }),
   page(
     "permissions",
     ShieldCheck,
@@ -225,7 +237,7 @@ export function pageOfPane(id: SettingsPaneId): SettingsPage {
 
 /**
  * Route ids whose page or pane went away or moved: where an old link lands. (Essentials, About,
- * Privacy & data and Server kept their ids as panes; VM mode moved inside Computer use.)
+ * Privacy & data and Server kept their ids as panes; VM mode moved inside Computer use, Review, Sources, Work and Where memory shows merged into the Memory body, and Specialists folded into Skills.)
  */
 export const SETTINGS_ALIASES: Readonly<
   Record<string, { page: SettingsPageId; pane?: SettingsPaneId }>
@@ -235,6 +247,11 @@ export const SETTINGS_ALIASES: Readonly<
   data: { page: "permissions", pane: "data" },
   server: { page: "devices", pane: "server" },
   vm: { page: "permissions", pane: "computer-use" },
+  memory: { page: "memory" },
+  everything: { page: "memory" },
+  work: { page: "memory" },
+  surfaces: { page: "memory" },
+  specialists: { page: "daily", pane: "skills" },
 };
 
 /**
