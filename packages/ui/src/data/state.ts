@@ -365,8 +365,109 @@ export function replaceLibraryWindow(
   return { ...merged, library };
 }
 
+/**
+ * Version guard. `touched[key]` is the stateVersion of the last event that wrote an entity. A list
+ * or history response requested at version V may overwrite an entity only when `touched[key] <= V`
+ * (nothing newer came by event while the request was in flight). So an entry whose value is at or
+ * below the lowest V any pending request started at can never block a response, and may be dropped
+ * (`pruneTouched`). The store owns its `touched` object (`ownTouched`) and writes into it in place,
+ * so an event costs O(1) instead of a copy of every key the session ever touched; a state built
+ * elsewhere (tests, fixtures) keeps the copying behaviour and is never mutated.
+ */
+const ownedTouched = new WeakSet<object>();
+
+/** Marks `touched` as private to one store: `touch` may write into it in place. */
+export function ownTouched(touched: Dict<number>): Dict<number> {
+  ownedTouched.add(touched);
+  return touched;
+}
+
+export function isOwnedTouched(touched: Dict<number>): boolean {
+  return ownedTouched.has(touched);
+}
+
 export function touch(state: UiState, key: string, version: number): UiState {
+  if (ownedTouched.has(state.touched)) {
+    (state.touched as Record<string, number>)[key] = version;
+    return { ...state };
+  }
   return { ...state, touched: { ...state.touched, [key]: version } };
+}
+
+/** Drops guard entries at or below `watermark` (the oldest pending request's start version). */
+export function pruneTouched(touched: Dict<number>, watermark: number): number {
+  let dropped = 0;
+  for (const key of Object.keys(touched)) {
+    if ((touched[key] as number) <= watermark) {
+      delete (touched as Record<string, number>)[key];
+      dropped += 1;
+    }
+  }
+  return dropped;
+}
+
+const runsByThreadCache = new WeakMap<Dict<Run>, Map<string, Run[]>>();
+const NO_RUNS: readonly Run[] = [];
+
+/**
+ * A thread's runs. The index is built once per `runs` object and shared by every subscriber, so a
+ * `useThread` selector no longer scans every run on every notification.
+ */
+export function runsOfThread(runs: Dict<Run>, threadId: string): readonly Run[] {
+  let index = runsByThreadCache.get(runs);
+  if (index === undefined) {
+    index = new Map();
+    for (const run of Object.values(runs)) {
+      const list = index.get(run.threadId);
+      if (list === undefined) index.set(run.threadId, [run]);
+      else list.push(run);
+    }
+    runsByThreadCache.set(runs, index);
+  }
+  return index.get(threadId) ?? NO_RUNS;
+}
+
+/** A run that can still change: its thread's data must stay loaded. */
+export function isUnsettled(run: Run): boolean {
+  return (
+    run.status === "running" ||
+    run.status === "awaiting_approval" ||
+    run.status === "awaiting_input"
+  );
+}
+
+/**
+ * Drops a closed thread's loaded transcript: its messages, history cursor, and the steps, frames
+ * and step details of its settled runs that no view has open (`keepRun`). The run rows
+ * and tool calls stay (they are small, and Overview lists and tool cards read them live). The
+ * thread row, receipts, approvals and the queue stay too. Opening the thread loads it again; a
+ * run's trace loads when its view mounts.
+ */
+export function withThreadEvicted(
+  state: UiState,
+  threadId: string,
+  keepRun: (runId: string) => boolean = () => false,
+): UiState {
+  const runIds = new Set(
+    runsOfThread(state.runs, threadId)
+      .filter((r) => !isUnsettled(r) && !keepRun(r.id))
+      .map((r) => r.id),
+  );
+  function keep<T>(dict: Dict<T>, runOf: (key: string) => string) {
+    return Object.fromEntries(
+      Object.entries(dict).filter(([key]) => !runIds.has(runOf(key))),
+    ) as Dict<T>;
+  }
+  const { [threadId]: _messages, ...messages } = state.messages;
+  const { [threadId]: _cursor, ...historyCursor } = state.historyCursor;
+  return {
+    ...state,
+    messages,
+    historyCursor,
+    runSteps: keep(state.runSteps, (k) => k),
+    runFrames: keep(state.runFrames, (k) => k),
+    runStepDetails: keep(state.runStepDetails, (k) => k.split("/")[0] ?? k),
+  };
 }
 
 /**
