@@ -1856,8 +1856,7 @@ function registerIpc(): void {
   }));
   handle(IPC.permissionsRequest, async (_event, arg) => {
     // A request made while the startup check runs waits for its verdict (still fail closed).
-    await integrity?.settled;
-    if (integrityBlocked()) throw new Error(integrityMessage);
+    await requireVerified(integrity, () => integrityMessage);
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     // Not a permission macOS can ask for or report: only its System Settings pane is opened.
     if (kind === "fullDiskAccess") return permissions.openFullDiskAccess();
@@ -1867,8 +1866,7 @@ function registerIpc(): void {
     return permissions.request(kind as PermissionKind);
   });
   handle(IPC.helperPermissionsRequest, async (_event, arg) => {
-    await integrity?.settled;
-    if (integrityBlocked()) throw new Error(integrityMessage);
+    await requireVerified(integrity, () => integrityMessage);
     const kind = str(
       IPC.helperPermissionsRequest,
       rec(IPC.helperPermissionsRequest, arg).kind,
