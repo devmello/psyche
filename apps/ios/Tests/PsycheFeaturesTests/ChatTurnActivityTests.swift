@@ -198,13 +198,12 @@ struct ChatTurnActivityTests {
         #expect(rig.alerts.chatWatching == ["thr_q3"])
     }
 
-    @Test func theLockScreenTitleAppearsOnlyWhenTheOwnerOptedIn() async throws {
+    @Test func theLockScreenNeverShowsTheTitle() async throws {
         let rig = Rig()
-        rig.alerts.settings.taskTitlesOnLockScreen = true
         await rig.run("thr_q3", .running)
         await rig.advance(0.5)
         let start = try #require(rig.chat.starts.first)
-        #expect(start.content.title == "Q3 review")
+        #expect(start.content.title == nil)
     }
 
     @Test func theLatestStatusFollowsTheReplyWithoutFlooding() async throws {
@@ -300,7 +299,7 @@ struct ChatTurnActivityTests {
         // The settings change reaches the center through the backend's event stream, which subscribes
         // asynchronously: send the change until the center has seen one.
         let off = PhoneSettings(
-            notifications: true, liveActivities: false, taskTitlesOnLockScreen: false)
+            notifications: true, liveActivities: false)
         for _ in 0..<3000 where !rig.chat.live.isEmpty {
             try? await rig.backend.updateSettings(off)
             try? await Task.sleep(for: .milliseconds(10))

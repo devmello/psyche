@@ -105,14 +105,13 @@ extension GatewayBackend {
 struct PhoneSettingsStore: Sendable {
     static let fileName = "settings.json"
     static let defaults = PhoneSettings(
-        notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
+        notifications: true, liveActivities: true)
 
     let directory: URL?
 
     private struct Stored: Codable {
         var notifications: Bool?
         var liveActivities: Bool?
-        var taskTitlesOnLockScreen: Bool?
         var shareLocation: Bool?
     }
 
@@ -123,7 +122,6 @@ struct PhoneSettingsStore: Sendable {
               let stored = try? JSONDecoder().decode(Stored.self, from: data) else { return d }
         return PhoneSettings(
             notifications: stored.notifications ?? d.notifications, liveActivities: stored.liveActivities ?? d.liveActivities,
-            taskTitlesOnLockScreen: stored.taskTitlesOnLockScreen ?? d.taskTitlesOnLockScreen,
             shareLocation: stored.shareLocation ?? d.shareLocation)
     }
 
@@ -132,7 +130,6 @@ struct PhoneSettingsStore: Sendable {
         try AppGroup.prepareDirectory(directory)
         let stored = Stored(
             notifications: settings.notifications, liveActivities: settings.liveActivities,
-            taskTitlesOnLockScreen: settings.taskTitlesOnLockScreen,
             shareLocation: settings.shareLocation)
         try JSONEncoder().encode(stored).write(
             to: directory.appendingPathComponent(Self.fileName),

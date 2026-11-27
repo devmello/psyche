@@ -322,7 +322,7 @@ extension SettingsModel.Loaded {
         device: DeviceInfo(
             name: "Placeholder", scopes: ["Read", "Write"], gatewayHost: "placeholder.example.net",
             gatewayFingerprint: "sha256:0000 0000 0000", transport: "Tailscale"),
-        settings: PhoneSettings(notifications: true, liveActivities: true, taskTitlesOnLockScreen: false))
+        settings: PhoneSettings(notifications: true, liveActivities: true))
 }
 
 

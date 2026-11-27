@@ -80,7 +80,7 @@ struct StaleActivityTests {
         let alerts = center(backend, host)
         alerts.start()
         try await backend.updateSettings(
-            PhoneSettings(notifications: true, liveActivities: false, taskTitlesOnLockScreen: false))
+            PhoneSettings(notifications: true, liveActivities: false))
         try await settle { host.ends == ["task_q3"] }
         #expect(host.ends == ["task_q3"])
         #expect(alerts.watching.isEmpty)

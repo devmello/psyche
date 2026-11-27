@@ -80,17 +80,15 @@ public struct DeviceInfo: Sendable, Equatable {
 public struct PhoneSettings: Sendable, Equatable {
     public var notifications: Bool
     public var liveActivities: Bool
-    public var taskTitlesOnLockScreen: Bool
     /// "Share location with Psyche": lets the agent ask where this phone is, only while Psyche is open here.
     /// Off by default. Read as off when iOS location permission is off, whatever was saved.
     public var shareLocation: Bool
     public init(
-        notifications: Bool, liveActivities: Bool, taskTitlesOnLockScreen: Bool,
+        notifications: Bool, liveActivities: Bool,
         shareLocation: Bool = false
     ) {
         self.shareLocation = shareLocation
         self.notifications = notifications
         self.liveActivities = liveActivities
-        self.taskTitlesOnLockScreen = taskTitlesOnLockScreen
     }
 }
