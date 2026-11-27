@@ -60,7 +60,10 @@ import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsDrill } from "./settings-drill/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { simplifyB1 } from "./simplify-b1/fr.ts";
+import { simplifyB4 } from "./simplify-b4/fr.ts";
 import { simplifyB7 } from "./simplify-b7/fr.ts";
+import { simplifyB8 } from "./simplify-b8/fr.ts";
 import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { update } from "./update/fr.ts";
@@ -3978,6 +3981,9 @@ export const fr: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

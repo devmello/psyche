@@ -50,7 +50,10 @@ import { settingsC } from "./settings-c/pt.ts";
 import { settingsD } from "./settings-d/pt.ts";
 import { settingsDrill } from "./settings-drill/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
+import { simplifyB1 } from "./simplify-b1/pt.ts";
+import { simplifyB4 } from "./simplify-b4/pt.ts";
 import { simplifyB7 } from "./simplify-b7/pt.ts";
+import { simplifyB8 } from "./simplify-b8/pt.ts";
 import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
@@ -3907,6 +3910,9 @@ export const pt: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

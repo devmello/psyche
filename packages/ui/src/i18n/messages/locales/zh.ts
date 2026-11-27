@@ -66,7 +66,10 @@ import { settingsDrill } from "./settings-drill/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
+import { simplifyB1 } from "./simplify-b1/zh.ts";
+import { simplifyB4 } from "./simplify-b4/zh.ts";
 import { simplifyB7 } from "./simplify-b7/zh.ts";
+import { simplifyB8 } from "./simplify-b8/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
 import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
@@ -3832,6 +3835,9 @@ export const zh: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,
