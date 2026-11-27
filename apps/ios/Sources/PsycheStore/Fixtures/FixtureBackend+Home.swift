@@ -35,6 +35,7 @@ extension FixtureBackend {
 
 extension FixtureBackend: HomeBackend {
     public func home() async throws -> HomeSnapshot {
+        reads.hit("home")
         await pause()
         return homeState.snapshot
     }
@@ -61,6 +62,7 @@ extension FixtureBackend: HomeBackend {
     }
 
     public func inbox() async throws -> [InboxItem] {
+        reads.hit("inbox")
         await pause()
         return homeState.inbox
     }

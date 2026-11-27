@@ -120,7 +120,8 @@ final class ActionRunner {
             }
             phase = .sent
         } catch {
-            self.error = (error as? LocalizedError)?.errorDescription ?? "That didn't go through."
+            self.error = (error as? LocalizedError)?.errorDescription
+                ?? String(localized: "That didn't go through.", bundle: .module)
             phase = .idle
         }
     }

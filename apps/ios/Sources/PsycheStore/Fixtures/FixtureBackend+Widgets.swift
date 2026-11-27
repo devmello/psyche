@@ -26,12 +26,14 @@ struct WidgetState: Sendable {
 
 extension FixtureBackend: WidgetBackend {
     public func widget(id: String) async throws -> WidgetSnapshot {
+        reads.hit("widget")
         await pause()
         guard let snapshot = widgetState.widgets[id] else { throw BackendError.notFound }
         return snapshot
     }
 
     public func pinnedWidgets() async throws -> [WidgetSnapshot] {
+        reads.hit("pinnedWidgets")
         await pause()
         return widgetState.pinned.prefix(6).compactMap { widgetState.widgets[$0] }
     }

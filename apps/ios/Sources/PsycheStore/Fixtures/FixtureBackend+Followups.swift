@@ -33,6 +33,7 @@ extension FixtureData {
 
 extension FixtureBackend: FollowupsBackend {
     public func mailFollowups() async throws -> [MailFollowup] {
+        reads.hit("mailFollowups")
         await pause()
         return followupsState.followups
     }
@@ -44,6 +45,7 @@ extension FixtureBackend: FollowupsBackend {
     }
 
     public func suggestions() async throws -> [Suggestion] {
+        reads.hit("suggestions")
         await pause()
         return followupsState.suggestions.filter { $0.status == .pending || $0.status == .awaitingApproval }
     }

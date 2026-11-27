@@ -38,6 +38,8 @@ public final class AlertCenter {
     private let connection: any AlertConnection
     private let ledger: NotifiedLedger
     private let isFixture: Bool
+    /// Debounces `.changed(.threads)`: a reply's messages arrive in a burst, and one reconcile reads the list once.
+    private let threadReloads: ReloadDebouncer
     var isFixtureMode: Bool { isFixture }
     var settings = PhoneSettings(
         notifications: true, liveActivities: true, taskTitlesOnLockScreen: false)
@@ -112,7 +114,8 @@ public final class AlertCenter {
         awakeLedger: AwakeTimeLedger = AwakeTimeLedger(directory: nil),
         awakeCap: AwakeCapStore = AwakeCapStore(directory: nil), staleOverride: TimeInterval? = nil,
         chatActivities: any ChatTurnActivityHost = NoChatTurnActivityHost(),
-        chatThreshold: TimeInterval = ChatTurnTracker.longRunning, clock: ChatClock = .real
+        chatThreshold: TimeInterval = ChatTurnTracker.longRunning, clock: ChatClock = .real,
+        threadReloadDelay: Duration = liveReloadDelay
     ) {
         self.clock = clock
         self.chatActivities = chatActivities
@@ -128,6 +131,7 @@ public final class AlertCenter {
         self.connection = connection
         self.ledger = ledger
         self.isFixture = isFixture
+        threadReloads = ReloadDebouncer(delay: threadReloadDelay)
         watching = Set(activities.activeTaskIDs)
         awake = StayAwakeController(
             audio: awakeAudio, conditions: deviceConditions, ledger: awakeLedger, capStore: awakeCap,
@@ -282,8 +286,9 @@ public final class AlertCenter {
             for await event in events {
                 switch event {
                 case .chat(let chat): await self.handleChat(chat)
-                case .changed(.threads): await self.reconcileChatTurns()
+                case .changed(.threads): self.threadReloads.schedule { await self.reconcileChatTurns() }
                 case .resynced:
+                    self.threadReloads.cancel()
                     self.requestSync()
                     await self.reconcileChatTurns()
                 case .changed(.home), .changed(.activity): self.requestSync()
