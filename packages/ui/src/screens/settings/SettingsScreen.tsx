@@ -63,7 +63,7 @@ import {
   type SettingsPaneId,
   type SettingsSectionId,
 } from "./settings-pages.ts";
-import { InPageContext } from "./shared.tsx";
+import { Advanced, InPageContext } from "./shared.tsx";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -257,6 +257,10 @@ export function SettingsSectionView({
         <>
           <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />
           <PluginsSection {...opt("onPickFolder", s.onPickSkillFolder)} />
+          {/* Specialists (roles with budgets) is an Advanced row here; its old route lands on Skills. */}
+          <Advanced title={t("settings.nav.specialists")}>
+            <SpecialistsSection />
+          </Advanced>
         </>
       );
     case "specialists":
@@ -276,9 +280,12 @@ export function SettingsSectionView({
             {...opt("tcc", s.tcc)}
             {...opt("onOpenSystemSettings", s.onOpenSystemSettings)}
           />
-          <InPageContext.Provider value={true}>
-            <VmSection {...opt("now", s.now)} />
-          </InPageContext.Provider>
+          {/* Folded away: most people never run tasks in a separate sandbox Mac. */}
+          <Advanced title={t("settings.nav.vm")}>
+            <InPageContext.Provider value={true}>
+              <VmSection {...opt("now", s.now)} />
+            </InPageContext.Provider>
+          </Advanced>
         </>
       );
     case "browser":
@@ -341,7 +348,20 @@ export function SettingsSectionView({
     case "search":
       return <SearchSection />;
     case "learning":
-      return <MemoryControlsSection />;
+      // The Memory page's one body: Basics, Sources, Work and Where memory shows, with the review
+      // rules folded under Advanced. Their old routes (`everything`, `work`, `surfaces`, `memory`)
+      // land here at the top.
+      return (
+        <>
+          <MemoryControlsSection />
+          <EverythingMemorySection />
+          <MemoryWorkSection />
+          <MemorySurfacesSection />
+          <Advanced title={t("simplify.b6.memory.reviewRules")}>
+            <MemoryReviewSection />
+          </Advanced>
+        </>
+      );
     case "about":
       return (
         <AboutSection

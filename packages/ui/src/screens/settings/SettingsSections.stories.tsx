@@ -948,14 +948,13 @@ export const MemoryControls: Story = {
   ),
 };
 
-/** Advanced → how memory is recalled, and encryption once the Gateway reports where memory lives. */
+/** Advanced → encryption once the Gateway reports where memory lives. */
 export const MemoryStore: Story = {
   render: () => (
     <div className="flex flex-col gap-5">
       <MemoryStoreGroups
         {...form}
         persona={PERSONA.name}
-        recall={{ mode: "embeddings", state: "semantic", vectors: 1204, chunks: 1260 }}
         store={{ encrypted: false, state: "off", reason: null, restartNeeded: false }}
         onEncryptMemory={noop}
       />

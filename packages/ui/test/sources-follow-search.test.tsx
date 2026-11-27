@@ -159,7 +159,7 @@ describe("memory follows Search", () => {
     const search = within(screen.getByTestId("search"));
     expect(await search.findByRole("switch", { name: "Mail" })).toBeTruthy();
     expect(
-      screen.getByText(/Turning a source on also lets memory learn from it, unless you opt out/),
+      screen.getByText(/Memory learns from them too, unless you opt out in Memory/),
     ).toBeTruthy();
   });
 

@@ -108,7 +108,6 @@ export function MemoryAdvancedSection(): ReactElement {
   const call = useCall();
   const persona = usePersona();
   const { navigate } = useSlots();
-  const status = useGatewayQuery("memory.status", {});
   const graphStatus = useGatewayQuery("memory.graph.status", {});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
@@ -154,7 +153,6 @@ export function MemoryAdvancedSection(): ReactElement {
           onChange={form.onChange}
           persona={persona.name}
           busy={busy}
-          {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
           // "Encrypt memory on disk" is not shown yet (EM9b): it waits for backups that carry the
           // encrypted file and its sealed key to be tried end to end. The groups can render it.
         />
