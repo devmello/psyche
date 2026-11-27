@@ -15,9 +15,9 @@ struct SharedPayload {
     /// "lease.pdf", "3 photos", "A link", "Some text".
     var summary: String {
         switch (files.count, text.isEmpty) {
-        case (0, false): URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))?.host() != nil ? "A link" : "Some text"
+        case (0, false): URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))?.host() != nil ? String(localized: "A link") : String(localized: "Some text")
         case (1, _): files[0].name
-        case (let n, _): "\(n) files"
+        case (let n, _): String(localized: "\(n) files")
         }
     }
 

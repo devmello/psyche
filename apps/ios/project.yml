@@ -169,6 +169,8 @@ targets:
       path: Generated/Share-Info.plist
       properties:
         CFBundleDisplayName: Psyche
+        # The Share sheet's own String Catalog (Extensions/Share/Localizable.xcstrings): the same ten languages as the app.
+        CFBundleLocalizations: [en, ar, de, es, fr, hi, it, ja, ko, pt, zh-Hans]
         PsycheAppGroup: $(PSYCHE_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services

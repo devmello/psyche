@@ -3,7 +3,7 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// The Plans view (docs/design/fork-a-plan-2026.md §5.2): a segmented control with one lane per branch and a Compare tab
+/// The Plans view (docs/design/fork-a-plan-2026.md §5.2): one lane per branch and a Compare tab, switched from the title menu
 /// with the rows stacked by dimension, one block per branch inside each row. Everything is plain text from the Gateway's
 /// scrubbed read; what it withheld shows as a count line ("1 more on your Mac"), never as a gap. Take opens the sheet.
 struct PlanForkView: View {
@@ -39,9 +39,20 @@ struct PlanForkView: View {
             }
         }
         .psycheScreen()
-        .navigationTitle(String(localized: "Compare plans", bundle: .module))
+        .navigationTitle(navigationTitle)
         .psycheInlineTitle()
         .psycheShowsNavigationBar()
+        // The plan switcher is the title menu (as in Chat), so each name shows in full rather than in a segment.
+        .toolbarTitleMenu {
+            if let detail = model.detail {
+                Picker(String(localized: "Plans", bundle: .module), selection: $tab) {
+                    Text("Compare", bundle: .module).tag(Tab.compare)
+                    ForEach(detail.branches) { branch in
+                        Text(verbatim: branch.label).tag(Tab.branch(branch.id))
+                    }
+                }
+            }
+        }
         .toolbar { toolbar }
         .task {
             await model.load()
@@ -56,6 +67,12 @@ struct PlanForkView: View {
                 PlanForkTakeSheet(detail: detail, branch: branch, store: store) { Task { await model.load() } }
             }
         }
+    }
+
+    /// The current lane's name, or "Compare plans" on the Compare tab (or when that lane is gone).
+    private var navigationTitle: String {
+        if case .branch(let id) = tab, let branch = model.detail?.branch(id) { return branch.label }
+        return String(localized: "Compare plans", bundle: .module)
     }
 
     #if DEBUG
@@ -75,17 +92,6 @@ struct PlanForkView: View {
 
     private func content(_ detail: PlanForkDetail) -> some View {
         List {
-            Section {
-                Picker(String(localized: "Plans", bundle: .module), selection: $tab) {
-                    Text("Compare", bundle: .module).tag(Tab.compare)
-                    ForEach(detail.branches) { branch in
-                        Text(verbatim: branch.label).tag(Tab.branch(branch.id))
-                    }
-                }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            }
             if let notice = model.notice {
                 Section { StatusDot(.failed, notice) }
             }

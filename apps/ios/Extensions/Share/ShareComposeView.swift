@@ -21,11 +21,11 @@ struct ShareComposeView: View {
                 VStack(alignment: .leading, spacing: PsycheMetrics.sectionSpacing) {
                     preview
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionHeader("Send to")
+                        SectionHeader(String(localized: "Send to"))
                         destinations
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionHeader("Note")
+                        SectionHeader(String(localized: "Note"))
                         TextField("Add a note (optional)", text: $note, axis: .vertical)
                             .lineLimit(1...5)
                             .focused($noteFocused)
@@ -41,7 +41,7 @@ struct ShareComposeView: View {
                     Button("Send", action: send)
                         .buttonStyle(.psycheInk)
                         .disabled(payload.isEmpty && note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    EvidenceLine(["Shared content is untrusted", "Psyche reads it with care"])
+                    EvidenceLine([String(localized: "Shared content is untrusted"), String(localized: "Psyche reads it with care")])
                 }
                 .padding(PsycheMetrics.pagePadding)
             }
@@ -71,7 +71,7 @@ struct ShareComposeView: View {
                 .background(PsycheColor.fill)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(payload.summary.isEmpty ? "Nothing to share" : payload.summary)
+                    Text(payload.summary.isEmpty ? String(localized: "Nothing to share") : payload.summary)
                         .font(.psycheRow.weight(.semibold)).foregroundStyle(PsycheColor.text).lineLimit(2)
                     if let detail = payload.detail {
                         Text(detail).font(.footnote).foregroundStyle(PsycheColor.muted).lineLimit(2)
@@ -86,7 +86,7 @@ struct ShareComposeView: View {
     private var destinations: some View {
         PaperCard {
             VStack(spacing: 0) {
-                destinationRow("New chat", systemImage: "square.and.pencil", choice: .newChat)
+                destinationRow(String(localized: "New chat"), systemImage: "square.and.pencil", choice: .newChat)
                 ForEach(recents) { thread in
                     HairlineDivider()
                     destinationRow(thread.title, systemImage: "bubble.left", choice: .thread(id: thread.id))
@@ -116,14 +116,14 @@ struct ShareComposeView: View {
 
     private func send() {
         guard let inbox = ShareInbox.shared else {
-            problem = "Psyche isn't set up to receive shares in this build."
+            problem = String(localized: "Psyche isn't set up to receive shares in this build.")
             return
         }
         do {
             try inbox.enqueue(ShareDraft(destination: destination, note: note, text: payload.text, files: payload.files))
             onDone()
         } catch {
-            problem = "Couldn't save that to send. Try again."
+            problem = String(localized: "Couldn't save that to send. Try again.")
         }
     }
 }

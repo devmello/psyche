@@ -133,12 +133,18 @@ final class InboxModel {
 
     /// The Gateway's `new Date(notBefore).toUTCString()`: "Mon, 02 Mar 2026 09:00:00 GMT".
     static func utcDate(_ text: String) -> Date? {
+        utcFormatter.date(from: text)
+    }
+
+    /// Built once, not per row: a rows-long inbox refresh used to create a DateFormatter for every row. The class is
+    /// main-actor isolated, so the shared formatter is only ever used on the main actor.
+    private static let utcFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone(identifier: "UTC")
         f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
-        return f.date(from: text)
-    }
+        return f
+    }()
 
     /// Notices that still have a waiting request. Old notices stay in the Inbox, so the button shows only for these.
     var cancellable: Set<String> = []
