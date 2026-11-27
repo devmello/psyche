@@ -71,6 +71,7 @@ import { simplifyB2 } from "./simplify-b2/zh.ts";
 import { simplifyB4 } from "./simplify-b4/zh.ts";
 import { simplifyB7 } from "./simplify-b7/zh.ts";
 import { simplifyB8 } from "./simplify-b8/zh.ts";
+import { simplifyB9 } from "./simplify-b9/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
 import { spaces } from "./spaces/zh.ts";
 import { specialists } from "./specialists/zh.ts";
@@ -3835,6 +3836,7 @@ export const zh: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB9,
   ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,

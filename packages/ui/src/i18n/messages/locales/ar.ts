@@ -71,6 +71,7 @@ import { simplifyB2 } from "./simplify-b2/ar.ts";
 import { simplifyB4 } from "./simplify-b4/ar.ts";
 import { simplifyB7 } from "./simplify-b7/ar.ts";
 import { simplifyB8 } from "./simplify-b8/ar.ts";
+import { simplifyB9 } from "./simplify-b9/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
@@ -3960,6 +3961,7 @@ export const ar: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB9,
   ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,

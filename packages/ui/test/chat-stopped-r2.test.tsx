@@ -154,7 +154,7 @@ describe("an expired approval", () => {
         <ApprovalCard approval={live} canAnswer now={NOW} armDelayMs={0} onAnswer={() => {}} />
       </UiSlotsProvider>,
     );
-    expect(screen.getByText(/5:00/)).toBeTruthy();
+    expect(screen.getByText(/Expires at/)).toBeTruthy();
     expect(screen.queryByTestId("approval-expired")).toBeNull();
     unmount();
 
@@ -171,7 +171,7 @@ describe("an expired approval", () => {
     );
     const line = screen.getByTestId("approval-expired");
     expect(line.textContent).toBe("Expired · nothing was done");
-    expect(screen.queryByText(/0:00/)).toBeNull();
+    expect(screen.queryByText(/Expires at/)).toBeNull();
     expect(screen.queryByRole("button", { name: /^(Allow|Deny)$/ })).toBeNull();
   });
 

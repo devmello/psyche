@@ -84,6 +84,7 @@ import {
   type LibrarySection,
   NO_FILTERS,
   offeredSections,
+  sectionLabel,
   sectionOf,
   workspacePath,
 } from "./library-items.ts";
@@ -601,6 +602,8 @@ export function LibraryView({
   const ids = { show: useId(), type: useId(), task: useId(), date: useId() };
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const [selected, setSelected] = useState<string | null>(null);
+  // The task filter sits under "More" until it is in use (S36).
+  const [moreFilters, setMoreFilters] = useState(false);
   // The tab pill follows the click at once; the route (which owns `section`) catches up after its
   // transition, and the pill resyncs whenever the route changes.
   const [tab, setTab] = useState(section);
@@ -702,7 +705,7 @@ export function LibraryView({
   } else if (layout === "grid") {
     body = (
       <ul
-        aria-label={spec?.label}
+        aria-label={spec ? sectionLabel(spec, persona) : undefined}
         className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-x-4 gap-y-6"
       >
         {shown.map((item) => (
@@ -723,7 +726,7 @@ export function LibraryView({
   } else {
     body = (
       <table
-        aria-label={spec?.label}
+        aria-label={spec ? sectionLabel(spec, persona) : undefined}
         className="w-full table-fixed border-separate border-spacing-0"
       >
         <colgroup>
@@ -824,7 +827,7 @@ export function LibraryView({
               {LIBRARY_SECTIONS.filter((x) => offeredSections(items, section).includes(x.id)).map(
                 (x) => (
                   <option key={x.id} value={x.id}>
-                    {x.label}
+                    {sectionLabel(x, persona)}
                   </option>
                 ),
               )}
@@ -847,23 +850,37 @@ export function LibraryView({
               ))}
             </NativeSelect>,
           )}
-          {labelled(
-            ids.task,
-            t("screens.library.sourceTask"),
-            <NativeSelect
-              id={ids.task}
+          {moreFilters || filters.taskId != null ? (
+            labelled(
+              ids.task,
+              t("simplify.b9.library.task"),
+              <NativeSelect
+                id={ids.task}
+                size="sm"
+                className="max-w-48"
+                value={filters.taskId ?? ""}
+                onChange={(e) =>
+                  setFilter({ taskId: e.target.value === "" ? null : e.target.value })
+                }
+              >
+                <option value="">{t("screens.library.anyTask")}</option>
+                {taskIds.map((tid) => (
+                  <option key={tid} value={tid}>
+                    {taskTitles[tid] ?? tid}
+                  </option>
+                ))}
+              </NativeSelect>,
+            )
+          ) : (
+            <Button
+              type="button"
               size="sm"
-              className="max-w-48"
-              value={filters.taskId ?? ""}
-              onChange={(e) => setFilter({ taskId: e.target.value === "" ? null : e.target.value })}
+              variant="plain"
+              className="self-start"
+              onClick={() => setMoreFilters(true)}
             >
-              <option value="">{t("screens.library.anyTask")}</option>
-              {taskIds.map((tid) => (
-                <option key={tid} value={tid}>
-                  {taskTitles[tid] ?? tid}
-                </option>
-              ))}
-            </NativeSelect>,
+              {t("simplify.b9.library.more")}
+            </Button>
           )}
           {labelled(
             ids.date,

@@ -65,6 +65,7 @@ import { simplifyB2 } from "./simplify-b2/de.ts";
 import { simplifyB4 } from "./simplify-b4/de.ts";
 import { simplifyB7 } from "./simplify-b7/de.ts";
 import { simplifyB8 } from "./simplify-b8/de.ts";
+import { simplifyB9 } from "./simplify-b9/de.ts";
 import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
 import { update } from "./update/de.ts";
@@ -4055,6 +4056,7 @@ export const de: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB9,
   ...simplifyB2,
   ...simplifyB7,
   ...simplifyB4,

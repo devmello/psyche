@@ -1,14 +1,5 @@
 import type { ThreadListEntry } from "@psyche/protocol";
-import {
-  Bot,
-  ChevronRight,
-  Clock,
-  Ellipsis,
-  EyeOff,
-  type LucideIcon,
-  Pin,
-  Plus,
-} from "lucide-react";
+import { ChevronRight, Clock, Ellipsis, EyeOff, type LucideIcon, Pin, Plus } from "lucide-react";
 import {
   createContext,
   type ReactElement,
@@ -21,7 +12,6 @@ import {
   useState,
 } from "react";
 import { resultLine } from "../chat/AutomationChat.tsx";
-import { compactWithToast, ThreadContextDialog } from "../chat/context/connected.tsx";
 import { RunningMark } from "../chat/RunningMark.tsx";
 import { currentStepLabels } from "../chat/run-progress.ts";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
@@ -35,7 +25,7 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { compactThread, useStore, useStoreState, useThreads } from "../data/index.ts";
+import { useStoreState, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -71,7 +61,6 @@ export function CurrentMark({ active }: { active: boolean }): ReactElement | nul
 const KIND_GLYPH: Partial<Record<ThreadListEntry["thread"]["kind"], LucideIcon>> = {
   incognito: EyeOff,
   automation: Clock,
-  subagent: Bot,
 };
 
 function kindLabel(kind: ThreadListEntry["thread"]["kind"]): string | null {
@@ -80,8 +69,6 @@ function kindLabel(kind: ThreadListEntry["thread"]["kind"]): string | null {
       return t("shell.threads.incognito");
     case "automation":
       return t("shell.sidebar.automation");
-    case "subagent":
-      return t("shell.sidebar.subagent");
     default:
       return null;
   }
@@ -138,10 +125,6 @@ export interface ThreadRowProps {
   onRestore?: () => void;
   onPin?: (pinned: boolean) => void;
   onExport?: (format: "markdown" | "json" | "html") => void;
-  /** Opens this chat's context limits. */
-  onContextLimits?: () => void;
-  /** Compacts this chat's earlier turns now. */
-  onCompact?: () => void;
   /** What the running run is doing, in plain words (the status mark's tooltip). */
   step?: string | null;
 }
@@ -161,8 +144,6 @@ export function ThreadRow({
   onRestore,
   onPin,
   onExport,
-  onContextLimits,
-  onCompact,
   step,
 }: ThreadRowProps): ReactElement {
   const th = entry.thread;
@@ -310,21 +291,6 @@ export function ThreadRow({
               </DropdownMenuItem>
             </>
           ) : null}
-          {onContextLimits || onCompact ? (
-            <>
-              <DropdownMenuSeparator />
-              {onContextLimits ? (
-                <DropdownMenuItem onClick={onContextLimits}>
-                  {t("context.limits.menu")}
-                </DropdownMenuItem>
-              ) : null}
-              {onCompact ? (
-                <DropdownMenuItem onClick={onCompact}>
-                  {t("context.meter.compactNow")}
-                </DropdownMenuItem>
-              ) : null}
-            </>
-          ) : null}
           {th.kind !== "main" && th.imported === undefined && (onArchive || onRestore) ? (
             <>
               <DropdownMenuSeparator />
@@ -380,11 +346,9 @@ export function ThreadGroup({
   const tick = useNow(60_000, fixedNow);
   const now = fixedNow ?? Math.max(tick, Date.now());
   const threads = useThreads();
-  const store = useStore();
   const runs = useStoreState((st) => st.runs);
   const toolCalls = useStoreState((st) => st.toolCalls);
   const stepLabels = useMemo(() => currentStepLabels(runs, toolCalls), [runs, toolCalls]);
-  const [limitsFor, setLimitsFor] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [filtering, setFiltering] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -428,6 +392,8 @@ export function ThreadGroup({
     `${threadTitle(e)} ${e.lastMessage?.text ?? ""}`
       .toLowerCase()
       .includes(filter.trim().toLowerCase());
+  // Subagent threads show inside the parent chat's run, never as sidebar rows (S20).
+  const visible = (e: ThreadListEntry) => e.thread.kind !== "subagent";
   const row = (e: ThreadListEntry) => (
     <ThreadRow
       key={e.thread.id}
@@ -440,18 +406,13 @@ export function ThreadGroup({
       onPin={(p) => void threads.pin(e.thread.id, p)}
       onArchive={() => void threads.archive(e.thread.id)}
       onRestore={() => void threads.restore(e.thread.id)}
-      {...(e.thread.archivedAt == null
-        ? {
-            onContextLimits: () => setLimitsFor(e.thread.id),
-            onCompact: () => void compactWithToast(() => compactThread(store, e.thread.id)),
-          }
-        : {})}
       {...(onExport
         ? { onExport: (f: "markdown" | "json" | "html") => onExport(e.thread.id, f) }
         : {})}
     />
   );
   const side = threads.active
+    .filter(visible)
     .filter(match)
     .sort((a, b) => Number(b.thread.pinned) - Number(a.thread.pinned));
   const headingId = useId();
@@ -462,7 +423,30 @@ export function ThreadGroup({
           {t("shell.threads.region")}
         </h2>
         {/* The magnifier is gone (it read as a second Search); ⌘F in the sidebar opens the filter. */}
-        {onNewSideChat ? (
+        {onNewSideChat && onNewIncognitoChat ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t("shell.threads.newSideChat")}
+                  className="text-label-secondary"
+                />
+              }
+            >
+              <Plus aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onNewSideChat}>
+                {t("shell.threads.newSideChat")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onNewIncognitoChat}>
+                {t("shell.threads.newIncognitoChat")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : onNewSideChat ? (
           <Button
             variant="ghost"
             size="icon-xs"
@@ -472,19 +456,6 @@ export function ThreadGroup({
             className="text-label-secondary"
           >
             <Plus aria-hidden="true" />
-          </Button>
-        ) : null}
-        {onNewIncognitoChat ? (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={onNewIncognitoChat}
-            aria-label={t("shell.threads.newIncognitoChat")}
-            aria-keyshortcuts="Meta+Shift+N"
-            title={t("shell.threads.newIncognitoChat")}
-            className="text-label-secondary"
-          >
-            <EyeOff aria-hidden="true" />
           </Button>
         ) : null}
       </div>
@@ -545,7 +516,7 @@ export function ThreadGroup({
               </button>
               {showArchived ? (
                 <ul aria-label={t("shell.threads.archived")} className="flex flex-col gap-0.5">
-                  {threads.archived.filter(match).map(row)}
+                  {threads.archived.filter(visible).filter(match).map(row)}
                 </ul>
               ) : null}
             </div>
@@ -564,15 +535,6 @@ export function ThreadGroup({
             {t("shell.threads.showMore")}
           </Button>
         </div>
-      ) : null}
-      {limitsFor !== null ? (
-        <ThreadContextDialog
-          threadId={limitsFor}
-          open
-          onOpenChange={(open) => {
-            if (!open) setLimitsFor(null);
-          }}
-        />
       ) : null}
     </section>
   );
