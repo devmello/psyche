@@ -91,7 +91,7 @@ struct ThreadThinkingTests {
         #expect(reloaded)
     }
 
-    @Test func aThreadEventDoesNotReloadAnArchiveThatIsNotShowing() async throws {
+    @Test func aChatArchivedElsewhereWhileTheArchiveIsEmptyShowsInTheArchiveAfterTheDebounce() async throws {
         let store = FixtureBackend()
         let model = ThreadListModel(store: store)
         model.reloadDelay = .milliseconds(30)
@@ -103,11 +103,8 @@ struct ThreadThinkingTests {
         try await Task.sleep(for: .milliseconds(80))
         try await store.archiveThread(id: side.id)
         await store.publish(.changed(.threads))
-        let moved = await LiveRefreshTests.eventually { model.phase.value?.contains { $0.id == side.id } == false }
-        #expect(moved)
-        // The list moved on; the hidden archive was left alone until it is opened or refreshed.
-        #expect(model.archived.isEmpty)
-        await model.load()
-        #expect(model.archived.contains { $0.id == side.id })
+        let inArchive = await LiveRefreshTests.eventually { model.archived.contains { $0.id == side.id } }
+        #expect(inArchive)
+        #expect(model.phase.value?.contains { $0.id == side.id } == false)
     }
 }

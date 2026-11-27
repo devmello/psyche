@@ -140,7 +140,13 @@ final class ThreadListModel {
             guard let self else { return }
             try? await Task.sleep(for: self.reloadDelay)
             guard !Task.isCancelled else { return }
+            let before = Set(self.phase.value?.map(\.id) ?? [])
             await self.reload(includeArchived: !self.archived.isEmpty)
+            // A chat that left the active list may have been archived elsewhere (on the Mac) while the archive was
+            // empty and its section hidden: read the archive then, or the chat would show in neither list.
+            if self.archived.isEmpty, let now = self.phase.value, !before.subtracting(now.map(\.id)).isEmpty {
+                await self.loadArchived()
+            }
         }
     }
 
