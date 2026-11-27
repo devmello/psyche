@@ -7,26 +7,21 @@ How `SKILL.md` files are discovered, checked, indexed into the prompt, read by t
 ## Public API
 
 ```ts
-import {
-  createSkillLoader,
-  createSkillTools,
-  createSkillsHandlers,
-  SqliteSkillStateStore,
-} from "@psyche/skills";
+import { createSkillLoader, createSkillTools, createSkillsHandlers, SqliteSkillStateStore } from "@psyche/skills";
 
 const skills = createSkillLoader({
   workspaceDir: `${home}/workspace/skills`,
-  homeDir: `${home}/skills`, // installed skills + skills.lock.json
-  bundledDir: `${appRoot}/skills`, // S20's bundled skills
+  homeDir: `${home}/skills`,            // installed skills + skills.lock.json
+  bundledDir: `${appRoot}/skills`,      // S20's bundled skills
   state: new SqliteSkillStateStore(db.sqlite),
-  broker, // PermissionBroker: verifies skill_install, records receipts
+  broker,                               // PermissionBroker: verifies skill_install, records receipts
   gate: () => ({ ...defaultGateContext(), tools: registry.list().map((t) => t.name) }),
   virusTotal: vtKey ? createVirusTotalClient({ apiKey: vtKey }) : undefined,
   onChange: (e) => bus.emit("skills.changed", e),
 });
-skills.watch(); // hot reload
+skills.watch();                               // hot reload
 for (const t of createSkillTools(skills)) registry.register(t); // skills_search, skills_read
-const handlers = createSkillsHandlers(skills, { broker }); // skills.* methods
+const handlers = createSkillsHandlers(skills, { broker });       // skills.* methods
 ```
 
 `FsSkillLoader` implements the `SkillLoader` contract (`list`, `load`, `search`, `proposeInstall`, `install`, `remove`) and adds `listDetailed()` (status, reasons, findings, overrides), `promptIndex({ budgetChars })`, `commands()`, `resolveReferences(text)`, `setEnabled(name, enabled, source?)`, `proposeUpdate(name, ref?)`, `proposeWorkspaceApproval(name)`, `getProposal(id)`, `refresh()`, `watch(debounceMs, rescanMs)` / `close()`.
@@ -37,19 +32,19 @@ Building blocks are exported too: `parseSkill`, `evaluateGates`, `buildPromptInd
 
 A folder `<name>/` with `SKILL.md`: YAML frontmatter, then Markdown. Other files (references, scripts) may sit beside it; only `SKILL.md` is ever given to the model, and never `acceptance.md`.
 
-| Field                                                  | Default  | Meaning                                                                                                 |
-| ------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------- |
-| `name`                                                 | required | 1–64 chars, lowercase letters, digits, single hyphens; must equal the folder name; becomes `/name`      |
-| `description`                                          | required | ≤ 1 024 chars; what goes into the prompt index (clipped to 280 there)                                   |
-| `user-invocable`                                       | `true`   | listed as a composer slash command                                                                      |
-| `disable-model-invocation`                             | `false`  | only the owner can start it: not in the index, refused by `skills_read`                                 |
-| `requires.bins` / `requires.anyBins`                   | —        | binaries on `PATH` (all / at least one)                                                                 |
-| `requires.env`                                         | —        | environment variables that must be set and non-empty                                                    |
-| `requires.os` (or top-level `os`)                      | any      | `darwin`, `linux`                                                                                       |
-| `requires.tools` / `requires.anyTools`                 | —        | registered and enabled tools (all / at least one); `email.*` matches a family (S20's proposal, adopted) |
-| `metadata.openclaw.requires.*`, `metadata.openclaw.os` | —        | OpenClaw spellings, merged with the above                                                               |
-| `version`, `license`, `homepage`, `allowed-tools`      | —        | informational (`allowed-tools` never widens policy)                                                     |
-| `metadata.psyche.*`                                    | —        | informational (S20: priority, features, approvals)                                                      |
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | 1–64 chars, lowercase letters, digits, single hyphens; must equal the folder name; becomes `/name` |
+| `description` | required | ≤ 1 024 chars; what goes into the prompt index (clipped to 280 there) |
+| `user-invocable` | `true` | listed as a composer slash command |
+| `disable-model-invocation` | `false` | only the owner can start it: not in the index, refused by `skills_read` |
+| `requires.bins` / `requires.anyBins` | — | binaries on `PATH` (all / at least one) |
+| `requires.env` | — | environment variables that must be set and non-empty |
+| `requires.os` (or top-level `os`) | any | `darwin`, `linux` |
+| `requires.tools` / `requires.anyTools` | — | registered and enabled tools (all / at least one); `email.*` matches a family (S20's proposal, adopted) |
+| `metadata.openclaw.requires.*`, `metadata.openclaw.os` | — | OpenClaw spellings, merged with the above |
+| `version`, `license`, `homepage`, `allowed-tools` | — | informational (`allowed-tools` never widens policy) |
+| `metadata.psyche.*` | — | informational (S20: priority, features, approvals) |
 
 YAML is parsed with the core schema, unique keys and at most 20 aliases; frontmatter is capped at 16 KiB. A skill whose gates fail is `ineligible`: listed in Settings with the reason, absent from the prompt, the commands and `skills_read`.
 
@@ -57,17 +52,17 @@ YAML is parsed with the core schema, unique keys and at most 20 aliases; frontma
 
 Sources in order: workspace `skills/` → `$PSYCHE_HOME/skills/` → bundled. The first **approved, valid** skill of a name wins; the others are `shadowed` and the winner lists what it `overrides` (Settings: "overrides bundled"). Drafts and broken skills neither win nor shadow, so an unapproved workspace file cannot hide a bundled skill.
 
-| Status          | Meaning                                                                                   | In prompt             |
-| --------------- | ----------------------------------------------------------------------------------------- | --------------------- |
-| `active`        | valid, approved, eligible, enabled, no high finding                                       | yes                   |
-| `disabled`      | the owner switched it off (`skills` table)                                                | no                    |
-| `ineligible`    | `requires.*` fails here                                                                   | no                    |
-| `blocked`       | a `high` scan finding                                                                     | no; cannot be enabled |
-| `draft`         | workspace skill without an owner approval                                                 | no                    |
-| `unlocked`      | folder in `$PSYCHE_HOME/skills/` not installed through Psyche                             | no                    |
-| `hash_mismatch` | files changed since approval; `onChange({type: "hash_mismatch"})` fires once per new hash | no                    |
-| `invalid`       | unreadable, symlinked, oversized or bad frontmatter                                       | no                    |
-| `shadowed`      | a higher-precedence skill has the name                                                    | no                    |
+| Status | Meaning | In prompt |
+| --- | --- | --- |
+| `active` | valid, approved, eligible, enabled, no high finding | yes |
+| `disabled` | the owner switched it off (`skills` table) | no |
+| `ineligible` | `requires.*` fails here | no |
+| `blocked` | a `high` scan finding | no; cannot be enabled |
+| `draft` | workspace skill without an owner approval | no |
+| `unlocked` | folder in `$PSYCHE_HOME/skills/` not installed through Psyche | no |
+| `hash_mismatch` | files changed since approval; `onChange({type: "hash_mismatch"})` fires once per new hash | no |
+| `invalid` | unreadable, symlinked, oversized or bad frontmatter | no |
+| `shadowed` | a higher-precedence skill has the name | no |
 
 `list()` returns every discovered skill with `enabled` = "active" (agent-core's context assembly filters on it). Without `watch()`, every read rescans (skill folders are a few KB); with it, `fs.watch` events reload after a debounce and emit `reloaded {added, removed, changed}`, a failed reload is retried, an erroring watcher is re-created, and a full re-hash runs every `rescanMs` (30 s) so a missed event cannot keep changed files active for long. Installs pause watcher reloads until the files and the lock agree.
 
