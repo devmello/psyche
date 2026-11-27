@@ -13,7 +13,6 @@ import {
   PsycheError,
   registrableDomain,
 } from "@psyche/protocol";
-import type { BrowserHostState, BrowserNav, BrowserTabView, Rect } from "../../shell/platform.ts";
 import {
   BaseWindow,
   type DownloadItem,
@@ -25,6 +24,7 @@ import {
   type WebPreferences,
 } from "electron";
 import { hostPlatform } from "../../platform/index.ts";
+import type { BrowserHostState, BrowserNav, BrowserTabView, Rect } from "../../shell/platform.ts";
 import {
   type BridgeHighlight,
   type BridgeHostEvents,

@@ -9,8 +9,8 @@ import {
   type PairingLinkPayload,
   SETUP_TOKEN_TTL_MS,
 } from "@psyche/protocol";
-import { Handshake } from "../src/client/index.ts";
 import { afterEach, describe, expect, it } from "vitest";
+import { Handshake } from "../src/client/index.ts";
 import { createGatewayVerifier, fingerprintOf } from "../src/lib/gateway-identity.ts";
 import {
   addGatewayFromLink,

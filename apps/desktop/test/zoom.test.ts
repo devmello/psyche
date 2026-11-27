@@ -1,5 +1,5 @@
-import { clampZoom, ZOOM_KEY, zoomStep } from "../src/compose/index.ts";
 import { describe, expect, it } from "vitest";
+import { clampZoom, ZOOM_KEY, zoomStep } from "../src/compose/index.ts";
 import { ZoomController, type ZoomTarget } from "../src/lib/zoom.ts";
 
 function target(): ZoomTarget & { factors: number[]; destroyed: boolean } {

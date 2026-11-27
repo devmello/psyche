@@ -9,8 +9,8 @@ import {
   type Page,
   test,
 } from "@playwright/test";
-import { MockGateway as KitGateway } from "@psyche/ui/testing";
 import { MockGateway } from "@psyche/testing/mock-gateway";
+import { MockGateway as KitGateway } from "@psyche/ui/testing";
 import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
 import { mainWindowPage, stopTestHelpers } from "./helpers.ts";
 

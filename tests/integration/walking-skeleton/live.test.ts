@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
-import { writeOnboarding } from "../../../apps/desktop/src/compose/onboarding.ts";
 import { afterAll, describe, expect, it } from "vitest";
+import { writeOnboarding } from "../../../apps/desktop/src/compose/onboarding.ts";
 import { type Skeleton, startSkeleton } from "./harness.ts";
 
 /**

@@ -48,7 +48,7 @@ Tray                      status, usage placeholder, needs-you, Gateway row, Qui
 | `src/main.ts`                               | Wiring, IPC handlers (sender frame and payload checked on every call), app:// protocol, permissions, deep links                                                |
 | `src/preload.ts` / `src/renderer/bridge.ts` | `window.psyche` typed bridge → `ShellPlatform`. Invoke results are `{ok, value} \| {ok:false, error}` so error codes survive IPC                               |
 | `psyche:dialog:pick-folder`                 | Native folder chooser for Settings → File access; main returns the folder's real path (the broker matches real paths) or null                                  |
-| `src/gateway-client.ts`                     | `GatewayConnection` from `src/client` with the device key, handshake secret and loopback origin                                                        |
+| `src/gateway-client.ts`                     | `GatewayConnection` from `src/client` with the device key, handshake secret and loopback origin                                                                |
 | `src/main/supervisor*.ts`                   | Gateway lifecycle: dev child, LaunchAgent `com.psyche.gateway` (macOS), scheduled task `\Psyche\Gateway-<SID>` (Windows, `supervisor-windows.ts`), or external |
 | `src/main/browser/*`                        | `BrowserHost` (tabs, partitions, popups, downloads, PDF interception, highlight, pop-out), `CdpPolicy`, `TakeControl`, partitions, quarantine                  |
 | `src/main/bridge/*`                         | `BridgeClient`: the CDP bridge to the Gateway                                                                                                                  |

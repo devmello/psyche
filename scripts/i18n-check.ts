@@ -244,7 +244,9 @@ function scan(path: string): Finding[] {
   return findings;
 }
 
-const files = SCAN.flatMap((d) => (/\.tsx?$/.test(d) ? [join(ROOT, d)] : walkFiles(join(ROOT, d)))).sort();
+const files = SCAN.flatMap((d) =>
+  /\.tsx?$/.test(d) ? [join(ROOT, d)] : walkFiles(join(ROOT, d)),
+).sort();
 const all = files.flatMap(scan);
 const hardCoded = new Map<string, Finding[]>();
 const missing: Finding[] = [];

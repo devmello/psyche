@@ -9,12 +9,12 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gatewaySigningPayload, lanCertSigningPayload } from "@psyche/protocol";
-import { GatewayConnection, type GatewayStatus } from "../src/client/index.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketServer } from "ws";
 // Test-only: the Gateway's own certificate maker, so this talks to a certificate shaped exactly
 // like the one a real Host serves (ECDSA P-256, SAN for the host name and its address).
 import { ensureLanCert, spkiPin } from "../../gateway/src/lan/cert.ts";
+import { GatewayConnection, type GatewayStatus } from "../src/client/index.ts";
 import { createGatewayVerifier } from "../src/lib/gateway-identity.ts";
 import { createPinnedFetch, createPinnedWebSocket, PinnedChannel } from "../src/lib/lan-tls.ts";
 

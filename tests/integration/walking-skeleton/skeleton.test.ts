@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { writeOnboarding } from "../../../apps/desktop/src/compose/onboarding.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { writeOnboarding } from "../../../apps/desktop/src/compose/onboarding.ts";
 import { type Client, type Skeleton, startSkeleton } from "./harness.ts";
 import {
   calls,

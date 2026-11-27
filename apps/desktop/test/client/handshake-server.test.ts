@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Handshake } from "../src/client/handshake.ts";
+import { Handshake } from "../../src/client/handshake.ts";
 
 /** The challenge's `server` reaches the verifier (updates design §2.10); junk is dropped. */
 

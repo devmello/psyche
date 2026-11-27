@@ -18,10 +18,9 @@ const walk = (dir: string): string[] =>
   });
 
 /** Every stylesheet that ships in a Psyche window, except the generated token file. */
-const cssFiles = [
-  ...walk(join(PKG, "src")),
-  ...walk(join(REPO, "apps/desktop/src")),
-].filter((f) => f.endsWith(".css") && !f.endsWith(`styles${sep}motion.css`));
+const cssFiles = [...walk(join(PKG, "src")), ...walk(join(REPO, "apps/desktop/src"))].filter(
+  (f) => f.endsWith(".css") && !f.endsWith(`styles${sep}motion.css`),
+);
 
 const FORBIDDEN = /\b(width|height|top|left|box-shadow|backdrop-filter|border-radius)\b/;
 

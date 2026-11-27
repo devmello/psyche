@@ -1,4 +1,3 @@
-import type { GatewayStatus } from "../client/index.ts";
 import {
   Menu,
   type MenuItemConstructorOptions,
@@ -6,6 +5,7 @@ import {
   nativeImage,
   Tray,
 } from "electron";
+import type { GatewayStatus } from "../client/index.ts";
 import { hostPlatform, isLinux, type Platform, traitsFor } from "../platform/index.ts";
 import type { GatewayRunState } from "./supervisor-base.ts";
 import { TRAY_ICON_SIZES, toBgraPremultiplied, trayIconRgba } from "./tray-icon.ts";

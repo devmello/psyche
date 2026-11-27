@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "@psyche/gateway/compose";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
-import { GatewayConnection, type GatewayEvent, type GatewayStatus } from "../../../apps/desktop/src/client/index.ts";
+import {
+  GatewayConnection,
+  type GatewayEvent,
+  type GatewayStatus,
+} from "../../../apps/desktop/src/client/index.ts";
 
 /**
  * The walking skeleton's test rig: a composed `psyched` (real packages) in a temporary

@@ -1,7 +1,7 @@
 import { createPublicKey, generateKeyPairSync, sign, verify } from "node:crypto";
 import { connectSigningPayload, gatewaySigningPayload } from "@psyche/protocol";
-import { Handshake } from "../src/client/index.ts";
 import { describe, expect, it } from "vitest";
+import { Handshake } from "../src/client/index.ts";
 import { createGatewayVerifier } from "../src/lib/gateway-identity.ts";
 
 const NONCE = Buffer.alloc(32, 9).toString("base64url");

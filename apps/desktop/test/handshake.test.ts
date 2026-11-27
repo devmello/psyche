@@ -2,8 +2,8 @@ import { createPublicKey, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type ConnectParams, connectSigningPayload, Handshake } from "../src/client/index.ts";
 import { afterAll, describe, expect, it } from "vitest";
+import { type ConnectParams, connectSigningPayload, Handshake } from "../src/client/index.ts";
 import {
   deviceIdFromPublicKey,
   loadOrCreateDeviceKey,
