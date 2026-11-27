@@ -203,6 +203,9 @@ const ABOUT_MACOS = new Set<string>([
   "settings.browser.import.unsupportedPlatform",
   // "Available on macOS" itself.
   "platform.macOnly",
+  // The Mac uninstall sheet (Keychain items): Windows and Linux never show it.
+  "desktop.dialog.uninstallKeychain",
+  "desktop.dialog.uninstallKeychainKept",
   "platform.macOnlyHint",
 ]);
 
@@ -212,13 +215,25 @@ const ABOUT_MACOS = new Set<string>([
  */
 const PENDING_ELSEWHERE = new Set<string>([]);
 
+/**
+ * The text one platform shows. A message can carry an ICU `os` select (the host nouns: "this Mac",
+ * "this PC", "this computer"): each platform sees only its own branch, so the check reads that.
+ */
+const shownOn = (msg: string, os: "windows" | "linux"): string =>
+  msg.replace(
+    /\{os, select, macos \{[^{}]*\} windows \{([^{}]*)\} other \{([^{}]*)\}\}/g,
+    (_, windowsText: string, otherText: string) => (os === "windows" ? windowsText : otherText),
+  );
+
 const MAC_ONLY_TERMS =
   /\bMac(?:s|'s)?\b|macOS|Touch ID|[Kk]eychain|Finder|Safari|⌘|⌥|\bOption\b|\bDock\b|menu bar|System Settings|\bApple\b/;
 
 describe("Windows variants cover every Mac-specific message", () => {
   it("has a Windows variant for each message that names a Mac, unless it is about macOS", () => {
     const missing = (Object.entries(en) as [MessageId, string][])
-      .filter(([id, msg]) => MAC_ONLY_TERMS.test(msg) && windows[id] === undefined)
+      .filter(
+        ([id, msg]) => MAC_ONLY_TERMS.test(shownOn(msg, "windows")) && windows[id] === undefined,
+      )
       .map(([id]) => id)
       .filter((id) => !ABOUT_MACOS.has(id) && !PENDING_ELSEWHERE.has(id));
     expect(missing).toEqual([]);
