@@ -87,7 +87,7 @@ function manualClient() {
   return { store, emit, pending };
 }
 
-const post = (feedback: string | null) => ({
+const post = (feedback: "like" | "save" | null) => ({
   id: "p1",
   title: "t",
   bodyMd: "",
@@ -129,9 +129,9 @@ describe("the version guard (touched) stays correct while it is pruned", () => {
     expect(store.getState().touched).toEqual({});
     const version = store.version();
     expect(version).toBe(10);
-    emit("feed.post", { post: post("dislike") }, 12);
+    emit("feed.post", { post: post("save") }, 12);
     store.update((s) => putMany(s, "feed", [post("like")], version));
-    expect(store.getState().feed.p1?.feedback).toBe("dislike");
+    expect(store.getState().feed.p1?.feedback).toBe("save");
   });
 
   it("a request pending across several prunes keeps every entry newer than its start", async () => {
