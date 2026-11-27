@@ -1,4 +1,4 @@
-import type { Handler } from "@psyche/web/testing";
+import type { Handler } from "@psyche/testing/mock-gateway";
 
 /** Gateway answers shaped like the protocol results the CLI reads. */
 

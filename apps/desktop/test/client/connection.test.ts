@@ -1,9 +1,9 @@
 import { createPrivateKey, generateKeyPairSync, sign } from "node:crypto";
 import { PsycheError } from "@psyche/protocol";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { afterEach, describe, expect, it } from "vitest";
 import { GatewayConnection, type GatewayEvent } from "../../src/client/connection.ts";
 import type { GatewayStatus } from "../../src/client/status.ts";
-import { MockGateway } from "../../testing/mock-gateway.ts";
 
 function nodeKey() {
   const { privateKey } = generateKeyPairSync("ed25519");

@@ -78,7 +78,7 @@ The first connection prints a pairing code. Approve it on the Gateway host with 
 
 `src/cli.ts` (argument routing, help, JSON/human output, exit codes), `src/client.ts` (handshake and calls), `src/identity.ts`, `src/context.ts`, `src/commands/*` (one file per family), `src/snapshot.ts` (what doctor and audit look at), `src/doctor.ts` and `src/audit.ts` (pure rules), `src/backup.ts`, `src/supervisor.ts` (plist, unit, launchctl, systemctl), `src/config-file.ts`.
 
-Tests: `test/commands.test.ts` and `test/pairing.test.ts` (every command, human and `--json`, against `MockGateway` from `@psyche/web/testing`), `test/gateway-integration.test.ts` (the real `apps/gateway` in process: pairing through `psyched devices approve`, settings, doctor, audit), `test/rules.test.ts` (each doctor check and audit rule), `test/backup.test.ts` (round trips, wrong key, tampering), `test/supervisor.test.ts`, `test/deploy.test.ts` (the files in `deploy/` match the renderers; `plutil`, `systemd-analyze`, `docker compose config` when available).
+Tests: `test/commands.test.ts` and `test/pairing.test.ts` (every command, human and `--json`, against `MockGateway` from `@psyche/testing/mock-gateway`), `test/gateway-integration.test.ts` (the real `apps/gateway` in process: pairing through `psyched devices approve`, settings, doctor, audit), `test/rules.test.ts` (each doctor check and audit rule), `test/backup.test.ts` (round trips, wrong key, tampering), `test/supervisor.test.ts`, `test/deploy.test.ts` (the files in `deploy/` match the renderers; `plutil`, `systemd-analyze`, `docker compose config` when available).
 
 ## Stubbed or waiting on others
 

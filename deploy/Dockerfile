@@ -36,7 +36,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm fetch --prod
 COPY . .
 RUN pnpm install --offline --frozen-lockfile --prod --filter "@psyche/gateway..." --filter "@psyche/cli..." \
- && rm -rf apps/desktop apps/mac-helper apps/web/src docs tests apps/site \
+ && rm -rf apps/desktop apps/mac-helper docs tests apps/site \
       .changeset .github /root/.cache /root/.local/share/pnpm
 
 FROM ${NODE_IMAGE} AS runtime

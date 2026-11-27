@@ -8,7 +8,7 @@ import { PANEL_ROUTES } from "./src/lib/app-path.ts";
 const projectDir = fileURLToPath(new URL(".", import.meta.url));
 
 /**
- * The workspace version for Settings → About, as apps/web bakes it (#610). The desktop prefers
+ * The workspace version for Settings → About, as the web build once baked it (#610). The desktop prefers
  * the bridge's `app.getVersion()`; this is the fallback when main does not answer.
  */
 const APP_VERSION = (

@@ -3,7 +3,6 @@
 "@psyche/browser": minor
 "@psyche/skills": minor
 "@psyche/desktop": minor
-"@psyche/web": minor
 "@psyche/ui": minor
 ---
 

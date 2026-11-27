@@ -18,11 +18,9 @@ const walk = (dir: string): string[] =>
   });
 
 /** Every stylesheet that ships in a Psyche window, except the generated token file. */
-const cssFiles = [
-  ...walk(join(PKG, "src")),
-  ...walk(join(REPO, "apps/web/src")),
-  ...walk(join(REPO, "apps/desktop/src")),
-].filter((f) => f.endsWith(".css") && !f.endsWith(`styles${sep}motion.css`));
+const cssFiles = [...walk(join(PKG, "src")), ...walk(join(REPO, "apps/desktop/src"))].filter(
+  (f) => f.endsWith(".css") && !f.endsWith(`styles${sep}motion.css`),
+);
 
 const FORBIDDEN = /\b(width|height|top|left|box-shadow|backdrop-filter|border-radius)\b/;
 
@@ -75,7 +73,12 @@ describe("CSS holds to the tokens (docs/design/motion.md §1.7, §8)", () => {
 });
 
 describe("components hold to the tokens", () => {
-  const sources = [...walk(join(PKG, "src")), ...walk(join(REPO, "apps/web/src"))].filter(
+  const sources = [
+    ...walk(join(PKG, "src")),
+    ...walk(join(REPO, "apps/desktop/src/shell")),
+    ...walk(join(REPO, "apps/desktop/src/compose")),
+    ...walk(join(REPO, "apps/desktop/src/client")),
+  ].filter(
     (f) => /\.tsx?$/.test(f) && !/\.stories\.tsx$/.test(f) && !/[\\/](motion|styles)[\\/]/.test(f),
   );
 

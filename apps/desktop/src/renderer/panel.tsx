@@ -1,11 +1,11 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import {
   SCREEN_ASK_REGION_ROUTE,
   ScreenAsk,
   type ScreenAskBridge,
   ScreenAskRegion,
-} from "@psyche/web/compose/screen-ask";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+} from "../compose/ScreenAsk.tsx";
 import { desktopPlatform } from "./bridge.ts";
 import { DictationHud } from "./dictation-hud.tsx";
 import "../compose/app.css";

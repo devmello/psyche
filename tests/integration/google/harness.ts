@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "@psyche/gateway/compose";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
-import { GatewayConnection } from "@psyche/web/client";
+import { GatewayConnection } from "../../../apps/desktop/src/client/index.ts";
 import { Client } from "../walking-skeleton/harness.ts";
 
 /**

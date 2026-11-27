@@ -1,4 +1,4 @@
-import { MockGateway } from "@psyche/web/testing";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { HANDLERS } from "./fixtures.ts";

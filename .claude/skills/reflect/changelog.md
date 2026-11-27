@@ -38,7 +38,7 @@ Last pass: the 2026-11-24 entry below. Evidence: PR bodies' Learnings, the orche
 ## 2026-11-24: reflect pass over #1574-#1596
 Last pass: #1557. Evidence: the orchestrator's first-hand lessons for the wave (#1580 R1, #1581, #1586, #1588) and the security reviews of the install PRs.
 - **`psyche-apple`:** SwiftUI traps (`.task` on an empty `Group`, `@ViewBuilder` siblings in a `ZStack`, `LabeledContent` over placeholder labels) and simulator deep-link behaviour (checked against `Router.swift`).
-- **`psyche-builder`:** approval-triggered actions run on the Gateway and report failure; look in `packages/ui` before `apps/web/src/shell`; `--related` is the merge gate, builders run plain `verify.sh` (builders hit the turn cap).
+- **`psyche-builder`:** approval-triggered actions run on the Gateway and report failure; look in `packages/ui` before `apps/desktop/src/shell`; `--related` is the merge gate, builders run plain `verify.sh` (builders hit the turn cap).
 - **`psyche-permissions` §3g:** same server-side point for installs (#1581 reviews).
 - **`orchestrate`:** reviewers wait for other `verify.sh` runs (3-4 `--related` at once).
 - Pruned nothing: no stale advice found in the touched areas. `.claude/CLAUDE.md` untouched.

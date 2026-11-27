@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MockGateway } from "@psyche/web/testing";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderLaunchAgentPlist as desktopPlist } from "../../desktop/src/main/supervisor.ts";
 import { run } from "../src/cli.ts";

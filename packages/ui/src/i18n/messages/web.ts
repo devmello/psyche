@@ -1,4 +1,4 @@
-/** The web and desktop shell: panes, browser, terminal, overlays, compose (`apps/web/src`). */
+/** The web and desktop shell: panes, browser, terminal, overlays, compose (`apps/desktop/src/shell`, `compose`). */
 export const web = {
   "web.zoom.title": "Zoom",
   "web.zoom.description":

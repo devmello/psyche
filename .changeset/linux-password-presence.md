@@ -2,7 +2,6 @@
 "@psyche/gateway": minor
 "@psyche/permissions": patch
 "@psyche/ui": minor
-"@psyche/web": minor
 "@psyche/desktop": minor
 ---
 

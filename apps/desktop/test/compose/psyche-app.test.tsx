@@ -211,14 +211,16 @@ describe("the agent sheet beside the content (#625)", () => {
 });
 
 describe("the agent sheet over the current section (#614)", () => {
-  it("the old /feed shows Home, and the brief's Schedule opens Scheduled", async () => {
+  it("the old /feed shows Home, and the Today menu's Schedule opens Scheduled", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const home = await screen.findByTestId("screen-home");
     const today = await within(home).findByTestId("section-today");
-    fireEvent.click(within(today).getByRole("button", { name: "Schedule" }));
+    // Schedule lives in Today's options menu since 6ea1b574c (Home wave A).
+    fireEvent.click(within(today).getByRole("button", { name: "Today options" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Schedule" }));
     await screen.findByTestId("screen-scheduled");
     await waitFor(() => expect(window.location.pathname).toBe("/scheduled"));
     expect(screen.queryByTestId("agent-sheet")).toBeNull();
@@ -363,22 +365,34 @@ describe("the composed app on the web host (A8)", () => {
     await waitFor(() => expect(shell.getAttribute("data-compact")).toBe("false"));
   });
 
-  it("shows usage under the persona in the sidebar footer (#599)", async () => {
+  // Quiet usage (d05d6f0e4, desktop simplicity wave): the line shows only when a budget is near or over.
+  async function footerWith(summary: ReturnType<typeof usageSummary>, asked: unknown[] = []) {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
     const { platform } = webPlatform();
     const call = platform.gateway.call;
-    const asked: unknown[] = [];
     platform.gateway.call = async (method, params, options) => {
       if (method !== "usage.summary") return call(method, params, options);
       asked.push(params);
-      return usageSummary();
+      return summary;
     };
     render(<PsycheApp platform={platform} />);
-    const footer = await screen.findByTestId("usage-footer");
-    expect(footer.textContent).toContain("$0.42 today · 18k tokens");
+    return screen.findByTestId("usage-footer");
+  }
+
+  it("shows the persona alone in the sidebar footer while spend is far from the budget (#599)", async () => {
+    const asked: unknown[] = [];
+    const footer = await footerWith(usageSummary(), asked);
+    expect(footer.textContent).not.toContain("$0.42");
     expect(screen.getByTestId("sidebar-footer").textContent).toContain("Flash");
     expect(asked[0]).toMatchObject({ days: 7 });
+  });
+
+  it("shows the usage line under the persona once the month nears the budget (#599)", async () => {
+    // $12.60 of $14 this month: past the 80 % warning line.
+    const footer = await footerWith({ ...usageSummary(), budgetUsd: 14 });
+    expect(footer.textContent).toContain("$0.42 today · 18k tokens");
+    expect(screen.getByTestId("sidebar-footer").textContent).toContain("Flash");
   });
 
   it("shows no usage line when the Gateway can't answer usage.summary", async () => {

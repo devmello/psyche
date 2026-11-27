@@ -16,7 +16,7 @@ Language and region are separate: English text with a German region writes dates
 
 ## Where the text lives
 
-All user-facing text in `packages/ui` (the UI kit and its screens) and `apps/web` (the shell) lives in one message catalogue, `packages/ui/src/i18n/messages/`.
+All user-facing text in `packages/ui` (the UI kit and its screens) and the shared shell in `apps/desktop/src` lives in one message catalogue, `packages/ui/src/i18n/messages/`.
 
 - **One file per screen group.** For example, `context.ts` holds the chat's context meter and compaction markers, and `errors.ts` holds the Gateway errors. `index.ts` combines them into `en`.
 - **Ids are stable and dotted:** `<group>.<area>.<name>`, such as `context.meter.compactNow` or `settings.language.region`. Reword a string freely. If a string comes to mean something different, give it a new id, so a translation can never say something the English no longer says.
@@ -53,7 +53,7 @@ pnpm i18n:check
 
 `scripts/i18n-check.ts` runs in CI after lint. It fails when:
 
-- **Text is hard-coded** in `.ts` and `.tsx` files under `packages/ui/src` and `apps/web/src`:
+- **Text is hard-coded** in `.ts` and `.tsx` files under `packages/ui/src` and the shared shell in `apps/desktop/src/{shell,compose,client}`:
   - letters in JSX text;
   - user-facing attributes (`aria-label`, `title`, `placeholder`, `alt`, `label`, `description`, `did` and similar);
   - string expressions rendered as children (`{busy ? "Saving…" : "Save"}`);

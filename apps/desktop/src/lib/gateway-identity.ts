@@ -2,7 +2,7 @@ import { createHash, createPublicKey, verify } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gatewaySigningPayload, lanCertSigningPayload } from "@psyche/protocol";
-import type { GatewayVerifier } from "@psyche/web/client";
+import type { GatewayVerifier } from "../client/index.ts";
 
 /**
  * The client half of the Gateway identity pin (remote-gateway design §3.3). A saved remote

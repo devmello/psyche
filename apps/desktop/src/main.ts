@@ -10,8 +10,6 @@ import {
   type Notification as PsycheNotification,
 } from "@psyche/protocol";
 import { hostWords } from "@psyche/protocol/host-words";
-import type { GatewayConnection } from "@psyche/web/client";
-import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
   BaseWindow,
@@ -35,6 +33,7 @@ import {
   type WebContents,
   webContents,
 } from "electron";
+import type { GatewayConnection } from "./client/index.ts";
 import { createDesktopGateway, defaultPsycheHome, isLocalGatewayOrigin } from "./gateway-client.ts";
 import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
@@ -256,6 +255,7 @@ import {
   runUninstallLinux,
   UNINSTALL_MANUAL_STEPS_LINUX,
 } from "./platform/uninstall-linux.ts";
+import type { ShellCommand } from "./shell/platform.ts";
 
 /**
  * Psyche desktop main process (S11; architecture §5). It holds the Gateway connection, the

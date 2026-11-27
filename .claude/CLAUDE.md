@@ -5,7 +5,6 @@ Psyche is a local-first macOS personal agent:
 - `apps/gateway`: the Node Gateway, "psyched"
 - `apps/mac-helper`: the Swift helper
 - `apps/ios`: the SwiftUI iOS app
-- `apps/web`: the web shell
 - `packages/*`: shared code
 
 The repo's top-level `skills/` folder holds Psyche's own product skills, not Claude Code skills. Claude Code skills live in `.claude/skills/`.

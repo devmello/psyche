@@ -9,7 +9,13 @@ import { describe, expect, it } from "vitest";
  */
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
-const DIRS = ["packages/ui/src", "apps/web/src"];
+const DIRS = [
+  "packages/ui/src",
+  "apps/desktop/src/shell",
+  "apps/desktop/src/compose",
+  "apps/desktop/src/client",
+  "apps/desktop/src/lib",
+];
 
 /** Reading the message to decide something (a regex test, a truthiness check) is not showing it. */
 const ALLOWED_LINE = [

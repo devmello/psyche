@@ -6,7 +6,7 @@ Psyche is one repository for every platform: the TypeScript Gateway, web app, de
 
 | Platform | Folder | Toolchain | Status |
 | --- | --- | --- | --- |
-| Gateway, web, desktop, CLI, node, docs site | `apps/gateway`, `apps/web`, `apps/desktop`, `apps/cli`, `apps/node`, `apps/site` | Node 24 and pnpm | exists |
+| Gateway, web, desktop, CLI, node, docs site | `apps/gateway`, `apps/desktop`, `apps/cli`, `apps/node`, `apps/site` | Node 24 and pnpm | exists |
 | TypeScript libraries | `packages/*` | Node 24 and pnpm | exists |
 | Mac helper (Swift) | `apps/mac-helper` | Xcode or the Swift toolchain | exists |
 | Swift code shared by the Mac helper and iOS | `packages/swift` (one SwiftPM package) | Swift | planned |

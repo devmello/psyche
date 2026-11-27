@@ -6,7 +6,6 @@
 "@psyche/gateway": minor
 "@psyche/browser": minor
 "@psyche/desktop": minor
-"@psyche/web": minor
 "@psyche/ui": minor
 "@psyche/memory": patch
 ---

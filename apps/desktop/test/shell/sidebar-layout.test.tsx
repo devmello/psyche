@@ -323,16 +323,16 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
   });
 });
 
-describe("Try it from the desktop's Settings window (#677)", () => {
-  function TryIt() {
-    const prefill = usePrefillComposer();
-    return (
-      <button type="button" onClick={() => prefill?.("Summarise my unread mail")}>
-        Try it
-      </button>
-    );
-  }
+function TryIt() {
+  const prefill = usePrefillComposer();
+  return (
+    <button type="button" onClick={() => prefill?.("Summarise my unread mail")}>
+      Try it
+    </button>
+  );
+}
 
+describe("Try it from the desktop's Settings window (#677)", () => {
   it("sends the text to the main window over the bridge instead of navigating", async () => {
     window.history.replaceState(null, "", "/window/settings/connectors");
     const { platform } = platformWith();
@@ -351,15 +351,15 @@ describe("Try it from the desktop's Settings window (#677)", () => {
   });
 });
 
-describe("Run setup again from Settings (About → Set up again)", () => {
-  function RunSetup({ navigate }: { navigate: (to: string) => void }) {
-    return (
-      <button type="button" onClick={() => navigate("/onboarding")}>
-        Run setup again
-      </button>
-    );
-  }
+function RunSetup({ navigate }: { navigate: (to: string) => void }) {
+  return (
+    <button type="button" onClick={() => navigate("/onboarding")}>
+      Run setup again
+    </button>
+  );
+}
 
+describe("Run setup again from Settings (About → Set up again)", () => {
   it("in the Settings window opens the main window on /onboarding and stays put", async () => {
     window.history.replaceState(null, "", "/window/settings/about");
     const { platform } = platformWith();

@@ -4,7 +4,7 @@
 "@psyche/gateway": patch
 "@psyche/search": patch
 "@psyche/ui": minor
-"@psyche/web": patch
+"@psyche/desktop": patch
 "@psyche/skills": patch
 ---
 

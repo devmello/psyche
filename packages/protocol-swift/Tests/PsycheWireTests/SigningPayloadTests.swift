@@ -5,7 +5,7 @@ import Testing
 
 @Suite("connect signing payload")
 struct SigningPayloadTests {
-    // Same fixture as apps/desktop/test/signing.test.ts and apps/web/test/handshake.test.ts.
+    // Same fixture as apps/desktop/test/signing.test.ts and apps/desktop/test/client/signing.test.ts.
     static let nonce = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
     static let fixtureSHA256 = "724005f48718da546d4612ce25b78ff21172c0c3ae225f56774bd427e200c965"
 

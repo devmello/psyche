@@ -10,7 +10,7 @@ import {
   type Page,
   test,
 } from "@playwright/test";
-import { MockGateway } from "@psyche/web/testing";
+import { MockGateway } from "@psyche/testing/mock-gateway";
 import { mainWindowPage, stopTestHelpers } from "./helpers.ts";
 
 /**

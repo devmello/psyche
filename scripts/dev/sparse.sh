@@ -19,7 +19,7 @@ set -eu
 list_profiles() { sed -n '8,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # `packages` is in every profile, so packages/protocol-swift (where `pnpm protocol:gen` writes the Swift structs) is too.
-core_dirs="apps/cli apps/desktop apps/gateway apps/node apps/site apps/web
+core_dirs="apps/cli apps/desktop apps/gateway apps/node apps/site
 packages tests scripts docs skills templates deploy .github .changeset .vscode"
 
 profile_dirs() {

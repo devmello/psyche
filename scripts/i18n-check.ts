@@ -34,7 +34,15 @@ const ROOT = join(import.meta.dirname, "..");
 const { IntlMessageFormat } = createRequire(join(ROOT, "packages/ui/package.json"))(
   "intl-messageformat",
 ) as typeof import("intl-messageformat");
-const SCAN = ["packages/ui/src", "apps/web/src"];
+// The kit, and the shared renderer shell inside the desktop app (not its main-process code).
+const SCAN = [
+  "packages/ui/src",
+  "apps/desktop/src/shell",
+  "apps/desktop/src/compose",
+  "apps/desktop/src/client",
+  "apps/desktop/src/lib/webauthn.ts",
+  "apps/desktop/src/lib/passkey-state.ts",
+];
 const BASELINE = join(ROOT, "scripts/i18n-baseline.json");
 
 const TEXT_ATTRS = new Set([
@@ -236,7 +244,9 @@ function scan(path: string): Finding[] {
   return findings;
 }
 
-const files = SCAN.flatMap((d) => walkFiles(join(ROOT, d))).sort();
+const files = SCAN.flatMap((d) =>
+  /\.tsx?$/.test(d) ? [join(ROOT, d)] : walkFiles(join(ROOT, d)),
+).sort();
 const all = files.flatMap(scan);
 const hardCoded = new Map<string, Finding[]>();
 const missing: Finding[] = [];

@@ -37,8 +37,8 @@ const base = (route: string) => route.split("?")[0] as string;
 describe("every screen is reachable (sidebar or palette)", () => {
   // The routes the shell renders, read from the code so a new screen without an entry fails.
   const rendered = [
-    ...read("apps/web/src/compose/PsycheApp.tsx").matchAll(/case "([\w-]+)":/g),
-    ...read("apps/web/src/compose/first-run.tsx").matchAll(/page === "([\w-]+)"/g),
+    ...read("apps/desktop/src/compose/PsycheApp.tsx").matchAll(/case "([\w-]+)":/g),
+    ...read("apps/desktop/src/compose/first-run.tsx").matchAll(/page === "([\w-]+)"/g),
   ].map((m) => m[1] as string);
 
   it("finds the screens the shell renders", () => {

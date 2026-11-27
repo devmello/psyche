@@ -1,6 +1,7 @@
 import { type SandboxPcState, t } from "@psyche/ui";
-import type { GatewayEvent, GatewayStatus } from "@psyche/web/client";
-import { hostTerminalPort } from "@psyche/web/host-terminal-port";
+import type { GatewayEvent, GatewayStatus } from "../client/index.ts";
+import type { PsycheBridge } from "../preload.ts";
+import { hostTerminalPort } from "../shell/host-terminal-port.ts";
 import {
   type BrowserHostState,
   type BrowserNav,
@@ -34,8 +35,7 @@ import {
   type UninstallPlanView,
   type UpdateStatusView,
   type WindowChrome,
-} from "@psyche/web/platform";
-import type { PsycheBridge } from "../preload.ts";
+} from "../shell/platform.ts";
 
 declare global {
   interface Window {

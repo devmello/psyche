@@ -78,8 +78,6 @@ const PRUNE = [
   "apps/mac-helper",
   "apps/win-helper",
   "apps/linux-helper",
-  "apps/web/src",
-  "apps/web/testing",
   "apps/site",
   "docs",
   "tests",

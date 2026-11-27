@@ -43,7 +43,7 @@ export function glassWindowOptions(mode: GlassMode): Partial<BaseWindowConstruct
 
 /**
  * The page side of native glass: the frame and the sidebar regions go transparent, the content
- * column keeps an opaque canvas. Uses the web shell's stable class names (`apps/web/src/shell`).
+ * column keeps an opaque canvas. Uses the web shell's stable class names (`apps/desktop/src/shell`).
  */
 export const NATIVE_GLASS_CSS = `
 :root[data-glass="native"],
