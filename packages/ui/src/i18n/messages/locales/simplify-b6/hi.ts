@@ -1,0 +1,10 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Settings structure, batch B6 (hi); merged into `../hi.ts`. */
+export const simplifyB6: Partial<Catalogue> = {
+  "simplify.b6.nav.server": "डिवाइस",
+  "simplify.b6.search.description": "जिन जगहों में Psyche को खोजना है, उन्हें चालू करें।",
+  "simplify.b6.search.options": "विकल्प",
+  "simplify.b6.search.skip": "क्या छोड़ना है",
+  "simplify.b6.memory.reviewRules": "समीक्षा के नियम",
+};

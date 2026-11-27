@@ -64,6 +64,7 @@ import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
+import { simplifyB6 } from "./simplify-b6.ts";
 import { skillAuthor } from "./skill-author.ts";
 import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
@@ -157,6 +158,7 @@ export const en = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB6,
   ...friction,
   ...update,
   ...spaces,
