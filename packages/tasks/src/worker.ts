@@ -54,7 +54,10 @@ export interface TaskWorkerPoolOptions {
   leaseMs?: number;
   /** Lease renewal period; default a third of `leaseMs`. */
   renewEveryMs?: number;
-  /** How often idle slots look for queued work; `poke()` wakes them sooner. */
+  /**
+   * How often idle slots look for queued work or an expired lease; `poke()` wakes them sooner.
+   * Default 30 s: task creators poke, so the poll is only the fallback.
+   */
   pollMs?: number;
   broker?: PermissionBroker;
   notifier?: Notifier;
@@ -230,7 +233,7 @@ export class TaskWorkerPool {
       concurrency: options.concurrency ?? 2,
       leaseMs,
       renewEveryMs: options.renewEveryMs ?? Math.floor(leaseMs / 3),
-      pollMs: options.pollMs ?? 5_000,
+      pollMs: options.pollMs ?? 30_000,
     };
     this.#timers = options.timers ?? systemTimers;
     // Cancellation or pause from anywhere (API, chat, another process) stops the live turn.
@@ -357,6 +360,9 @@ export class TaskWorkerPool {
       excludeTaskIds: [...(this.#o.claim?.excludeTaskIds ?? []), ...this.#active.keys()],
       ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
     };
+    // An idle poll looks before it writes: nothing queued and no expired lease means no
+    // `BEGIN IMMEDIATE`. A targeted claim (`taskId`) always goes straight to `claim`.
+    if (options.taskId === undefined && !engine.hasClaimable(claimOpts)) return undefined;
     let lease = await engine.claim(owner, claimOpts);
     if (lease === undefined) return undefined;
     const taskId = lease.taskId;

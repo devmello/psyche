@@ -10,6 +10,7 @@ import {
 } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
 import { rotatingFileSink } from "./log-rotation.ts";
+import { uncaughtExceptionHandler, unhandledRejectionHandler } from "./process-errors.ts";
 import { defaultPeerChecker, packagedHelperInstalled } from "./transports/peer-check.ts";
 
 const args = process.argv.slice(2);
@@ -25,6 +26,8 @@ if (args.length > 0) process.exit(await runCli(args));
 const home = resolve(process.env.PSYCHE_HOME ?? join(homedir(), ".psyche"));
 const log = createLogger(rotatingFileSink(join(home, "logs", "gateway.log")));
 const peerChecker = defaultPeerChecker();
+// A promise nobody awaited is logged and the Gateway keeps running (Node would exit).
+process.on("unhandledRejection", unhandledRejectionHandler(log));
 
 try {
   // PSYCHE_MODEL (development, server mode) wins; otherwise provider keys come from the vault
@@ -49,6 +52,8 @@ try {
   };
   process.once("SIGINT", () => shutdown("SIGINT"));
   process.once("SIGTERM", () => shutdown("SIGTERM"));
+  // An uncaught exception runs the SIGTERM shutdown, so launchd restarts a clean process.
+  process.on("uncaughtException", uncaughtExceptionHandler(log, shutdown));
 } catch (err) {
   const e = PsycheError.from(err);
   log.log("error", "gateway failed to start", { code: e.code, message: e.message });

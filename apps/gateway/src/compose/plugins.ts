@@ -6,6 +6,7 @@ import type { PsychePermissionBroker } from "@psyche/permissions";
 import { createPluginsHandlers, PluginManager } from "@psyche/plugins";
 import type { EventPayload, PermissionBroker } from "@psyche/protocol";
 import type { Logger } from "../log.ts";
+import { failureFields } from "../process-errors.ts";
 import type { Gateway } from "../server.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import { approvedInstallReason, reportApprovedInstallFailed } from "./install-failed.ts";
@@ -81,7 +82,11 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
           f.event === "settings.changed" &&
           f.payload?.entries?.some((e) => e.key === PLUGINS_SETTING)
         ) {
-          void manager.sync();
+          void manager
+            .sync()
+            .catch((err: unknown) =>
+              setup.logger?.log("warn", "plugins: sync failed", failureFields(err)),
+            );
         }
       });
       await manager.sync();
