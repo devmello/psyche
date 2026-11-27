@@ -255,7 +255,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "ثبّت Node.js (nodejs.org، أو عبر مدير الحزم لديك) ليتوفر npm على هذا الكمبيوتر، ثم تحقق مجددًا.",
       "settings.mcp.fail.uv_missing": "ثبّت uv (docs.astral.sh/uv) ثم افحص الخادم مجددًا.",
       "settings.mail.voice.learn.hint":
-        "تقرأ Wren ما كتبتَه فقط في البريد المُرسَل، دون النص المقتبس أو التوقيعات. يبقى الملف الشخصي على هذا الكمبيوتر في mail/VOICE.md.",
+        "تقرأ {persona} ما كتبتَه فقط في البريد المُرسَل، دون النص المقتبس أو التوقيعات. يبقى الملف الشخصي على هذا الكمبيوتر في mail/VOICE.md.",
       "settings.mail.voice.localModel.hint": "المسودات بأسلوبك لا تغادر هذا الكمبيوتر أبدًا.",
       "settings.mail.transcribe.endpoint.hint":
         "اختياري. خادم متوافق مع OpenAI على /v1/audio/transcriptions (مثل whisper.cpp على هذا الكمبيوتر). يُستخدم عندما لا يكون لدى مساعد Linux محرك كلام. يُرسل الصوت إلى هذا العنوان فقط: https، أو http على 127.0.0.1.",
@@ -643,7 +643,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "Installiere uv (docs.astral.sh/uv) und prüfe den Server dann erneut.",
       "settings.mail.voice.learn.hint":
-        "Wren liest nur, was du in gesendeter Mail selbst geschrieben hast, ohne zitierten Text oder Signaturen. Das Profil bleibt auf diesem Computer in mail/VOICE.md.",
+        "{persona} liest nur, was du in gesendeter Mail selbst geschrieben hast, ohne zitierten Text oder Signaturen. Das Profil bleibt auf diesem Computer in mail/VOICE.md.",
       "settings.mail.voice.localModel.hint":
         "Entwürfe in deinem Stil verlassen diesen Computer nie.",
       "settings.mail.transcribe.endpoint.hint":
@@ -1041,7 +1041,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "Instala uv (docs.astral.sh/uv) y vuelve a comprobar el servidor.",
       "settings.mail.voice.learn.hint":
-        "Wren solo lee lo que escribiste en el correo enviado, sin el texto citado ni las firmas. El perfil se queda en este ordenador, en mail/VOICE.md.",
+        "{persona} solo lee lo que escribiste en el correo enviado, sin el texto citado ni las firmas. El perfil se queda en este ordenador, en mail/VOICE.md.",
       "settings.mail.voice.localModel.hint":
         "Los borradores con tu estilo nunca salen de este ordenador.",
       "settings.mail.transcribe.endpoint.hint":
@@ -1442,7 +1442,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "Installez uv (docs.astral.sh/uv), puis vérifiez à nouveau le serveur.",
       "settings.mail.voice.learn.hint":
-        "Wren ne lit que ce que vous avez écrit dans vos mails envoyés, sans le texte cité ni les signatures. Le profil reste sur cet ordinateur dans mail/VOICE.md.",
+        "{persona} ne lit que ce que vous avez écrit dans vos mails envoyés, sans le texte cité ni les signatures. Le profil reste sur cet ordinateur dans mail/VOICE.md.",
       "settings.mail.voice.localModel.hint":
         "Les brouillons dans votre style ne quittent jamais cet ordinateur.",
       "settings.mail.transcribe.endpoint.hint":
@@ -1825,7 +1825,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Node.js इंस्टॉल करें (nodejs.org से, या अपने पैकेज मैनेजर से) ताकि इस कंप्यूटर पर npm हो, फिर दोबारा जाँचें।",
       "settings.mcp.fail.uv_missing": "uv इंस्टॉल करें (docs.astral.sh/uv), फिर सर्वर दोबारा जाँचें।",
       "settings.mail.voice.learn.hint":
-        "Wren सिर्फ़ भेजे गए मेल में आपका लिखा हुआ पढ़ती है, उद्धृत टेक्स्ट और सिग्नेचर के बिना। प्रोफ़ाइल इसी कंप्यूटर पर mail/VOICE.md में रहती है।",
+        "{persona} सिर्फ़ भेजे गए मेल में आपका लिखा हुआ पढ़ती है, उद्धृत टेक्स्ट और सिग्नेचर के बिना। प्रोफ़ाइल इसी कंप्यूटर पर mail/VOICE.md में रहती है।",
       "settings.mail.voice.localModel.hint": "आपकी शैली में बने ड्राफ़्ट कभी इस कंप्यूटर से बाहर नहीं जाते।",
       "settings.mail.transcribe.endpoint.hint":
         "वैकल्पिक। /v1/audio/transcriptions के लिए OpenAI-संगत सर्वर (जैसे इस कंप्यूटर पर whisper.cpp)। जब Linux हेल्पर के पास स्पीच इंजन न हो, तब इसका उपयोग होता है। ऑडियो केवल इसी पते पर जाता है: https, या 127.0.0.1 पर http।",
@@ -2211,7 +2211,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "Installa uv (docs.astral.sh/uv), poi controlla di nuovo il server.",
       "settings.mail.voice.learn.hint":
-        "Wren legge solo ciò che hai scritto nella posta inviata, senza testo citato né firme. Il profilo resta su questo computer in mail/VOICE.md.",
+        "{persona} legge solo ciò che hai scritto nella posta inviata, senza testo citato né firme. Il profilo resta su questo computer in mail/VOICE.md.",
       "settings.mail.voice.localModel.hint":
         "Le bozze nel tuo stile non lasciano mai questo computer.",
       "settings.mail.transcribe.endpoint.hint":
@@ -2611,7 +2611,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "uv（docs.astral.sh/uv）をインストールしてから、もう一度サーバを確認してください。",
       "settings.mail.voice.learn.hint":
-        "Wrenは送信済みメールのうち、引用部分や署名を除いたあなたの文章だけを読みます。プロファイルはこのコンピュータのmail/VOICE.mdに保存されます。",
+        "{persona}は送信済みメールのうち、引用部分や署名を除いたあなたの文章だけを読みます。プロファイルはこのコンピュータのmail/VOICE.mdに保存されます。",
       "settings.mail.voice.localModel.hint":
         "あなたの文体での下書きがこのコンピュータの外に出ることはありません。",
       "settings.mail.transcribe.endpoint.hint":
@@ -2993,7 +2993,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "uv(docs.astral.sh/uv)를 설치한 다음 서버를 다시 확인하십시오.",
       "settings.mail.voice.learn.hint":
-        "Wren은 보낸 메일에서 인용문과 서명을 제외하고 직접 쓴 내용만 읽습니다. 프로필은 이 컴퓨터의 mail/VOICE.md에 저장됩니다.",
+        "{persona}은 보낸 메일에서 인용문과 서명을 제외하고 직접 쓴 내용만 읽습니다. 프로필은 이 컴퓨터의 mail/VOICE.md에 저장됩니다.",
       "settings.mail.voice.localModel.hint": "내 문체로 쓴 초안은 이 컴퓨터를 벗어나지 않습니다.",
       "settings.mail.transcribe.endpoint.hint":
         "선택 사항입니다. /v1/audio/transcriptions를 지원하는 OpenAI 호환 서버(예: 이 컴퓨터의 whisper.cpp)입니다. Linux 도우미에 음성 인식 엔진이 없을 때 사용됩니다. 오디오는 이 주소로만 전송됩니다(https 또는 127.0.0.1의 http).",
@@ -3376,7 +3376,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "settings.mcp.fail.uv_missing":
         "Instale o uv (docs.astral.sh/uv) e verifique o servidor novamente.",
       "settings.mail.voice.learn.hint":
-        "A Wren lê apenas o que você escreveu nos e-mails enviados, sem texto citado nem assinaturas. O perfil fica neste computador, em mail/VOICE.md.",
+        "A {persona} lê apenas o que você escreveu nos e-mails enviados, sem texto citado nem assinaturas. O perfil fica neste computador, em mail/VOICE.md.",
       "settings.mail.voice.localModel.hint": "Rascunhos no seu estilo nunca saem deste computador.",
       "settings.mail.transcribe.endpoint.hint":
         "Opcional. Um servidor compatível com OpenAI para /v1/audio/transcriptions (por exemplo, whisper.cpp neste computador). Usado quando o assistente do Linux não tem um motor de fala. O áudio só é enviado para este endereço: https, ou http em 127.0.0.1.",
@@ -3737,7 +3737,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "请安装 Node.js（nodejs.org，或使用你的包管理器），让这台电脑上有 npm，然后重新检查。",
       "settings.mcp.fail.uv_missing": "请安装 uv（docs.astral.sh/uv），然后再次检查服务器。",
       "settings.mail.voice.learn.hint":
-        "Wren 只读取你在已发送邮件中亲自写的内容，不含引用文字和签名。档案保存在这台电脑上的 mail/VOICE.md 中。",
+        "{persona} 只读取你在已发送邮件中亲自写的内容，不含引用文字和签名。档案保存在这台电脑上的 mail/VOICE.md 中。",
       "settings.mail.voice.localModel.hint": "用你的风格起草的内容不会离开这台电脑。",
       "settings.mail.transcribe.endpoint.hint":
         "可选。支持 /v1/audio/transcriptions 的 OpenAI 兼容服务器(例如此电脑上的 whisper.cpp)。在 Linux 助手没有语音引擎时使用。音频只会发送到此地址:https,或 127.0.0.1 上的 http。",

@@ -68,6 +68,11 @@ import { separateDesktop } from "./separate-desktop/it.ts";
 import { settingsDrill } from "./settings-drill/it.ts";
 import { settingsRest } from "./settings-rest/it.ts";
 import { shellRest } from "./shell-rest/it.ts";
+import { simplifyB1 } from "./simplify-b1/it.ts";
+import { simplifyB2 } from "./simplify-b2/it.ts";
+import { simplifyB4 } from "./simplify-b4/it.ts";
+import { simplifyB7 } from "./simplify-b7/it.ts";
+import { simplifyB8 } from "./simplify-b8/it.ts";
 import { simplifyB9 } from "./simplify-b9/it.ts";
 import { spaces } from "./spaces/it.ts";
 import { specialistsRest } from "./specialists-rest/it.ts";
@@ -212,7 +217,7 @@ export const it: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper non può ancora controllare questa app. Riprova e scegli OK quando macOS lo chiede.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper ha bisogno dell'accesso completo al disco per leggere Messaggi. Attivalo in Impostazioni di Sistema → Privacy e sicurezza → Accesso completo al disco, poi riavvia Psyche Helper.",
+    "Psyche (Helper) ha bisogno dell'accesso completo al disco per leggere Messaggi. Attivalo in Impostazioni di Sistema → Privacy e sicurezza → Accesso completo al disco, poi riavvia Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "macOS non ha mostrato la richiesta di permesso. Consenti Psyche Helper in Impostazioni di Sistema → Privacy e sicurezza.",
   "errors.reason.app_not_running": "Quell'app non è aperta. Aprila, poi riprova.",
@@ -1746,7 +1751,7 @@ export const it: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Apri Impostazioni di Sistema",
   "settings.computerUse.fullDiskAccess.name": "Accesso completo al disco",
   "settings.computerUse.fullDiskAccess.why":
-    "permette a {persona} di leggere i tuoi messaggi. macOS non lo chiede con un avviso: aggiungi Psyche Helper all'elenco.",
+    "permette a {persona} di leggere i tuoi messaggi. macOS non lo chiede con un avviso: aggiungi Psyche (Helper) all'elenco e poi riavvialo.",
   "settings.computerUse.fullDiskAccess.open":
     "Apri Accesso completo al disco in Impostazioni di Sistema",
   "settings.computerUse.apps": "App",
@@ -3967,6 +3972,11 @@ export const it: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

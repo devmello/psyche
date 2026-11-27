@@ -66,6 +66,11 @@ import { settingsDrill } from "./settings-drill/zh.ts";
 import { settingsLanguage } from "./settings-language/zh.ts";
 import { settingsSections } from "./settings-sections/zh.ts";
 import { shell } from "./shell/zh.ts";
+import { simplifyB1 } from "./simplify-b1/zh.ts";
+import { simplifyB2 } from "./simplify-b2/zh.ts";
+import { simplifyB4 } from "./simplify-b4/zh.ts";
+import { simplifyB7 } from "./simplify-b7/zh.ts";
+import { simplifyB8 } from "./simplify-b8/zh.ts";
 import { simplifyB9 } from "./simplify-b9/zh.ts";
 import { skillAuthor } from "./skill-author/zh.ts";
 import { spaces } from "./spaces/zh.ts";
@@ -245,7 +250,7 @@ export const zh: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper 还不能控制此 App。请重试，并在 macOS 询问时选择“好”。",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper 需要“完全磁盘访问权限”才能读取“信息”。请在“系统设置”→“隐私与安全性”→“完全磁盘访问权限”中打开，然后重启 Psyche Helper。",
+    "Psyche (Helper) 需要“完全磁盘访问权限”才能读取“信息”。请在“系统设置”→“隐私与安全性”→“完全磁盘访问权限”中打开，然后重启 Psyche (Helper)。",
   "errors.reason.prompt_refused_by_macos":
     "macOS 没有显示权限请求。请改为在“系统设置”→“隐私与安全性”中允许 Psyche Helper。",
   "errors.reason.app_not_running": "该 App 没有打开。请打开它，然后重试。",
@@ -1739,7 +1744,7 @@ export const zh: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "打开系统设置",
   "settings.computerUse.fullDiskAccess.name": "完全磁盘访问权限",
   "settings.computerUse.fullDiskAccess.why":
-    "让 {persona} 读取你的信息。macOS 不会为此弹出提示：请在列表中添加 Psyche Helper。",
+    "让 {persona} 读取你的信息。macOS 不会为此弹出提示：请在列表中添加 Psyche (Helper)，然后重启它。",
   "settings.computerUse.fullDiskAccess.open": "在“系统设置”中打开“完全磁盘访问权限”",
   "settings.computerUse.apps": "App",
   "settings.computerUse.enabledHint": "关闭后会停止下方所有 App。每个 App 在首次使用时询问。",
@@ -3832,6 +3837,11 @@ export const zh: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

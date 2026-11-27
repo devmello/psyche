@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "मेल और मीटिंग",
   "settings.mail.title": "मेल और मीटिंग",
   "settings.mail.description":
-    "Wren आपके मेल और कैलेंडर के साथ क्या करती है। वह ड्राफ़्ट सेव करती है और कार्रवाइयाँ सुझाती है; आपकी मंज़ूरी के बिना कुछ भी भेजा, साझा, स्वीकार या अस्वीकार नहीं किया जाता।",
+    "{persona} आपके मेल और कैलेंडर के साथ क्या करती है। वह ड्राफ़्ट सेव करती है और कार्रवाइयाँ सुझाती है; आपकी मंज़ूरी के बिना कुछ भी भेजा, साझा, स्वीकार या अस्वीकार नहीं किया जाता।",
   "settings.mail.quietHours": "शांत घंटे सूचनाएँ में हैं।",
   "settings.mail.loadFailed": "मेल और मीटिंग सेटिंग लोड नहीं हो सकीं।",
 
@@ -28,7 +28,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   "settings.mail.paused.hint": "आप दोबारा चालू करें, तब तक मेल और मीटिंग के सभी काम रुके रहेंगे।",
   "settings.mail.readOnly.hint":
-    "डाइजेस्ट और तैयारी आती रहेगी। Wren न कोई कार्रवाई सुझाएगी, न ड्राफ़्ट बनाएगी।",
+    "डाइजेस्ट और तैयारी आती रहेगी। {persona} न कोई कार्रवाई सुझाएगी, न ड्राफ़्ट बनाएगी।",
 
   "settings.mail.accounts.none": "कोई मेल खाता जुड़ा नहीं है। कनेक्टर में जाकर जोड़ें।",
   "settings.mail.accounts.use": "डाइजेस्ट और फ़ॉलो-अप में {account} इस्तेमाल करें",
@@ -49,7 +49,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.followups.showTwice.hint": "दो डाइजेस्ट के बाद यह शांत हो जाता है।",
 
   "settings.mail.voice.learn.hint":
-    "Wren सिर्फ़ भेजे गए मेल में आपका लिखा हुआ पढ़ती है, उद्धृत टेक्स्ट और सिग्नेचर के बिना। प्रोफ़ाइल इसी Mac पर mail/VOICE.md में रहती है।",
+    "{persona} सिर्फ़ भेजे गए मेल में आपका लिखा हुआ पढ़ती है, उद्धृत टेक्स्ट और सिग्नेचर के बिना। प्रोफ़ाइल इसी Mac पर mail/VOICE.md में रहती है।",
   "settings.mail.voice.profile": "लेखन प्रोफ़ाइल",
   "settings.mail.voice.view": "देखें",
   "settings.mail.voice.edit": "बदलें",
@@ -82,7 +82,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "जब तक आप ऑडियो नहीं जोड़ते, कुछ नहीं करता: वॉइस मेमो, फ़ाइल या आपकी शुरू की गई रिकॉर्डिंग।",
   "settings.mail.notes.folder": "रिकॉर्डिंग फ़ोल्डर",
-  "settings.mail.notes.folder.hint": "ऐसा फ़ोल्डर जिसे Wren पढ़ सकती है। फ़ाइल एक्सेस में अनुमति दें।",
+  "settings.mail.notes.folder.hint": "ऐसा फ़ोल्डर जिसे {persona} पढ़ सकती है। फ़ाइल एक्सेस में अनुमति दें।",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "ट्रांसक्रिप्शन एंडपॉइंट",
   "settings.mail.transcribe.endpoint.hint":
@@ -104,7 +104,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   "settings.mail.poll.active": "जब आप सक्रिय हों",
   "settings.mail.poll.idle": "बाकी समय",
-  "settings.mail.poll.hint": "Wren कितनी बार नया मेल देखती है। जल्दी देखने में ज़्यादा बैटरी लगती है।",
+  "settings.mail.poll.hint": "{persona} कितनी बार नया मेल देखती है। जल्दी देखने में ज़्यादा बैटरी लगती है।",
 
   "settings.key.workflows.paused": "मेल और मीटिंग के सभी वर्कफ़्लो रोकें",
   "settings.key.workflows.readOnly": "केवल पढ़ने के लिए (सिर्फ़ डाइजेस्ट और तैयारी)",

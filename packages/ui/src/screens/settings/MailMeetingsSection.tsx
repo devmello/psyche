@@ -9,8 +9,9 @@ import { Input } from "../../components/ui/input.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { useSlots } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import {
+  Advanced,
   bool,
   ErrorNotice,
   Group,
@@ -180,12 +181,13 @@ export function MailMeetingsPanel({
   const followupsOn = flag(values, "mail.followups.enabled");
   const notesOn = flag(values, "meetings.notes.enabled");
   const localModel = text(values, "mail.draft.localModel");
+  const { name: persona } = usePersona();
   const ask = (id: Parameters<typeof t>[0]) => () => onAsk?.(t(id));
 
   return (
     <SectionFrame
       title={t("settings.mail.title")}
-      description={t("settings.mail.description")}
+      description={t("settings.mail.description", { persona })}
       needsApproval={needsApproval}
     >
       <LoadGate
@@ -194,32 +196,25 @@ export function MailMeetingsPanel({
         error={error}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group
-          title={t("settings.mail.group.master")}
-          description={t("settings.mail.group.masterHint")}
-        >
-          <SwitchField
-            label={t("settings.key.workflows.paused")}
-            description={t("settings.mail.paused.hint")}
-            settingKey="workflows.paused"
-            checked={paused}
-            onChange={(v) => onChange("workflows.paused", v)}
-          />
-          <SwitchField
-            label={t("settings.key.workflows.readOnly")}
-            description={t("settings.mail.readOnly.hint")}
-            settingKey="workflows.readOnly"
-            checked={readOnly}
-            disabled={off}
-            onChange={(v) => onChange("workflows.readOnly", v)}
-          />
-        </Group>
-
-        <Group
-          title={t("settings.mail.group.accounts")}
-          description={t("settings.mail.group.accountsHint")}
-        >
-          {accounts.length === 0 ? (
+        {paused ? (
+          <Group
+            title={t("settings.mail.group.master")}
+            description={t("settings.mail.group.masterHint")}
+          >
+            <SwitchField
+              label={t("settings.key.workflows.paused")}
+              description={t("settings.mail.paused.hint")}
+              settingKey="workflows.paused"
+              checked={paused}
+              onChange={(v) => onChange("workflows.paused", v)}
+            />
+          </Group>
+        ) : null}
+        {accounts.length === 0 ? (
+          <Group
+            title={t("settings.mail.group.accounts")}
+            description={t("settings.mail.group.accountsHint")}
+          >
             <div className="flex flex-wrap items-center gap-3">
               <p className="min-w-0 flex-1 text-callout text-label-secondary">
                 {t("settings.mail.accounts.none")}
@@ -230,19 +225,8 @@ export function MailMeetingsPanel({
                 </Button>
               ) : null}
             </div>
-          ) : (
-            accounts.map((a) => (
-              <SwitchField
-                key={a.id}
-                label={t("settings.mail.accounts.use", { account: a.label })}
-                checked={bool(values, `mail.accounts.${a.id}`, true)}
-                disabled={off}
-                onChange={(v) => onChange(`mail.accounts.${a.id}`, v)}
-              />
-            ))
-          )}
-        </Group>
-
+          </Group>
+        ) : null}
         <Group
           title={t("settings.mail.group.digest")}
           description={t("settings.mail.group.digestHint")}
@@ -260,47 +244,7 @@ export function MailMeetingsPanel({
             disabled={off || !digestOn}
             onCommit={(v) => onChange("mail.digest.time", v)}
           />
-          <SelectRow
-            label={t("settings.mail.digest.days")}
-            settingKey="mail.digest.days"
-            value={text(values, "mail.digest.days")}
-            disabled={off || !digestOn}
-            options={[
-              { value: "weekdays", label: t("settings.mail.digest.days.weekdays") },
-              { value: "everyday", label: t("settings.mail.digest.days.everyday") },
-            ]}
-            onChange={(v) => onChange("mail.digest.days", v)}
-          />
-          <SwitchField
-            label={t("settings.key.mail.digest.onlyWhenNeeded")}
-            description={t("settings.mail.digest.onlyWhenNeeded.hint")}
-            settingKey="mail.digest.onlyWhenNeeded"
-            checked={flag(values, "mail.digest.onlyWhenNeeded")}
-            disabled={off || !digestOn}
-            onChange={(v) => onChange("mail.digest.onlyWhenNeeded", v)}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body text-label-primary">
-                {t("settings.mail.digest.rules")}
-              </span>
-              <p className="text-callout text-label-secondary">
-                {t("settings.mail.digest.rulesHint")}
-              </p>
-            </div>
-            {onAsk ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={ask("settings.mail.digest.openRulesAsk")}
-              >
-                {t("settings.mail.digest.openRules")}
-              </Button>
-            ) : null}
-          </div>
         </Group>
-
         <Group
           title={t("settings.mail.group.followups")}
           description={t("settings.mail.group.followupsHint")}
@@ -312,171 +256,7 @@ export function MailMeetingsPanel({
             disabled={off}
             onChange={(v) => onChange("mail.followups.enabled", v)}
           />
-          <SelectRow
-            label={t("settings.mail.followups.waitDays")}
-            settingKey="mail.followups.waitDays"
-            value={String(count(values, "mail.followups.waitDays"))}
-            disabled={off || !followupsOn}
-            options={opts([1, 2, 3, 5, 7], (n) => t("settings.mail.followups.days", { n }))}
-            onChange={(v) => onChange("mail.followups.waitDays", Number(v))}
-          />
-          <SwitchField
-            label={t("settings.key.mail.followups.showTwice")}
-            description={t("settings.mail.followups.showTwice.hint")}
-            settingKey="mail.followups.showTwice"
-            checked={flag(values, "mail.followups.showTwice")}
-            disabled={off || !followupsOn}
-            onChange={(v) => onChange("mail.followups.showTwice", v)}
-          />
         </Group>
-
-        <Group
-          title={t("settings.mail.group.style")}
-          description={t("settings.mail.group.styleHint")}
-        >
-          <SwitchField
-            label={t("settings.key.mail.voice.enabled")}
-            description={t("settings.mail.voice.learn.hint")}
-            settingKey="mail.voice.enabled"
-            checked={flag(values, "mail.voice.enabled")}
-            disabled={off}
-            onChange={(v) => onChange("mail.voice.enabled", v)}
-          />
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="min-w-0 flex-1 text-body text-label-primary">
-              {t("settings.mail.voice.profile")}
-            </span>
-            {onAsk ? (
-              <span className="flex gap-1.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={ask("settings.mail.voice.viewAsk")}
-                >
-                  {t("settings.mail.voice.view")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={ask("settings.mail.voice.editAsk")}
-                >
-                  {t("settings.mail.voice.edit")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={ask("settings.mail.voice.resetAsk")}
-                >
-                  {t("settings.mail.voice.reset")}
-                </Button>
-              </span>
-            ) : null}
-          </div>
-          {localModels.length === 0 ? (
-            <div className="flex flex-col">
-              <span className="text-body text-label-primary">
-                {t("settings.key.mail.draft.localModel")}
-              </span>
-              <p className="text-callout text-label-secondary">
-                {t("settings.mail.voice.localModel.empty")}
-              </p>
-            </div>
-          ) : (
-            <SelectRow
-              label={t("settings.key.mail.draft.localModel")}
-              hint={t("settings.mail.voice.localModel.hint")}
-              settingKey="mail.draft.localModel"
-              value={localModel}
-              disabled={off}
-              options={[
-                { value: "", label: t("settings.mail.voice.localModel.none") },
-                ...localModels.map((m) => ({ value: m, label: m })),
-              ]}
-              onChange={(v) => onChange("mail.draft.localModel", v)}
-            />
-          )}
-        </Group>
-
-        <Group
-          title={t("settings.mail.group.scheduling")}
-          description={t("settings.mail.group.schedulingHint")}
-        >
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-body text-label-primary">
-                  {t("settings.mail.schedule.hours")}
-                </span>
-                <p className="text-callout text-label-secondary">
-                  {t("settings.mail.schedule.hoursHint")}
-                </p>
-              </div>
-              <NativeSelect
-                aria-label={t("settings.mail.schedule.hoursFrom")}
-                value={String(count(values, "mail.schedule.hoursStart"))}
-                disabled={off}
-                onChange={(e) => onChange("mail.schedule.hoursStart", Number(e.target.value))}
-              >
-                {opts(
-                  Array.from({ length: 24 }, (_, h) => h),
-                  hourLabel,
-                ).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                aria-label={t("settings.mail.schedule.hoursTo")}
-                value={String(count(values, "mail.schedule.hoursEnd"))}
-                disabled={off}
-                onChange={(e) => onChange("mail.schedule.hoursEnd", Number(e.target.value))}
-              >
-                {opts(
-                  Array.from({ length: 24 }, (_, h) => h + 1),
-                  hourLabel,
-                ).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-          </div>
-          <SelectRow
-            label={t("settings.key.mail.schedule.bufferMin")}
-            hint={t("settings.mail.schedule.buffer.hint")}
-            settingKey="mail.schedule.bufferMin"
-            value={String(count(values, "mail.schedule.bufferMin"))}
-            disabled={off}
-            options={[
-              { value: "0", label: t("settings.mail.schedule.noBuffer") },
-              ...opts([5, 10, 15, 30], minutes),
-            ]}
-            onChange={(v) => onChange("mail.schedule.bufferMin", Number(v))}
-          />
-          <SwitchField
-            label={t("settings.key.mail.schedule.focusTime")}
-            description={t("settings.mail.schedule.focusTime.hint")}
-            settingKey="mail.schedule.focusTime"
-            checked={flag(values, "mail.schedule.focusTime")}
-            disabled={off}
-            onChange={(v) => onChange("mail.schedule.focusTime", v)}
-          />
-          <TextSetting
-            label={t("settings.key.mail.schedulingLink")}
-            description={t("settings.mail.schedule.link.hint")}
-            settingKey="mail.schedulingLink"
-            value={text(values, "mail.schedulingLink")}
-            placeholder={t("settings.mail.schedule.link.placeholder")}
-            maxLength={500}
-            onCommit={(v) => onChange("mail.schedulingLink", v)}
-          />
-        </Group>
-
         <Group
           title={t("settings.mail.group.prep")}
           description={t("settings.mail.prep.calendars")}
@@ -488,48 +268,7 @@ export function MailMeetingsPanel({
             disabled={off}
             onChange={(v) => onChange("meetings.prep.enabled", v)}
           />
-          <SwitchField
-            label={t("settings.key.meetings.prep.scope")}
-            description={t("settings.mail.prep.scope.hint")}
-            settingKey="meetings.prep.scope"
-            checked={text(values, "meetings.prep.scope") !== "all"}
-            disabled={off || !prepOn}
-            onChange={(v) => onChange("meetings.prep.scope", v ? "external" : "all")}
-          />
-          <SelectRow
-            label={t("settings.mail.prep.leadMin")}
-            settingKey="meetings.prep.leadMin"
-            value={String(count(values, "meetings.prep.leadMin"))}
-            disabled={off || !prepOn}
-            options={opts([30, 60, 120, 240], minutes)}
-            onChange={(v) => onChange("meetings.prep.leadMin", Number(v))}
-          />
-          <SelectRow
-            label={t("settings.mail.prep.notifyMin")}
-            settingKey="meetings.prep.notifyMin"
-            value={String(count(values, "meetings.prep.notifyMin"))}
-            disabled={off || !prepOn}
-            options={opts([5, 10, 15, 30, 60], minutes)}
-            onChange={(v) => onChange("meetings.prep.notifyMin", Number(v))}
-          />
-          <SwitchField
-            label={t("settings.key.meetings.prep.saveToNotes")}
-            description={t("settings.mail.prep.saveToNotes.hint")}
-            settingKey="meetings.prep.saveToNotes"
-            checked={flag(values, "meetings.prep.saveToNotes")}
-            disabled={off || !prepOn}
-            onChange={(v) => onChange("meetings.prep.saveToNotes", v)}
-          />
-          <SelectRow
-            label={t("settings.mail.prep.dailyCap")}
-            settingKey="meetings.prep.dailyCap"
-            value={String(count(values, "meetings.prep.dailyCap"))}
-            disabled={off || !prepOn}
-            options={opts([1, 2, 3, 4], (n) => String(n))}
-            onChange={(v) => onChange("meetings.prep.dailyCap", Number(v))}
-          />
         </Group>
-
         <Group
           title={t("settings.mail.group.notes")}
           description={t("settings.mail.group.notesHint")}
@@ -542,94 +281,393 @@ export function MailMeetingsPanel({
             disabled={off}
             onChange={(v) => onChange("meetings.notes.enabled", v)}
           />
-          <TextSetting
-            label={t("settings.mail.notes.folder")}
-            description={t("settings.mail.notes.folder.hint")}
-            settingKey="meetings.notes.folder"
-            value={text(values, "meetings.notes.folder")}
-            placeholder={t("settings.mail.notes.folder.placeholder")}
-            maxLength={1024}
-            onCommit={(v) => onChange("meetings.notes.folder", v)}
-          />
-          <TextSetting
-            label={t("settings.mail.transcribe.endpoint")}
-            description={t("settings.mail.transcribe.endpoint.hint")}
-            settingKey="meetings.transcribe.endpoint"
-            value={text(values, "meetings.transcribe.endpoint")}
-            placeholder={t("settings.mail.transcribe.endpoint.placeholder")}
-            maxLength={500}
-            onCommit={(v) => onChange("meetings.transcribe.endpoint", v)}
-          />
-          <TextSetting
-            label={t("settings.mail.transcribe.model")}
-            settingKey="meetings.transcribe.model"
-            value={text(values, "meetings.transcribe.model")}
-            placeholder={t("settings.mail.transcribe.model.placeholder")}
-            maxLength={120}
-            onCommit={(v) => onChange("meetings.transcribe.model", v)}
-          />
-          <SelectRow
-            label={t("settings.mail.notes.tasksApp")}
-            settingKey="meetings.notes.tasksApp"
-            value={text(values, "meetings.notes.tasksApp")}
-            disabled={off || !notesOn}
-            options={[
-              { value: "reminders", label: t("settings.mail.notes.tasksApp.reminders") },
-              { value: "things", label: t("settings.mail.notes.tasksApp.things") },
-            ]}
-            onChange={(v) => onChange("meetings.notes.tasksApp", v)}
-          />
-          <SwitchField
-            label={t("settings.key.meetings.notes.recapDraft")}
-            description={t("settings.mail.notes.recap.hint")}
-            settingKey="meetings.notes.recapDraft"
-            checked={flag(values, "meetings.notes.recapDraft")}
-            disabled={off || !notesOn}
-            onChange={(v) => onChange("meetings.notes.recapDraft", v)}
-          />
-          <TextSetting
-            label={t("settings.key.meetings.notes.consentLine")}
-            description={t("settings.mail.notes.consent.hint")}
-            settingKey="meetings.notes.consentLine"
-            value={str(
-              values,
-              "meetings.notes.consentLine",
-              t("settings.mail.notes.consent.default"),
+        </Group>
+        <Advanced>
+          <Group
+            title={t("settings.mail.group.master")}
+            description={t("settings.mail.group.masterHint")}
+          >
+            {!paused ? (
+              <SwitchField
+                label={t("settings.key.workflows.paused")}
+                description={t("settings.mail.paused.hint")}
+                settingKey="workflows.paused"
+                checked={paused}
+                onChange={(v) => onChange("workflows.paused", v)}
+              />
+            ) : null}
+            <SwitchField
+              label={t("settings.key.workflows.readOnly")}
+              description={t("settings.mail.readOnly.hint", { persona })}
+              settingKey="workflows.readOnly"
+              checked={readOnly}
+              disabled={off}
+              onChange={(v) => onChange("workflows.readOnly", v)}
+            />
+          </Group>
+          {accounts.length > 0 ? (
+            <Group
+              title={t("settings.mail.group.accounts")}
+              description={t("settings.mail.group.accountsHint")}
+            >
+              {accounts.map((a) => (
+                <SwitchField
+                  key={a.id}
+                  label={t("settings.mail.accounts.use", { account: a.label })}
+                  checked={bool(values, `mail.accounts.${a.id}`, true)}
+                  disabled={off}
+                  onChange={(v) => onChange(`mail.accounts.${a.id}`, v)}
+                />
+              ))}
+            </Group>
+          ) : null}
+          <Group
+            title={t("settings.mail.group.digest")}
+            description={t("settings.mail.group.digestHint")}
+          >
+            <SelectRow
+              label={t("settings.mail.digest.days")}
+              settingKey="mail.digest.days"
+              value={text(values, "mail.digest.days")}
+              disabled={off || !digestOn}
+              options={[
+                { value: "weekdays", label: t("settings.mail.digest.days.weekdays") },
+                { value: "everyday", label: t("settings.mail.digest.days.everyday") },
+              ]}
+              onChange={(v) => onChange("mail.digest.days", v)}
+            />
+            <SwitchField
+              label={t("settings.key.mail.digest.onlyWhenNeeded")}
+              description={t("settings.mail.digest.onlyWhenNeeded.hint")}
+              settingKey="mail.digest.onlyWhenNeeded"
+              checked={flag(values, "mail.digest.onlyWhenNeeded")}
+              disabled={off || !digestOn}
+              onChange={(v) => onChange("mail.digest.onlyWhenNeeded", v)}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body text-label-primary">
+                  {t("settings.mail.digest.rules")}
+                </span>
+                <p className="text-callout text-label-secondary">
+                  {t("settings.mail.digest.rulesHint")}
+                </p>
+              </div>
+              {onAsk ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={ask("settings.mail.digest.openRulesAsk")}
+                >
+                  {t("settings.mail.digest.openRules")}
+                </Button>
+              ) : null}
+            </div>
+          </Group>
+          <Group
+            title={t("settings.mail.group.followups")}
+            description={t("settings.mail.group.followupsHint")}
+          >
+            <SelectRow
+              label={t("settings.mail.followups.waitDays")}
+              settingKey="mail.followups.waitDays"
+              value={String(count(values, "mail.followups.waitDays"))}
+              disabled={off || !followupsOn}
+              options={opts([1, 2, 3, 5, 7], (n) => t("settings.mail.followups.days", { n }))}
+              onChange={(v) => onChange("mail.followups.waitDays", Number(v))}
+            />
+            <SwitchField
+              label={t("settings.key.mail.followups.showTwice")}
+              description={t("settings.mail.followups.showTwice.hint")}
+              settingKey="mail.followups.showTwice"
+              checked={flag(values, "mail.followups.showTwice")}
+              disabled={off || !followupsOn}
+              onChange={(v) => onChange("mail.followups.showTwice", v)}
+            />
+          </Group>
+          <Group
+            title={t("settings.mail.group.style")}
+            description={t("settings.mail.group.styleHint")}
+          >
+            <SwitchField
+              label={t("settings.key.mail.voice.enabled")}
+              description={t("settings.mail.voice.learn.hint", { persona })}
+              settingKey="mail.voice.enabled"
+              checked={flag(values, "mail.voice.enabled")}
+              disabled={off}
+              onChange={(v) => onChange("mail.voice.enabled", v)}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="min-w-0 flex-1 text-body text-label-primary">
+                {t("settings.mail.voice.profile")}
+              </span>
+              {onAsk ? (
+                <span className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={ask("settings.mail.voice.viewAsk")}
+                  >
+                    {t("settings.mail.voice.view")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={ask("settings.mail.voice.editAsk")}
+                  >
+                    {t("settings.mail.voice.edit")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={ask("settings.mail.voice.resetAsk")}
+                  >
+                    {t("settings.mail.voice.reset")}
+                  </Button>
+                </span>
+              ) : null}
+            </div>
+            {localModels.length === 0 ? (
+              <div className="flex flex-col">
+                <span className="text-body text-label-primary">
+                  {t("settings.key.mail.draft.localModel")}
+                </span>
+                <p className="text-callout text-label-secondary">
+                  {t("settings.mail.voice.localModel.empty")}
+                </p>
+              </div>
+            ) : (
+              <SelectRow
+                label={t("settings.key.mail.draft.localModel")}
+                hint={t("settings.mail.voice.localModel.hint")}
+                settingKey="mail.draft.localModel"
+                value={localModel}
+                disabled={off}
+                options={[
+                  { value: "", label: t("settings.mail.voice.localModel.none") },
+                  ...localModels.map((m) => ({ value: m, label: m })),
+                ]}
+                onChange={(v) => onChange("mail.draft.localModel", v)}
+              />
             )}
-            maxLength={300}
-            onCommit={(v) => onChange("meetings.notes.consentLine", v)}
-          />
-          <SwitchField
-            label={t("settings.key.meetings.notes.cloudSummary")}
-            description={t("settings.mail.notes.cloud.hint")}
-            settingKey="meetings.notes.cloudSummary"
-            checked={flag(values, "meetings.notes.cloudSummary")}
-            disabled={off || !notesOn}
-            onChange={(v) => onChange("meetings.notes.cloudSummary", v)}
-          />
-        </Group>
-
-        <Group
-          title={t("settings.mail.group.polling")}
-          description={`${t("settings.mail.poll.hint")} ${t("settings.mail.quietHours")}`}
-        >
-          <SelectRow
-            label={t("settings.mail.poll.active")}
-            settingKey="mail.poll.activeMin"
-            value={String(count(values, "mail.poll.activeMin"))}
-            disabled={off}
-            options={opts([1, 2, 5, 10, 15], minutes)}
-            onChange={(v) => onChange("mail.poll.activeMin", Number(v))}
-          />
-          <SelectRow
-            label={t("settings.mail.poll.idle")}
-            settingKey="mail.poll.idleMin"
-            value={String(count(values, "mail.poll.idleMin"))}
-            disabled={off}
-            options={opts([15, 30, 60, 120], minutes)}
-            onChange={(v) => onChange("mail.poll.idleMin", Number(v))}
-          />
-        </Group>
+          </Group>
+          <Group
+            title={t("settings.mail.group.scheduling")}
+            description={t("settings.mail.group.schedulingHint")}
+          >
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-body text-label-primary">
+                    {t("settings.mail.schedule.hours")}
+                  </span>
+                  <p className="text-callout text-label-secondary">
+                    {t("settings.mail.schedule.hoursHint")}
+                  </p>
+                </div>
+                <NativeSelect
+                  aria-label={t("settings.mail.schedule.hoursFrom")}
+                  value={String(count(values, "mail.schedule.hoursStart"))}
+                  disabled={off}
+                  onChange={(e) => onChange("mail.schedule.hoursStart", Number(e.target.value))}
+                >
+                  {opts(
+                    Array.from({ length: 24 }, (_, h) => h),
+                    hourLabel,
+                  ).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+                <NativeSelect
+                  aria-label={t("settings.mail.schedule.hoursTo")}
+                  value={String(count(values, "mail.schedule.hoursEnd"))}
+                  disabled={off}
+                  onChange={(e) => onChange("mail.schedule.hoursEnd", Number(e.target.value))}
+                >
+                  {opts(
+                    Array.from({ length: 24 }, (_, h) => h + 1),
+                    hourLabel,
+                  ).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            </div>
+            <SelectRow
+              label={t("settings.key.mail.schedule.bufferMin")}
+              hint={t("settings.mail.schedule.buffer.hint")}
+              settingKey="mail.schedule.bufferMin"
+              value={String(count(values, "mail.schedule.bufferMin"))}
+              disabled={off}
+              options={[
+                { value: "0", label: t("settings.mail.schedule.noBuffer") },
+                ...opts([5, 10, 15, 30], minutes),
+              ]}
+              onChange={(v) => onChange("mail.schedule.bufferMin", Number(v))}
+            />
+            <SwitchField
+              label={t("settings.key.mail.schedule.focusTime")}
+              description={t("settings.mail.schedule.focusTime.hint")}
+              settingKey="mail.schedule.focusTime"
+              checked={flag(values, "mail.schedule.focusTime")}
+              disabled={off}
+              onChange={(v) => onChange("mail.schedule.focusTime", v)}
+            />
+            <TextSetting
+              label={t("settings.key.mail.schedulingLink")}
+              description={t("settings.mail.schedule.link.hint")}
+              settingKey="mail.schedulingLink"
+              value={text(values, "mail.schedulingLink")}
+              placeholder={t("settings.mail.schedule.link.placeholder")}
+              maxLength={500}
+              onCommit={(v) => onChange("mail.schedulingLink", v)}
+            />
+          </Group>
+          <Group
+            title={t("settings.mail.group.prep")}
+            description={t("settings.mail.prep.calendars")}
+          >
+            <SwitchField
+              label={t("settings.key.meetings.prep.scope")}
+              description={t("settings.mail.prep.scope.hint")}
+              settingKey="meetings.prep.scope"
+              checked={text(values, "meetings.prep.scope") !== "all"}
+              disabled={off || !prepOn}
+              onChange={(v) => onChange("meetings.prep.scope", v ? "external" : "all")}
+            />
+            <SelectRow
+              label={t("settings.mail.prep.leadMin")}
+              settingKey="meetings.prep.leadMin"
+              value={String(count(values, "meetings.prep.leadMin"))}
+              disabled={off || !prepOn}
+              options={opts([30, 60, 120, 240], minutes)}
+              onChange={(v) => onChange("meetings.prep.leadMin", Number(v))}
+            />
+            <SelectRow
+              label={t("settings.mail.prep.notifyMin")}
+              settingKey="meetings.prep.notifyMin"
+              value={String(count(values, "meetings.prep.notifyMin"))}
+              disabled={off || !prepOn}
+              options={opts([5, 10, 15, 30, 60], minutes)}
+              onChange={(v) => onChange("meetings.prep.notifyMin", Number(v))}
+            />
+            <SwitchField
+              label={t("settings.key.meetings.prep.saveToNotes")}
+              description={t("settings.mail.prep.saveToNotes.hint")}
+              settingKey="meetings.prep.saveToNotes"
+              checked={flag(values, "meetings.prep.saveToNotes")}
+              disabled={off || !prepOn}
+              onChange={(v) => onChange("meetings.prep.saveToNotes", v)}
+            />
+            <SelectRow
+              label={t("settings.mail.prep.dailyCap")}
+              settingKey="meetings.prep.dailyCap"
+              value={String(count(values, "meetings.prep.dailyCap"))}
+              disabled={off || !prepOn}
+              options={opts([1, 2, 3, 4], (n) => String(n))}
+              onChange={(v) => onChange("meetings.prep.dailyCap", Number(v))}
+            />
+          </Group>
+          <Group
+            title={t("settings.mail.group.notes")}
+            description={t("settings.mail.group.notesHint")}
+          >
+            <TextSetting
+              label={t("settings.mail.notes.folder")}
+              description={t("settings.mail.notes.folder.hint", { persona })}
+              settingKey="meetings.notes.folder"
+              value={text(values, "meetings.notes.folder")}
+              placeholder={t("settings.mail.notes.folder.placeholder")}
+              maxLength={1024}
+              onCommit={(v) => onChange("meetings.notes.folder", v)}
+            />
+            <TextSetting
+              label={t("settings.mail.transcribe.endpoint")}
+              description={t("settings.mail.transcribe.endpoint.hint")}
+              settingKey="meetings.transcribe.endpoint"
+              value={text(values, "meetings.transcribe.endpoint")}
+              placeholder={t("settings.mail.transcribe.endpoint.placeholder")}
+              maxLength={500}
+              onCommit={(v) => onChange("meetings.transcribe.endpoint", v)}
+            />
+            <TextSetting
+              label={t("settings.mail.transcribe.model")}
+              settingKey="meetings.transcribe.model"
+              value={text(values, "meetings.transcribe.model")}
+              placeholder={t("settings.mail.transcribe.model.placeholder")}
+              maxLength={120}
+              onCommit={(v) => onChange("meetings.transcribe.model", v)}
+            />
+            <SelectRow
+              label={t("settings.mail.notes.tasksApp")}
+              settingKey="meetings.notes.tasksApp"
+              value={text(values, "meetings.notes.tasksApp")}
+              disabled={off || !notesOn}
+              options={[
+                { value: "reminders", label: t("settings.mail.notes.tasksApp.reminders") },
+                { value: "things", label: t("settings.mail.notes.tasksApp.things") },
+              ]}
+              onChange={(v) => onChange("meetings.notes.tasksApp", v)}
+            />
+            <SwitchField
+              label={t("settings.key.meetings.notes.recapDraft")}
+              description={t("settings.mail.notes.recap.hint")}
+              settingKey="meetings.notes.recapDraft"
+              checked={flag(values, "meetings.notes.recapDraft")}
+              disabled={off || !notesOn}
+              onChange={(v) => onChange("meetings.notes.recapDraft", v)}
+            />
+            <TextSetting
+              label={t("settings.key.meetings.notes.consentLine")}
+              description={t("settings.mail.notes.consent.hint")}
+              settingKey="meetings.notes.consentLine"
+              value={str(
+                values,
+                "meetings.notes.consentLine",
+                t("settings.mail.notes.consent.default"),
+              )}
+              maxLength={300}
+              onCommit={(v) => onChange("meetings.notes.consentLine", v)}
+            />
+            <SwitchField
+              label={t("settings.key.meetings.notes.cloudSummary")}
+              description={t("settings.mail.notes.cloud.hint")}
+              settingKey="meetings.notes.cloudSummary"
+              checked={flag(values, "meetings.notes.cloudSummary")}
+              disabled={off || !notesOn}
+              onChange={(v) => onChange("meetings.notes.cloudSummary", v)}
+            />
+          </Group>
+          <Group
+            title={t("settings.mail.group.polling")}
+            description={`${t("settings.mail.poll.hint", { persona })} ${t("settings.mail.quietHours")}`}
+          >
+            <SelectRow
+              label={t("settings.mail.poll.active")}
+              settingKey="mail.poll.activeMin"
+              value={String(count(values, "mail.poll.activeMin"))}
+              disabled={off}
+              options={opts([1, 2, 5, 10, 15], minutes)}
+              onChange={(v) => onChange("mail.poll.activeMin", Number(v))}
+            />
+            <SelectRow
+              label={t("settings.mail.poll.idle")}
+              settingKey="mail.poll.idleMin"
+              value={String(count(values, "mail.poll.idleMin"))}
+              disabled={off}
+              options={opts([15, 30, 60, 120], minutes)}
+              onChange={(v) => onChange("mail.poll.idleMin", Number(v))}
+            />
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );

@@ -235,14 +235,19 @@ describe("Connected context UI", () => {
         <ThreadContextMeter threadId={threadId} />
       </StoryWorld>,
     );
-    expect(
-      await screen.findByRole("button", { name: "Context: 50,000 of 200,000 tokens, 25%" }),
-    ).toBeTruthy();
+    // Quiet at rest: 25% of the window shows no meter at all.
+    await waitFor(() => expect(gw).not.toBeNull());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("button", { name: /^Context:/ })).toBeNull();
+    expect(screen.queryByText(/50\.0k|50k/)).toBeNull();
     const g = gw as unknown as MockGateway;
     act(() => g.reportContextUsage(protocolUsage(threadId, 150_000)));
     const trigger = await screen.findByRole("button", {
       name: "Context: 150,000 of 200,000 tokens, 75%, near the compaction threshold",
     });
+    // Near the threshold: a small chip, not the token numbers.
+    expect(within(trigger).getByText("Chat is getting long")).toBeTruthy();
+    expect(trigger.textContent).not.toMatch(/150/);
     await userEvent.click(trigger);
     expect(await screen.findByText(/The limit is the model's context window/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Compact now" }));

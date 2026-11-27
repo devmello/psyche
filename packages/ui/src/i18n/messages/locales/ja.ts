@@ -68,6 +68,11 @@ import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
+import { simplifyB1 } from "./simplify-b1/ja.ts";
+import { simplifyB2 } from "./simplify-b2/ja.ts";
+import { simplifyB4 } from "./simplify-b4/ja.ts";
+import { simplifyB7 } from "./simplify-b7/ja.ts";
+import { simplifyB8 } from "./simplify-b8/ja.ts";
 import { simplifyB9 } from "./simplify-b9/ja.ts";
 import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
@@ -215,7 +220,7 @@ export const ja: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper はまだこのアプリを操作できません。もう一度試して、macOS に聞かれたら「OK」を選んでください。",
   "errors.reason.full_disk_access_missing":
-    "メッセージを読むには、Psyche Helper にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche Helper を再起動してください。",
+    "メッセージを読むには、Psyche (Helper) にフルディスクアクセスが必要です。システム設定 → プライバシーとセキュリティ → フルディスクアクセスでオンにしてから、Psyche (Helper) を再起動してください。",
   "errors.reason.prompt_refused_by_macos":
     "macOS が許可の確認を表示しませんでした。代わりにシステム設定 → プライバシーとセキュリティで Psyche Helper を許可してください。",
   "errors.reason.app_not_running":
@@ -1733,7 +1738,7 @@ export const ja: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "システム設定を開く",
   "settings.computerUse.fullDiskAccess.name": "フルディスクアクセス",
   "settings.computerUse.fullDiskAccess.why":
-    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche Helper を追加してください。",
+    "{persona} があなたのメッセージを読めるようにします。macOS はこれについて確認を出しません。リストに Psyche (Helper) を追加してから、再起動してください。",
   "settings.computerUse.fullDiskAccess.open": "システム設定でフルディスクアクセスを開く",
   "settings.computerUse.apps": "アプリ",
   "settings.computerUse.enabledHint":
@@ -3926,6 +3931,11 @@ export const ja: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

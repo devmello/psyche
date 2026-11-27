@@ -3,6 +3,13 @@
   "version": 1,
   "tools": [
     {
+      "name": "propose_automation",
+      "sideEffect": "none",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "note": "agent-core built-in: one confirm card, creates nothing. The validator needs a row to name it; the Stack registers no fake for it (AGENT_CORE_BUILTIN_TOOLS in packages/testing/src/scenarios/stack.ts)."
+    },
+    {
       "name": "gmail.search",
       "sideEffect": "read",
       "targetKind": "account",
@@ -30,7 +37,7 @@
       "sideEffect": "none",
       "targetKind": null,
       "provenanceOut": "trusted",
-      "note": "Psyche's own store: `none` per docs/05 \u00a73.1 (architecture \u00a74.3 lists Library items under write; see README decisions)."
+      "note": "Psyche's own store: `none` per docs/05 §3.1 (architecture §4.3 lists Library items under write; see README decisions)."
     },
     {
       "name": "calendar.list",
@@ -64,7 +71,7 @@
       "sideEffect": "none",
       "targetKind": null,
       "provenanceOut": "trusted",
-      "note": "Provisional: prepareFilledCopy into a new Library item (Psyche's own store, docs/05 \u00a73.1 none). The reply's approval binds the copy; gmail.send flattens it on send (finalizeFilledCopy)."
+      "note": "Provisional: prepareFilledCopy into a new Library item (Psyche's own store, docs/05 §3.1 none). The reply's approval binds the copy; gmail.send flattens it on send (finalizeFilledCopy)."
     },
     {
       "name": "messages.read",
@@ -81,21 +88,7 @@
       "provenanceOut": "trusted",
       "approvalKind": "message_send",
       "receiptKind": "message.send",
-      "note": "Provisional: send through Messages.app via the Mac node (J7, N5). docs/05 \u00a73.5 binding: channel, account, recipient, body hash, attachment hashes."
-    },
-    {
-      "name": "speech.transcribe",
-      "sideEffect": "read",
-      "targetKind": null,
-      "provenanceOut": "untrusted",
-      "note": "Provisional: transcribe an inbound voice note (N11). The words are the sender's: untrusted."
-    },
-    {
-      "name": "speech.voice_note",
-      "sideEffect": "none",
-      "targetKind": null,
-      "provenanceOut": "trusted",
-      "note": "Provisional: synthesize once and encode for the channel (N11; packages/speech VOICE_NOTE_PROFILES: CAF for iMessage). Writes an audio item to the Library."
+      "note": "Provisional: send through Messages.app via the Mac node (J7, N5). docs/05 §3.5 binding: channel, account, recipient, body hash, attachment hashes."
     },
     {
       "name": "goals.list",

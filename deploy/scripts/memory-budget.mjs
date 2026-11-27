@@ -84,6 +84,7 @@ async function measureIdle(bundle, settleS) {
     [
       "--max-semi-space-size=4",
       "--disable-warning=ExperimentalWarning",
+      "--disable-warning=DEP0040",
       "--expose-gc",
       "--import",
       preload,

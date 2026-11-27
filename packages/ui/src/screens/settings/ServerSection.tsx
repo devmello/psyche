@@ -11,6 +11,7 @@ import { LanAccessGroup } from "./LanAccessGroup.tsx";
 import { PairComputerGroup } from "./PairComputerGroup.tsx";
 import { RemoteAccessGroup } from "./RemoteAccessGroup.tsx";
 import {
+  Advanced,
   EmptyNotice,
   ErrorNotice,
   Facts,
@@ -54,8 +55,8 @@ export function ServerPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title={t("settings.server.title")}
-      description={t("settings.server.description")}
+      title={t("simplify.b4.server.title")}
+      description={t("simplify.b4.server.description")}
     >
       {lead}
       <LoadGate
@@ -205,20 +206,22 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
       <ServerPanel
         {...actions}
         lead={
-          <>
+          <Advanced>
             <GatewaysGroup />
             {remoteHost === undefined ? (
               <>
-                <RemoteAccessGroup />
-                <PairComputerGroup />
                 <LanAccessGroup />
+                <PairComputerGroup />
+                <Advanced title={t("simplify.b4.server.away")}>
+                  <RemoteAccessGroup />
+                </Advanced>
               </>
             ) : (
               <p className="text-callout text-label-secondary">
                 {t("settings.remote.clientNote", { host: remoteHost })}
               </p>
             )}
-          </>
+          </Advanced>
         }
         onSetUpRemote={onSetUpRemote}
         values={form.values}

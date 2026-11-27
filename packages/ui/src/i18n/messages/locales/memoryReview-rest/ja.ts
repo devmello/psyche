@@ -48,6 +48,7 @@ export const memoryReviewRest: Partial<Catalogue> = {
   "memoryReview.never.entity": "{name}についてこれを今後学習しない",
   "memoryReview.never.sender": "この送信者からはこれを今後学習しない",
   "memoryReview.group.confirmAll": "すべて確認（{n, number}）",
+  "memoryReview.confirmEverything": "すべて確認（{n, number}）",
   "memoryReview.group.discardAll": "すべて破棄（{n, number}）",
   "memoryReview.keys": "J / K 移動 · Y 確認 · E 編集 · N 破棄",
   "memoryReview.failed": "メモリを更新できませんでした: {reason}",

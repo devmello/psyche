@@ -4,7 +4,7 @@ import Testing
 @testable import PsycheFeatures
 @testable import PsycheStore
 
-/// How often the Home, agent, follow-up and task screens refetch on change events. Each screen reloads once per burst
+/// How often the Home, alert and task screens refetch on change events. Each screen reloads once per burst
 /// of events, still reloads for a single event, and reloads at once on a resync. Counts come from the fixture's read
 /// counter (`FixtureBackend.reads`), so a regression that fans events out again shows as an extra read.
 @MainActor
@@ -55,35 +55,16 @@ struct LiveReloadTests {
         #expect(await Self.eventually { store.reads.count("home") == before + 1 })
     }
 
-    @Test func aResyncReloadsHomeMemoryAndPinsAtOnce() async {
+    @Test func aResyncReloadsHomeAtOnce() async {
         let store = FixtureBackend()
-        let model = HomeModel(store: store, reloadDelay: .milliseconds(200))
+        let model = HomeModel(store: store, reloadDelay: .seconds(30))
         await model.load()
         let home = store.reads.count("home")
-        let memory = store.reads.count("memory")
-        let pins = store.reads.count("pinnedWidgets")
         let task = await Self.observing { await model.observe() }
         defer { task.cancel() }
         await store.publish(.resynced)
-        #expect(await Self.eventually {
-            store.reads.count("home") == home + 1 && store.reads.count("memory") == memory + 1
-                && store.reads.count("pinnedWidgets") == pins + 1
-        })
-    }
-
-    @Test func memoryIsReadOnlyForMemoryEvents() async {
-        let store = FixtureBackend()
-        let model = HomeModel(store: store, reloadDelay: .milliseconds(200))
-        await model.load()
-        let home = store.reads.count("home")
-        let memory = store.reads.count("memory")
-        let task = await Self.observing { await model.observe() }
-        defer { task.cancel() }
-        await store.publish(.changed(.memory))
-        #expect(await Self.eventually { store.reads.count("memory") == memory + 1 })
-        await Self.settle()
-        // A Memory event is not a Home event: the Home snapshot is not refetched for it.
-        #expect(store.reads.count("home") == home)
+        // The debounce is 30 s: the read can only come from the resync itself.
+        #expect(await Self.eventually { store.reads.count("home") == home + 1 })
     }
 
     @Test func homeEventsDoNotReadMemoryOrPins() async {
@@ -92,67 +73,15 @@ struct LiveReloadTests {
         await model.load()
         let memory = store.reads.count("memory")
         let pins = store.reads.count("pinnedWidgets")
+        let home = store.reads.count("home")
         let task = await Self.observing { await model.observe() }
         defer { task.cancel() }
         await store.publish(.changed(.home))
+        // Positive control: the home read fires for that event.
+        #expect(await Self.eventually { store.reads.count("home") == home + 1 })
         await Self.settle()
         #expect(store.reads.count("memory") == memory)
         #expect(store.reads.count("pinnedWidgets") == pins)
-    }
-
-    @Test func widgetEventsRefreshOnlyThePins() async {
-        let store = FixtureBackend()
-        let model = HomeModel(store: store, reloadDelay: .milliseconds(200))
-        await model.load()
-        let pins = store.reads.count("pinnedWidgets")
-        let memory = store.reads.count("memory")
-        let task = await Self.observing { await model.observe() }
-        defer { task.cancel() }
-        await store.publish(.changed(.widgets))
-        #expect(await Self.eventually { store.reads.count("pinnedWidgets") == pins + 1 })
-        await Self.settle()
-        #expect(store.reads.count("memory") == memory)
-    }
-
-    // MARK: Agent sheet and follow-ups
-
-    @Test func aBurstOfAgentEventsReloadsActivityOnce() async {
-        let store = FixtureBackend()
-        let model = AgentModel(store: store, reloadDelay: .milliseconds(200))
-        await model.load()
-        let before = store.reads.count("activity")
-        let task = await Self.observing { await model.observe() }
-        defer { task.cancel() }
-        for _ in 0..<3 {
-            await store.publish(.changed(.activity))
-            await store.publish(.changed(.home))
-        }
-        await Self.settle()
-        #expect(store.reads.count("activity") == before + 1)
-    }
-
-    @Test func aResyncReloadsTheAgentActivityAtOnce() async {
-        let store = FixtureBackend()
-        let model = AgentModel(store: store, reloadDelay: .seconds(30))
-        await model.load()
-        let before = store.reads.count("activity")
-        let task = await Self.observing { await model.observe() }
-        defer { task.cancel() }
-        await store.publish(.resynced)
-        // The debounce is 30 s: the read can only come from the resync itself.
-        #expect(await Self.eventually { store.reads.count("activity") == before + 1 })
-    }
-
-    @Test func aBurstOfHomeEventsReloadsFollowupsOnce() async {
-        let store = FixtureBackend()
-        let model = FollowupsModel(store: store, reloadDelay: .milliseconds(200))
-        await model.load()
-        let before = store.reads.count("mailFollowups")
-        let task = await Self.observing { await model.observe() }
-        defer { task.cancel() }
-        for _ in 0..<5 { await store.publish(.changed(.home)) }
-        await Self.settle()
-        #expect(store.reads.count("mailFollowups") == before + 1)
     }
 
     // MARK: Alert center

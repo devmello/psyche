@@ -67,6 +67,7 @@ export const memoryA: Partial<Catalogue> = {
   "memoryReview.never.entity": "No aprender nunca esto sobre {name}",
   "memoryReview.never.sender": "No aprender nunca esto de este remitente",
   "memoryReview.group.confirmAll": "Confirmar todo ({n, number})",
+  "memoryReview.confirmEverything": "Confirmar todo ({n, number})",
   "memoryReview.group.discardAll": "Descartar todo ({n, number})",
   "memoryReview.keys": "J / K mover · Y confirmar · E editar · N descartar",
   "memoryReview.failed": "No se pudo actualizar la memoria: {reason}",

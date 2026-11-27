@@ -46,6 +46,7 @@ export const memoryReview = {
   "memoryReview.explain.noSources": "No source is linked to this claim any more.",
   "memoryReview.never.entity": "Never learn this about {name}",
   "memoryReview.never.sender": "Never learn this from this sender",
+  "memoryReview.confirmEverything": "Confirm all ({n, number})",
   "memoryReview.group.confirmAll": "Confirm all ({n, number})",
   "memoryReview.group.discardAll": "Discard all ({n, number})",
   "memoryReview.keys": "J / K move · Y confirm · E edit · N discard",

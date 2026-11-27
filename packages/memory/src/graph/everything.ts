@@ -1425,9 +1425,26 @@ export class EverythingStore {
     };
   }
 
-  reviewCounts(): { pending: number; autoAccepted: number; quarantined: number } {
+  reviewCounts(): {
+    pending: number;
+    autoAccepted: number;
+    quarantined: number;
+    movedPending: number;
+  } {
     const n = (sql: string) => (this.#db.prepare(sql).get() as { n: number }).n;
+    // The facts the 2026-11 trust migration moved to review that still wait. No backup table
+    // (a fresh install) means nothing was moved.
+    const hasBackup =
+      this.#db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get("memory_migration_backup_2026_11") !== undefined;
     return {
+      movedPending: hasBackup
+        ? n(
+            `SELECT count(*) AS n FROM graph_facts
+               WHERE review = 'pending' AND id IN (SELECT id FROM memory_migration_backup_2026_11)`,
+          )
+        : 0,
       pending: n("SELECT count(*) AS n FROM graph_facts WHERE review = 'pending'"),
       autoAccepted: n("SELECT count(*) AS n FROM graph_facts WHERE review = 'auto_accepted'"),
       quarantined: n("SELECT count(*) AS n FROM memory_quarantine WHERE decided IS NULL"),

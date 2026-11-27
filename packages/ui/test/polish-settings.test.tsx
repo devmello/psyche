@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { SCHEDULED_NOW, SCHEDULED_ZONE } from "../src/fixtures/scheduled.ts";
 import { RunHistoryView } from "../src/screens/scheduled/RunHistory.tsx";
-import { AboutPanel } from "../src/screens/settings/AboutSection.tsx";
 import { StoragePanel, StorageSection } from "../src/screens/settings/StorageSection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -134,27 +133,5 @@ describe("Storage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Clear…" }));
     await userEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/Couldn't clear storage/);
-  });
-});
-
-describe("Release channel", () => {
-  it("shows Stable as the only channel, with the note, and only on the desktop", () => {
-    const { unmount } = render(
-      <StoryWorld>
-        <AboutPanel info={null} showUpdates />
-      </StoryWorld>,
-    );
-    expect(screen.getByText("Release channel")).toBeTruthy();
-    expect(screen.getByText("Stable")).toBeTruthy();
-    // Nothing to pick or save yet.
-    expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByText(/Stable is the only channel for now/)).toBeTruthy();
-    unmount();
-    render(
-      <StoryWorld>
-        <AboutPanel info={null} />
-      </StoryWorld>,
-    );
-    expect(screen.queryByText("Release channel")).toBeNull();
   });
 });

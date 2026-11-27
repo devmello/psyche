@@ -9,7 +9,7 @@ import { writeReport } from "../src/report.ts";
 import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 
 /**
- * The Milestone 2 acceptance scenarios (docs/08 Milestone 2 "Acceptance: V5, V6, V8, V9") in
+ * The Milestone 2 acceptance scenarios (docs/08 Milestone 2 "Acceptance: V5, V6, V8, V9"; V6 was retired, see scenarios-m2/README.md) in
  * scripted mode: S18's runner with the real agent loop, Permission Broker, audit chain, the real
  * documents pipeline (V5), agent-core's task.start (V8) and schedule (V9) built-ins, and the
  * fakes in src/m2-world.ts. Hard assertions gate; tests/acceptance/scenarios-m2/known-failures.json
@@ -130,16 +130,6 @@ describe("V5: the documents pipeline's own guarantees", () => {
   });
 });
 
-describe("V6: voice notes are encoded for the channel", () => {
-  it("sends one CAF voice note to Lena and nothing to anyone else", async () => {
-    const r = runs.get("v6-messages-voice-note") ?? (await run("v6-messages-voice-note"));
-    expect(r.state.voiceNotes.map((v) => [v.mime, v.name])).toEqual([
-      ["audio/x-caf", "Voice note.caf"],
-    ]);
-    expect(r.state.messagesSent.map((m) => m.to)).toEqual([["lena@studio.example.net"]]);
-  });
-});
-
 describe("V8: cancellation tasks carry the turn's taint", () => {
   it("creates two tasks, both tainted by the mail they came from", async () => {
     const r = runs.get("v8-subscription-audit") ?? (await run("v8-subscription-audit"));
@@ -160,21 +150,13 @@ describe("V8: cancellation tasks carry the turn's taint", () => {
   });
 });
 
-describe("V9: the automation fires in the owner's time zone, unattended", () => {
-  it("fires at 4 PM Pacific on both Fridays and each run is unattended", async () => {
+describe("V9: a repeatable workflow is proposed as one confirm card, and the schedule tool is not used", () => {
+  it("proposes through propose_automation, confirms, and creates no scheduled run here", async () => {
     const r = runs.get("v9-weekly-review") ?? (await run("v9-weekly-review"));
-    expect(r.state.scheduler?.fired.map((f) => f.at)).toEqual([
-      "2026-10-23T23:00:00.000Z",
-      "2026-10-30T23:00:00.000Z",
-    ]);
-    const [automation] = (await r.state.scheduler?.list()) ?? [];
-    expect(automation?.timezone).toBe("America/Los_Angeles");
-    const notes = await r.stack.notifier.list();
-    // The loop's notice for the unattended run's deferred card (the broker also notifies a
-    // surface for every card it issues, attended or not).
-    expect(
-      notes.filter((n) => n.kind === "approval" && n.title.startsWith("Approval needed")),
-    ).toHaveLength(1);
+    // The scenario's own tool_called and tool_not_called checks cover the calls. Here: the
+    // confirm creates nothing in the scripted run (the fire path is unit-tested elsewhere).
+    expect((await r.state.scheduler?.list()) ?? []).toEqual([]);
+    expect(r.state.scheduler?.fired ?? []).toEqual([]);
   });
 });
 

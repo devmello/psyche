@@ -49,6 +49,7 @@ export const memoryReview: Partial<Catalogue> = {
   "memoryReview.never.entity": "永不从{name}了解这类信息",
   "memoryReview.never.sender": "永不从此发件人了解这类信息",
   "memoryReview.group.confirmAll": "全部确认（{n, number}）",
+  "memoryReview.confirmEverything": "全部确认（{n, number}）",
   "memoryReview.group.discardAll": "全部放弃（{n, number}）",
   "memoryReview.keys": "J / K 移动 · Y 确认 · E 编辑 · N 放弃",
   "memoryReview.failed": "无法更新记忆：{reason}",

@@ -569,7 +569,13 @@ function smokeNative(bundle, home) {
   `;
   const out = execFileSync(
     join(bundle, IS_WIN ? "runtime/node.exe" : "runtime/node"),
-    ["--disable-warning=ExperimentalWarning", "--input-type=module", "-e", script],
+    [
+      "--disable-warning=ExperimentalWarning",
+      "--disable-warning=DEP0040",
+      "--input-type=module",
+      "-e",
+      script,
+    ],
     {
       cwd: app,
       encoding: "utf8",
@@ -597,7 +603,7 @@ ${COMPILE_CACHE}
 unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
 PSYCHE_BUILD_INFO="$here/build-info.json"
 export PSYCHE_BUILD_INFO
-exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/gateway/dist/main.mjs" "$@"
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning --disable-warning=DEP0040 --require "$here/psyched-harden.cjs" "$here/app/apps/gateway/dist/main.mjs" "$@"
 `;
 
 /**
@@ -628,7 +634,7 @@ export const PSYCHE_LAUNCHER = `#!/bin/sh
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
 unset NODE_OPTIONS NODE_PATH NODE_REPL_EXTERNAL_MODULE
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning --require "$here/psyched-harden.cjs" "$here/app/apps/cli/dist/main.mjs" "$@"
+exec "$here/runtime/node" --disable-warning=ExperimentalWarning --disable-warning=DEP0040 --require "$here/psyched-harden.cjs" "$here/app/apps/cli/dist/main.mjs" "$@"
 `;
 
 // The Linux launchers differ only in where the compile cache goes.
@@ -832,6 +838,7 @@ async function main(argv) {
         args: [
           "--max-semi-space-size=4",
           "--disable-warning=ExperimentalWarning",
+          "--disable-warning=DEP0040",
           `${dir}\\app\\apps\\gateway\\dist\\main.mjs`,
         ],
         psycheHome: "{{PSYCHE_HOME}}",

@@ -445,6 +445,40 @@ export function ModelProvidersPanel({
   const primaryRef = typeof values["models.primary"] === "string" ? values["models.primary"] : "";
   const primaryContext = providers.flatMap((p) => p.models).find((m) => m.ref === primaryRef)
     ?.capabilities?.contextWindow;
+  const roleField = (role: (typeof MODEL_ROLES)[number]): ReactElement => {
+    const current = str(values, role.key, "");
+    const options = models.some((m) => m.ref === current)
+      ? models
+      : current === "" || current === "none"
+        ? models
+        : [{ ref: current, toolCheck: "untested" as const }, ...models];
+    return (
+      <div key={role.key} className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center">
+        <label htmlFor={`${id}-${role.key}`} className="font-medium">
+          {role.label}
+          <span className="block text-callout font-normal text-muted-foreground">{role.hint}</span>
+        </label>
+        <div className="flex flex-col gap-1">
+          <NativeSelect
+            id={`${id}-${role.key}`}
+            className="min-w-72"
+            value={current}
+            onChange={(e) => onChange(role.key, e.target.value)}
+          >
+            {current === "" ? <option value="">{t("settings.model.choose")}</option> : null}
+            {options.map((m) => (
+              <option key={m.ref} value={m.ref}>
+                {m.toolCheck === "failed"
+                  ? t("settings.model.chatOnlyOption", { name: modelLabel(m) })
+                  : modelLabel(m)}
+              </option>
+            ))}
+          </NativeSelect>
+          <SettingHint settingKey={role.key} />
+        </div>
+      </div>
+    );
+  };
   const add = onAddProvider ? (
     <Button type="button" size="sm" onClick={onAddProvider}>
       {t("settings.model.addProvider")}
@@ -458,6 +492,8 @@ export function ModelProvidersPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
+        <Group title={t("simplify.b8.model.choice")}>{roleField(MODEL_ROLES[0])}</Group>
+
         <Group
           title={t("settings.model.providers")}
           actions={providers.length === 0 ? undefined : add}
@@ -531,6 +567,27 @@ export function ModelProvidersPanel({
                       onClose={() => setEditingKey(null)}
                     />
                   ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Group>
+
+        {removingKey !== null && onClearKey !== undefined ? (
+          <RemoveKeyDialog
+            provider={removingKey}
+            onConfirm={() => onClearKey(removingKey.id)}
+            onClose={() => setRemovingKey(null)}
+          />
+        ) : null}
+
+        <Advanced>
+          <Group title={t("settings.model.roles")}>{roleField(MODEL_ROLES[1])}</Group>
+          <Group title={t("simplify.b8.model.details")}>
+            <ul className="flex flex-col divide-y divide-gray-6">
+              {providers.map((p) => (
+                <li key={p.id} className="flex flex-col gap-2 py-2 first:pt-0 last:pb-0">
+                  <span className="font-medium text-foreground">{p.label}</span>
                   {p.probe !== undefined ? (
                     <EndpointProbeStatus
                       label={p.label}
@@ -583,57 +640,7 @@ export function ModelProvidersPanel({
                 </li>
               ))}
             </ul>
-          )}
-        </Group>
-
-        {removingKey !== null && onClearKey !== undefined ? (
-          <RemoveKeyDialog
-            provider={removingKey}
-            onConfirm={() => onClearKey(removingKey.id)}
-            onClose={() => setRemovingKey(null)}
-          />
-        ) : null}
-
-        <Group title={t("settings.model.roles")}>
-          {MODEL_ROLES.map((role) => {
-            const current = str(values, role.key, "");
-            const options = models.some((m) => m.ref === current)
-              ? models
-              : current === "" || current === "none"
-                ? models
-                : [{ ref: current, toolCheck: "untested" as const }, ...models];
-            return (
-              <div key={role.key} className="grid gap-1 sm:grid-cols-[10rem_1fr] sm:items-center">
-                <label htmlFor={`${id}-${role.key}`} className="font-medium">
-                  {role.label}
-                  <span className="block text-callout font-normal text-muted-foreground">
-                    {role.hint}
-                  </span>
-                </label>
-                <div className="flex flex-col gap-1">
-                  <NativeSelect
-                    id={`${id}-${role.key}`}
-                    className="min-w-72"
-                    value={current}
-                    onChange={(e) => onChange(role.key, e.target.value)}
-                  >
-                    {current === "" ? <option value="">{t("settings.model.choose")}</option> : null}
-                    {options.map((m) => (
-                      <option key={m.ref} value={m.ref}>
-                        {m.toolCheck === "failed"
-                          ? t("settings.model.chatOnlyOption", { name: modelLabel(m) })
-                          : modelLabel(m)}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                  <SettingHint settingKey={role.key} />
-                </div>
-              </div>
-            );
-          })}
-        </Group>
-
-        <Advanced>
+          </Group>
           <ContextSettingsGroup
             values={values}
             onChange={onChange}

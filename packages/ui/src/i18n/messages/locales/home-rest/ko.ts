@@ -44,5 +44,11 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.memoryReview": "메모리 검토",
   "home.quiet":
     "지금은 처리할 일이 없습니다. 승인, 일일 브리핑, 새로운 아이디어가 여기에 표시됩니다.",
+  "home.helperPaused": "도우미가 오프라인인 동안 메일과 메시지가 일시 중지됩니다.",
+  "home.helperPaused.open": "기기 열기",
+  "home.movedFacts":
+    "{n, plural, other {다른 사람의 메시지에서 알게 된 사실 #개가 검토를 기다리고 있습니다.}}",
+  "home.movedFacts.review": "검토",
+  "home.movedFacts.dismiss": "닫기",
   "home.loadFailed": "{what}을(를) 불러오지 못했습니다.",
 };
