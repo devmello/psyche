@@ -124,7 +124,8 @@ export const mailMeetings: Partial<Catalogue> = {
   // Polling
   "settings.mail.poll.active": "Quando sei attivo",
   "settings.mail.poll.idle": "Altrimenti",
-  "settings.mail.poll.hint": "Ogni quanto {persona} cerca nuova posta. Più spesso consuma più batteria.",
+  "settings.mail.poll.hint":
+    "Ogni quanto {persona} cerca nuova posta. Più spesso consuma più batteria.",
 
   // Setting-key labels
   "settings.key.workflows.paused": "Metti in pausa tutti i flussi di posta e riunioni",

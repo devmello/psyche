@@ -94,7 +94,8 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "오디오를 추가하기 전에는 아무 일도 하지 않습니다. 음성 메모, 파일 또는 직접 시작한 녹음이 대상입니다.",
   "settings.mail.notes.folder": "녹음 폴더",
-  "settings.mail.notes.folder.hint": "{persona}이 읽을 수 있는 폴더입니다. 파일 접근에서 허용하십시오.",
+  "settings.mail.notes.folder.hint":
+    "{persona}이 읽을 수 있는 폴더입니다. 파일 접근에서 허용하십시오.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "전사 엔드포인트",
   "settings.mail.transcribe.endpoint.hint":

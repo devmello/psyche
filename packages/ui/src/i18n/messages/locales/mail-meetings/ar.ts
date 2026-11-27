@@ -84,7 +84,8 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "لا يفعل شيئًا حتى تضيف صوتًا: مذكرة صوتية أو ملفًا أو تسجيلًا تبدؤه.",
   "settings.mail.notes.folder": "مجلد التسجيلات",
-  "settings.mail.notes.folder.hint": "مجلد يمكن لـ {persona} قراءته. امنحه الإذن من الوصول إلى الملفات.",
+  "settings.mail.notes.folder.hint":
+    "مجلد يمكن لـ {persona} قراءته. امنحه الإذن من الوصول إلى الملفات.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "نقطة نهاية النسخ النصي",
   "settings.mail.transcribe.endpoint.hint":
