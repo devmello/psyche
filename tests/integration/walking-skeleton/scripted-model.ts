@@ -55,7 +55,23 @@ export class ScriptedModel implements ModelProvider {
 
   async *#utility(req: ModelRequest): AsyncIterable<ModelEvent> {
     this.utilityRequests.push(req);
-    const flush = (req.system ?? "").includes("daily notes");
+    const system = req.system ?? "";
+    // Compaction is one structured JSON reply: the summary plus its daily-note lines (the Gateway
+    // writes them through `flushLines`; there is no separate flush call any more).
+    if (system.includes("dailyNoteLines")) {
+      yield* say(
+        JSON.stringify({
+          facts: [],
+          decisions: [],
+          openTasks: [],
+          pinnedInstructions: [],
+          retiredInstructions: [],
+          dailyNoteLines: [FLUSH_FACT],
+        }),
+      );
+      return;
+    }
+    const flush = system.includes("daily notes");
     yield* say(flush ? `- ${FLUSH_FACT}` : "The owner asked to add eggs to notes.md; done.");
   }
 

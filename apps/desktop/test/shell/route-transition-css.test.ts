@@ -10,6 +10,11 @@ const css = readFileSync(
   "utf8",
 );
 
+const motionCss = readFileSync(
+  new URL("../../../../packages/ui/src/styles/motion.css", import.meta.url),
+  "utf8",
+);
+
 const block = (selector: string) => {
   const i = css.indexOf(`${selector} {`);
   expect(i, selector).toBeGreaterThan(-1);
@@ -36,7 +41,9 @@ describe("route transition stylesheet", () => {
     expect(css).toContain("translateY(var(--route-rise, 4px))");
     const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
     expect(reduced).toContain("animation-name: psy-route-fade");
-    expect(reduced).toContain("animation-duration: 1ms");
+    // The outgoing page's 1 ms comes from a motion token (41dce3a55); pin the token and its value.
+    expect(reduced).toContain("animation-duration: var(--duration-route-old-reduced, 1ms)");
+    expect(motionCss).toContain("--duration-route-old-reduced: 1ms;");
     expect(css).toContain(':root[data-reduce-motion="true"]::view-transition-new(.psy-route)');
   });
 });
