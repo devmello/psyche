@@ -610,7 +610,7 @@ export const settings: Partial<Catalogue> = {
     "لا يُقرأ ولا يُكتب شيء أثناء التفعيل، ولا يُملأ شيء بأثر رجعي بعد ذلك.",
   "settings.learning.weeklyCard": "بطاقة «ما تعلّمته» الأسبوعية",
   "settings.learning.weeklyCardHint":
-    "منشور في الخلاصة أيام الأحد، فقط عندما يوجد ما يستحق المراجعة.",
+    "منشور في الرئيسية أيام الأحد، فقط عندما يوجد ما يستحق المراجعة.",
   "settings.learning.open": "ما تعلّمه {persona}",
   "settings.learning.openButton": "فتح النمو",
   "settings.learning.forgetAll": "نسيان كل ما تعلّمه {persona}",

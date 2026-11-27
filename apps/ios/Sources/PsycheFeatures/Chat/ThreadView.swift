@@ -10,6 +10,37 @@ private struct ForkTarget: Identifiable {
     var id: String { messageID }
 }
 
+/// What decides whether a row arrived or left: how many there are and which is last. Cheap to build and compare,
+/// unlike an array of every id, which was allocated on every streamed delta.
+private struct ItemsKey: Equatable {
+    let count: Int
+    let lastID: String?
+    init(_ items: [ChatItem]) {
+        count = items.count
+        lastID = items.last?.id
+    }
+}
+
+/// One thread row. Equal when what it draws is equal: the closures in `context` are rebuilt on every pass of
+/// the thread view and are left out, so a delta on the streaming reply redraws only that reply's row.
+private struct ThreadItemRow: View, Equatable {
+    let item: ChatItem
+    let gap: CGFloat
+    let chosen: String?
+    let delivery: MessageDelivery?
+    let canAnswer: Bool
+    let context: BlockContext
+
+    nonisolated static func == (a: ThreadItemRow, b: ThreadItemRow) -> Bool {
+        a.item == b.item && a.gap == b.gap && a.chosen == b.chosen && a.delivery == b.delivery
+            && a.canAnswer == b.canAnswer
+    }
+
+    var body: some View {
+        BlockView(item: item, context: context).padding(.top, gap)
+    }
+}
+
 struct ThreadView: View {
     @State private var model: ThreadModel
     @State private var composer: ComposerModel
@@ -58,8 +89,14 @@ struct ThreadView: View {
                         .padding(.bottom, 8)
                     }
                     ForEach(Array(thread.items.enumerated()), id: \.element.id) { index, item in
-                        BlockView(item: item, context: context)
-                            .padding(.top, index == 0 ? 0 : Self.gap(before: item, after: thread.items[index - 1]))
+                        ThreadItemRow(
+                            item: item, gap: index == 0 ? 0 : Self.gap(before: item, after: thread.items[index - 1]),
+                            chosen: model.chosen[item.id], delivery: model.delivery[item.id],
+                            canAnswer: session.state.canAnswer, context: context
+                        )
+                        // A streamed delta changes one row's `item`; every other row compares equal and keeps its
+                        // body (and its parsed Markdown) instead of rebuilding about 60 times a second.
+                        .equatable()
                             // A reply, card or tool line fades in with an 8 pt rise. The reader's own message
                             // does not move: sending is a frequent action and gets no motion (spec §3).
                             .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
@@ -72,7 +109,7 @@ struct ThreadView: View {
                             .transition(motion.transition(.fade))
                     }
                     if thread.statusKind == .running, !isStreaming(thread) {
-                        WorkingRow(text: thread.status.isEmpty ? String(localized: "Working", bundle: .module) : thread.status)
+                        WorkingRow(text: model.displayStatus.isEmpty ? String(localized: "Working", bundle: .module) : model.displayStatus)
                             .padding(.top, 14)
                             .transition(motion.transition(.fade))
                     }
@@ -82,7 +119,7 @@ struct ThreadView: View {
                 .scrollTargetLayout()
                 // Only an item arriving or leaving animates. Streamed text grows inside its own item (the id
                 // does not change), so tokens never trigger this: they are paced and faded by `StreamingText`.
-                .psycheAnimation(.smooth, value: thread.items.map(\.id))
+                .psycheAnimation(.smooth, value: ItemsKey(thread.items))
                 .padding(.horizontal, PsycheMetrics.pagePadding)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
@@ -150,7 +187,7 @@ struct ThreadView: View {
                 if let thread = model.phase.value {
                     VStack(spacing: 1) {
                         Text(thread.title).font(.headline).foregroundStyle(PsycheColor.text).lineLimit(1)
-                        ThreadStatusLine(kind: thread.statusKind, text: thread.status)
+                        ThreadStatusLine(kind: thread.statusKind, text: model.displayStatus)
                     }
                     .accessibilityElement(children: .combine)
                 }

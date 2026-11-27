@@ -21,7 +21,9 @@ import { computerWatch } from "./computer-watch/hi.ts";
 import { dailyRest } from "./daily-rest/hi.ts";
 import { deckRest } from "./deck-rest/hi.ts";
 import { designRest } from "./design-rest/hi.ts";
+import { desktopMenu } from "./desktop-menu/hi.ts";
 import { desktopSimple } from "./desktop-simple/hi.ts";
+import { desktopTray } from "./desktop-tray/hi.ts";
 import { everythingRest } from "./everything-rest/hi.ts";
 import { final202611 } from "./final-2026-11/hi.ts";
 import { friction } from "./friction/hi.ts";
@@ -3711,6 +3713,7 @@ export const hi: Partial<Catalogue> = {
   "web.chat.modelTitle": "मॉडल (⌘⇧I)",
   "web.chat.defaultModel": "डिफ़ॉल्ट मॉडल",
   "web.chat.conversation": "बातचीत",
+  "web.chat.stopFailed": "रोका नहीं जा सका। फिर से कोशिश करें।",
   "web.chat.preparing": "Psyche आपकी मुख्य चैट तैयार कर रहा है।",
   "web.quickEntry.status":
     "Psyche · {online, select, true {मुख्य चैट} other {ऑफ़लाइन}}{approvals, plural, =0 {} one { · # स्वीकृति प्रतीक्षा में} other { · # स्वीकृतियाँ प्रतीक्षा में}}",
@@ -3897,6 +3900,8 @@ export const hi: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

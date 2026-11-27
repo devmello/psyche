@@ -24,10 +24,22 @@ final class TaskRunModel {
     private(set) var helpersError: String?
     let taskID: String
     private let store: any PsycheBackend
+    /// How soon a live task is re-read while no event arrives. It doubles after each quiet poll, up to `maxPollInterval`.
+    private let pollInterval: Duration
+    private let maxPollInterval: Duration
+    /// Activity or Home events inside this window mean the session is streaming: those already reload the page.
+    private let quietWindow: Duration
+    @ObservationIgnored private var lastEventAt: ContinuousClock.Instant?
 
-    init(store: any PsycheBackend, taskID: String) {
+    init(
+        store: any PsycheBackend, taskID: String, pollInterval: Duration = .milliseconds(2500),
+        maxPollInterval: Duration = .seconds(15), quietWindow: Duration = .seconds(10)
+    ) {
         self.store = store
         self.taskID = taskID
+        self.pollInterval = pollInterval
+        self.maxPollInterval = maxPollInterval
+        self.quietWindow = quietWindow
     }
 
     func load() async {
@@ -63,23 +75,35 @@ final class TaskRunModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.activity), .changed(.home), .resynced: await load()
+            case .changed(.activity), .changed(.home), .resynced:
+                lastEventAt = ContinuousClock.now
+                await load()
             default: break
             }
         }
     }
 
-    /// While the task is live, reloads every 2.5 s. The loop ends when the page's task is cancelled, which
-    /// happens when the page goes away.
+    /// Re-reads a live task while no event arrives, for the steps that have no event of their own. The poll backs off
+    /// (2.5 s, doubling, up to 15 s) while it finds nothing new, and waits out events that already reload the page.
+    /// An idle page checks rarely. The loop ends when the page's task is cancelled, which happens when the page goes away.
     func pollWhileLive() async {
+        var interval = pollInterval
         while true {
             do {
-                try await Task.sleep(for: .seconds(2.5))
+                try await Task.sleep(for: interval)
             } catch {
                 return
             }
-            guard phase.value?.state.isLive == true else { continue }
+            guard phase.value?.state.isLive == true else {
+                interval = maxPollInterval
+                continue
+            }
+            if let last = lastEventAt, ContinuousClock.now - last < quietWindow {
+                interval = pollInterval
+                continue
+            }
             await load()
+            interval = min(interval * 2, maxPollInterval)
         }
     }
 

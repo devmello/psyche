@@ -17,7 +17,9 @@ import { computerWatch } from "./computer-watch/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
+import { desktopMenu } from "./desktop-menu/fr.ts";
 import { desktopSimple } from "./desktop-simple/fr.ts";
+import { desktopTray } from "./desktop-tray/fr.ts";
 import { everythingRest } from "./everything-rest/fr.ts";
 import { final202611 } from "./final-2026-11/fr.ts";
 import { friction } from "./friction/fr.ts";
@@ -3778,6 +3780,7 @@ export const fr: Partial<Catalogue> = {
   "web.chat.modelTitle": "Modèle (⌘⇧I)",
   "web.chat.defaultModel": "modèle par défaut",
   "web.chat.conversation": "Conversation",
+  "web.chat.stopFailed": "Impossible d’arrêter. Réessayez.",
   "web.chat.preparing": "Psyche prépare votre discussion principale.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {discussion principale} other {hors ligne}}{approvals, plural, =0 {} one { · # approbation en attente} other { · # approbations en attente}}",
@@ -3970,6 +3973,8 @@ export const fr: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

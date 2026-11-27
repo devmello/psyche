@@ -63,7 +63,7 @@ import {
   suppressionFor,
 } from "./forget-cascade.ts";
 import { readRegularFile, realDirUnder, writeFileReplacing } from "./hidden-fs.ts";
-import { type ChunkInput, MemoryIndex } from "./index-db.ts";
+import { type ChunkInput, type FileRow, MemoryIndex } from "./index-db.ts";
 import {
   BOOTSTRAP_FILE,
   canonicalCase,
@@ -300,6 +300,13 @@ export class SqliteMemoryStore implements MemoryStore {
   #watching = false;
   readonly #usedApprovals = new Set<string>();
   #syncing: Promise<unknown> = Promise.resolve();
+  /** Boot gate (G12): set by `armBoot()`; reads and writes wait for the first sync to finish. */
+  #gate: Promise<void> | undefined;
+  #startBoot: (() => void) | undefined;
+  #bootRun: Promise<void> | undefined;
+  /** The last provenance sidecar read, keyed by the sidecar directory's mtime (G7). */
+  #sidecarCache: { stamp: string; trust: Map<string, Map<string, Provenance>> } | undefined;
+  #sidecarReads = 0;
 
   constructor(options: SqliteMemoryStoreOptions) {
     this.#db = options.sqlite;
@@ -335,22 +342,64 @@ export class SqliteMemoryStore implements MemoryStore {
    * is on disk. Safe to call on every start.
    */
   async init(): Promise<void> {
+    await this.#prepare();
+    await this.repairUserHeader().catch(() => undefined);
+  }
+
+  /** Directories, first-run templates and the first sync. */
+  async #prepare(): Promise<void> {
     for (const dir of WORKSPACE_DIRS) ensureDir(join(this.root, dir));
     if (this.#state("workspace.initialized") === undefined) this.#copyTemplates();
     await this.sync();
+  }
+
+  /**
+   * Boot in two steps (G12, plain database only). `armBoot()` makes every read and write wait
+   * for the first sync, so it is safe to call before the Gateway listens. `runBoot()` then runs
+   * that sync, typically after the socket is up. Without `armBoot()` nothing waits (`init()`).
+   */
+  armBoot(): void {
+    if (this.#gate !== undefined) return;
+    let start: () => void = () => undefined;
+    const go = new Promise<void>((resolve) => {
+      start = resolve;
+    });
+    this.#startBoot = start;
+    this.#bootRun = go.then(() => this.#prepare());
+    this.#gate = this.#bootRun.catch(() => undefined);
+  }
+
+  /** Runs the armed boot (or `init()` when nothing was armed). Resolves when the setup is done. */
+  async runBoot(): Promise<void> {
+    if (this.#bootRun === undefined || this.#startBoot === undefined) return this.init();
+    this.#startBoot();
+    await this.#bootRun;
     await this.repairUserHeader().catch(() => undefined);
+  }
+
+  /** Waits for the armed boot's first sync; a no-op when nothing was armed. */
+  async #waitGate(): Promise<void> {
+    if (this.#gate !== undefined) await this.#gate;
   }
 
   /** Stops the watcher and waits for background embedding. */
   async close(): Promise<void> {
     this.unwatch();
-    await this.idle();
+    // Not gated on the boot: a Gateway that failed before the boot ran must still close.
+    await this.#syncing;
+    await this.#embedQueue;
   }
 
   /** Resolves when queued embedding and sync work has finished. */
   async idle(): Promise<void> {
+    await this.#waitGate();
     await this.#syncing;
     await this.#embedQueue;
+  }
+
+  /** How many times the provenance sidecar directory was read (test hook for G7). */
+  get sidecarReads(): number {
+    return this.#sidecarReads;
   }
 
   get vectorMode(): "sqlite-vec" | "brute-force" | "off" {
@@ -651,12 +700,24 @@ export class SqliteMemoryStore implements MemoryStore {
       mode: DIR_MODE,
     });
     if (dir === undefined) return out;
+    // The stamp covers the directory and each sidecar file (mtime in ns, size, inode): a rename
+    // moves the directory, and an in-place rewrite moves its file. Only the stat is repeated on an
+    // unchanged pass; the read and parse run again only when the stamp changed (G7).
     let names: string[];
+    let stamp: string;
     try {
       names = readdirSync(dir).filter((n) => n.endsWith(".json"));
+      const parts = [dirStamp(dir)];
+      for (const name of names) {
+        const st = statSync(join(dir, name), { bigint: true });
+        parts.push(`${name}:${st.mtimeNs}:${st.ctimeNs}:${st.size}:${st.ino}`);
+      }
+      stamp = parts.join("|");
     } catch {
       return out;
     }
+    if (this.#sidecarCache?.stamp === stamp) return this.#sidecarCache.trust;
+    this.#sidecarReads++;
     for (const name of names) {
       let parsed: unknown;
       try {
@@ -683,6 +744,7 @@ export class SqliteMemoryStore implements MemoryStore {
         byHash.set(sha256, prior === undefined ? provenance : leastTrusted(prior, provenance));
       }
     }
+    this.#sidecarCache = { stamp, trust: out };
     return out;
   }
 
@@ -705,10 +767,18 @@ export class SqliteMemoryStore implements MemoryStore {
         const trust = sidecar.get(path)?.get(sha);
         return trust === undefined ? own : leastTrusted(own, trust);
       };
+      // One prefetch of the index rows per pass (G7). Each write below refreshes its own row, so
+      // the later passes see what this pass wrote. The pass has no awaits, so nothing else writes.
+      const rows = new Map<string, FileRow>(this.#index.listFiles().map((r) => [r.path, r]));
+      const refresh = (path: string): void => {
+        const row = this.#index.getFile(path);
+        if (row === undefined) rows.delete(path);
+        else rows.set(path, row);
+      };
       for (const path of onDisk) {
         const abs = join(this.root, ...path.split("/"));
         const st = statSync(abs);
-        const row = this.#index.getFile(path);
+        const row = rows.get(path);
         if (row !== undefined && row.mtime_ms === st.mtimeMs && row.bytes === st.size) continue;
         const content = readFileSync(abs, "utf8");
         const sha = sha256Hex(content);
@@ -716,6 +786,7 @@ export class SqliteMemoryStore implements MemoryStore {
           const kept = withSidecar(row.provenance, path, sha);
           if (kept !== row.provenance) this.#indexFile(path, content, kept, st.mtimeMs);
           else this.#index.upsertFile({ ...row, mtimeMs: st.mtimeMs, provenance: row.provenance });
+          refresh(path);
           continue;
         }
         // The old text is gone from disk; its indexed chunks stand in for it.
@@ -729,6 +800,7 @@ export class SqliteMemoryStore implements MemoryStore {
         const own = ownerEditProvenance(row?.provenance, before, content);
         const provenance = withSidecar(own, path, sha);
         this.#indexFile(path, content, provenance, st.mtimeMs);
+        refresh(path);
         changed.push(path);
         this.#emit({
           event: "memory.file.changed",
@@ -738,7 +810,7 @@ export class SqliteMemoryStore implements MemoryStore {
       // Files whose bytes did not change but whose sidecar entry is less trusted.
       for (const [path, byHash] of sidecar) {
         if (!onDisk.has(path)) continue;
-        const row = this.#index.getFile(path);
+        const row = rows.get(path);
         if (row === undefined || !byHash.has(row.sha256)) continue;
         const kept = withSidecar(row.provenance, path, row.sha256);
         if (kept === row.provenance) continue;
@@ -746,15 +818,17 @@ export class SqliteMemoryStore implements MemoryStore {
         const content = readFileSync(abs, "utf8");
         if (sha256Hex(content) !== row.sha256) continue;
         this.#indexFile(path, content, kept, statSync(abs).mtimeMs);
+        refresh(path);
         changed.push(path);
         this.#emit({
           event: "memory.file.changed",
           payload: { path, etag: null, source: "external", provenance: kept },
         });
       }
-      for (const row of this.#index.listFiles()) {
+      for (const row of [...rows.values()]) {
         if (onDisk.has(row.path)) continue;
         this.#unindexFile(row.path);
+        rows.delete(row.path);
         removed.push(row.path);
         this.#emit({
           event: "memory.file.changed",
@@ -777,24 +851,38 @@ export class SqliteMemoryStore implements MemoryStore {
     if (this.#watching) return;
     this.#watching = true;
     const debounceMs = options.debounceMs ?? 300;
+    // While the recursive watcher is healthy the rescan is only a safety net, so it runs every
+    // 3 minutes. Without a watcher, or after one errors, it runs every 30 s (G7). The rescan
+    // stats every file, so a missed edit is still found by the next one.
+    const healthyRescanMs = options.rescanMs ?? 180_000;
+    const degradedRescanMs = options.rescanMs ?? 30_000;
     const schedule = () => {
       if (this.#syncTimer !== undefined) clearTimeout(this.#syncTimer);
       this.#syncTimer = setTimeout(() => {
         this.#syncTimer = undefined;
-        void this.sync().catch(() => undefined);
+        void this.#waitGate()
+          .then(() => this.sync())
+          .catch(() => undefined);
       }, debounceMs);
+    };
+    const arm = (ms: number) => {
+      if (this.#rescan !== undefined) clearInterval(this.#rescan);
+      this.#rescan = setInterval(schedule, ms);
+      this.#rescan.unref();
     };
     try {
       this.#watcher = watch(this.root, { recursive: true }, schedule);
       this.#watcher.on("error", () => {
         this.#watcher?.close();
         this.#watcher = undefined;
+        arm(degradedRescanMs);
+        schedule();
       });
+      arm(healthyRescanMs);
     } catch {
-      this.#watcher = undefined; // the rescan still runs
+      this.#watcher = undefined; // the rescan still runs, at the faster pace
+      arm(degradedRescanMs);
     }
-    this.#rescan = setInterval(schedule, options.rescanMs ?? 30_000);
-    this.#rescan.unref();
   }
 
   unwatch(): void {
@@ -837,17 +925,20 @@ export class SqliteMemoryStore implements MemoryStore {
   // --- MemoryStore: files -----------------------------------------------------------------------
 
   async readFile(path: string): Promise<MemoryFile | undefined> {
+    await this.#waitGate();
     const p = this.canonicalPath(path);
     const content = this.#readDisk(p);
     return content === undefined ? undefined : { path: p, content, etag: etagOf(content) };
   }
 
   async listFiles(prefix = ""): Promise<string[]> {
+    await this.#waitGate();
     return this.#walk(prefix);
   }
 
   /** Files with size, etag, protection and provenance for the Soul & Memory sheet. */
   async listFileInfo(prefix = ""): Promise<MemoryFileInfo[]> {
+    await this.#waitGate();
     return this.#walk(prefix).map((path) => {
       const abs = join(this.root, ...path.split("/"));
       const st = statSync(abs);
@@ -1130,6 +1221,7 @@ export class SqliteMemoryStore implements MemoryStore {
 
   /** Every write goes through here; see README "Write rules". */
   async write(path: string, content: string, options: WriteOptions): Promise<MemoryFile> {
+    await this.#waitGate();
     const p = this.canonicalPath(path);
     const actor = options.actor ?? "agent";
     const provenance = options.provenance;
@@ -1207,6 +1299,7 @@ export class SqliteMemoryStore implements MemoryStore {
 
   /** Deletes a file or a directory of files (memory tool `delete`). */
   async delete(path: string, options: WriteOptions): Promise<string[]> {
+    await this.#waitGate();
     const p = this.canonicalPath(path);
     const actor = options.actor ?? "agent";
     const abs = this.#abs(p);
@@ -1252,6 +1345,7 @@ export class SqliteMemoryStore implements MemoryStore {
 
   /** Renames a file (memory tool `rename`); the destination must not exist. */
   async rename(from: string, to: string, options: WriteOptions): Promise<MemoryFile> {
+    await this.#waitGate();
     const src = this.canonicalPath(from);
     const dst = this.canonicalPath(to);
     const actor = options.actor ?? "agent";
@@ -1319,6 +1413,7 @@ export class SqliteMemoryStore implements MemoryStore {
   // --- MemoryStore: daily notes and search ------------------------------------------------------
 
   async search(query: string, options: MemorySearchOptions = {}): Promise<MemoryHit[]> {
+    await this.#waitGate();
     const sources = options.sources?.map((s) => s.replace(/^\/+/, ""));
     return this.#index.search(
       query,
@@ -1332,6 +1427,7 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   async appendDailyNote(input: DailyNoteWithOrigin): Promise<{ path: string; chunk: MemoryChunk }> {
+    await this.#waitGate();
     if (!isProvenance(input.provenance)) fail("invalid_params", "unknown provenance");
     const now = this.now();
     const date = input.date ?? now.date;
@@ -1419,6 +1515,7 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   async addClaim(input: ClaimInput): Promise<MemoryClaim> {
+    await this.#waitGate();
     if (!isProvenance(input.provenance)) fail("invalid_params", "unknown provenance");
     if (!CLAIM_KINDS.has(input.kind)) fail("invalid_params", "unknown claim kind");
     const text = oneLine(input.text);
@@ -1469,6 +1566,7 @@ export class SqliteMemoryStore implements MemoryStore {
   }
 
   async listClaims(options: { includeRetracted?: boolean } = {}): Promise<MemoryClaim[]> {
+    await this.#waitGate();
     const rows = this.#db
       .prepare(
         `SELECT * FROM memory_claims ${options.includeRetracted === true ? "" : "WHERE retracted_at IS NULL"} ORDER BY created_at, id`,
@@ -1904,6 +2002,11 @@ export class SqliteMemoryStore implements MemoryStore {
     }
     return { files, chunks, claims, dryRun };
   }
+}
+
+function dirStamp(dir: string): string {
+  const st = statSync(dir, { bigint: true });
+  return `${st.mtimeNs}:${st.ctimeNs}`;
 }
 
 /** The hidden folder for the workspace's own bookkeeping (never indexed, never shown to the agent). */

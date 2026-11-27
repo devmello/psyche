@@ -21,7 +21,9 @@ import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
+import { desktopMenu } from "./desktop-menu/ko.ts";
 import { desktopSimple } from "./desktop-simple/ko.ts";
+import { desktopTray } from "./desktop-tray/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { friction } from "./friction/ko.ts";
@@ -3701,6 +3703,7 @@ export const ko: Partial<Catalogue> = {
   "web.chat.modelTitle": "모델 (⌘⇧I)",
   "web.chat.defaultModel": "기본 모델",
   "web.chat.conversation": "대화",
+  "web.chat.stopFailed": "중지하지 못했습니다. 다시 시도하세요.",
   "web.chat.preparing": "Psyche가 메인 채팅을 준비하는 중입니다.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {메인 채팅} other {오프라인}}{approvals, plural, =0 {} other { · 승인 #개 대기 중}}",
@@ -3889,6 +3892,8 @@ export const ko: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

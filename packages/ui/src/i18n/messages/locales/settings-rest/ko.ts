@@ -646,7 +646,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.pausedHint":
     "켜져 있는 동안은 아무것도 읽거나 쓰지 않으며, 나중에 채워 넣지도 않습니다.",
   "settings.learning.weeklyCard": '주간 "배운 점" 카드',
-  "settings.learning.weeklyCardHint": "매주 일요일, 검토할 내용이 있을 때만 피드에 게시합니다.",
+  "settings.learning.weeklyCardHint": "매주 일요일, 검토할 내용이 있을 때만 홈에 게시합니다.",
   "settings.learning.open": "{persona}가 배운 점",
   "settings.learning.openButton": "성장 열기",
   "settings.learning.forgetAll": "{persona}가 배운 모든 것 지우기",

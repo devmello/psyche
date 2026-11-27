@@ -73,7 +73,7 @@ function request(
     grantKey: `int3|${kind}|${n}`,
     requestedBy: { runId: null, taskId: null, threadId: null },
     sideEffect,
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     taint: false,
   });
 }

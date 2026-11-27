@@ -8,8 +8,8 @@ import type { Logger } from "../log.ts";
 /**
  * The listener for a conversation that ended (Clear chat, delete): it ends the broker's session
  * for the thread (its "Allow once" folders, attached files, session-scope grants, circuit
- * breaker). A failure is logged and swallowed: psyched has no unhandledRejection handler, and
- * the clear or delete has already happened.
+ * breaker). A failure is logged and swallowed here, so it never reaches the process-level
+ * handler (`process-errors.ts`) and the clear or delete has already happened.
  */
 export function endSessionQuietly(
   broker: { endSession(threadId: string): Promise<unknown> },
@@ -124,8 +124,8 @@ export function ownChatText(text: string): string {
  * before the messages are deleted (register it on `ctx.threadEnding`) and takes the snapshot;
  * `ended` runs after (`ctx.threadEnded`) and hands it to the lane. Only main and side threads are
  * read, and only the owner's typed turns, cut to their own words. Like `endSessionQuietly`,
- * failures are logged and swallowed: psyched has no unhandledRejection handler, and the clear or
- * delete has already happened.
+ * failures are logged and swallowed here, so they never reach the process-level handler
+ * (`process-errors.ts`), and the clear or delete has already happened.
  */
 export function promiseChatOnThreadEnd(deps: PromiseChatDeps): {
   ending: (threadId: string, why?: ThreadEndingWhy) => void;

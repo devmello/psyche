@@ -21,6 +21,7 @@ final class FollowupsModel {
     /// A batch runs after its approval is answered. Reads are repeated until it settles, up to this many times.
     private let settleDelay: Duration
     private let settleAttempts: Int
+    private let reloads: ReloadDebouncer
 
     struct UndoWindow: Equatable, Identifiable {
         var suggestion: Suggestion
@@ -28,10 +29,14 @@ final class FollowupsModel {
         var id: String { suggestion.id }
     }
 
-    init(store: any PsycheBackend, settleDelay: Duration = .milliseconds(500), settleAttempts: Int = 12) {
+    init(
+        store: any PsycheBackend, settleDelay: Duration = .milliseconds(500), settleAttempts: Int = 12,
+        reloadDelay: Duration = liveReloadDelay
+    ) {
         self.store = store
         self.settleDelay = settleDelay
         self.settleAttempts = settleAttempts
+        reloads = ReloadDebouncer(delay: reloadDelay)
     }
 
     /// Reads the suggestion until the Gateway has finished running it (it is still `running` just after the answer).
@@ -61,7 +66,10 @@ final class FollowupsModel {
     func observe() async {
         for await event in store.events() {
             switch event {
-            case .changed(.home), .resynced: await load()
+            case .changed(.home): reloads.schedule { await self.load() }
+            case .resynced:
+                reloads.cancel()
+                await load()
             default: break
             }
         }

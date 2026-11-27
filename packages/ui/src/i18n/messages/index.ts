@@ -19,7 +19,9 @@ import { connectorsPage } from "./connectors-page.ts";
 import { context } from "./context.ts";
 import { daily } from "./daily.ts";
 import { design } from "./design.ts";
+import { desktopMenu } from "./desktop-menu.ts";
 import { desktopSimple } from "./desktop-simple.ts";
+import { desktopTray } from "./desktop-tray.ts";
 import { deviceAccess } from "./device-access.ts";
 import { errors } from "./errors.ts";
 import { friction } from "./friction.ts";
@@ -153,6 +155,8 @@ export const en = {
   ...notices,
   ...separateDesktop,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

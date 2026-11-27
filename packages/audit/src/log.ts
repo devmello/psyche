@@ -66,6 +66,11 @@ export interface AuditQuery {
   untilSeq?: number;
   limit?: number;
   order?: "asc" | "desc";
+  /**
+   * Extra predicate, applied after the filters above and before `limit`, so a caller that
+   * post-filters can still let the query stop early once enough entries match.
+   */
+  where?: (entry: AuditEntry) => boolean;
 }
 
 export type DetailedVerification =
@@ -241,30 +246,59 @@ export class HashChainAuditLog implements AuditLog {
     const kinds = q.kinds === undefined ? undefined : new Set(q.kinds);
     const since = q.since === undefined ? undefined : Date.parse(q.since);
     const until = q.until === undefined ? undefined : Date.parse(q.until);
-    const out: AuditEntry[] = [];
-    for (const line of this.store.entries()) {
-      if (!line.ok) continue;
-      const e = line.entry;
-      if (q.kind !== undefined && e.kind !== q.kind) continue;
-      if (kinds !== undefined && !kinds.has(e.kind)) continue;
-      if (q.kindPrefix !== undefined && !e.kind.startsWith(q.kindPrefix)) continue;
-      if (q.actorType !== undefined && e.actor.type !== q.actorType) continue;
-      if (q.deviceId !== undefined && e.actor.deviceId !== q.deviceId) continue;
-      if (q.runId !== undefined && e.actor.runId !== q.runId) continue;
-      if (q.sinceSeq !== undefined && e.seq < q.sinceSeq) continue;
-      if (q.untilSeq !== undefined && e.seq >= q.untilSeq) continue;
+    const matches = (e: AuditEntry): boolean => {
+      if (q.kind !== undefined && e.kind !== q.kind) return false;
+      if (kinds !== undefined && !kinds.has(e.kind)) return false;
+      if (q.kindPrefix !== undefined && !e.kind.startsWith(q.kindPrefix)) return false;
+      if (q.actorType !== undefined && e.actor.type !== q.actorType) return false;
+      if (q.deviceId !== undefined && e.actor.deviceId !== q.deviceId) return false;
+      if (q.runId !== undefined && e.actor.runId !== q.runId) return false;
+      if (q.sinceSeq !== undefined && e.seq < q.sinceSeq) return false;
+      if (q.untilSeq !== undefined && e.seq >= q.untilSeq) return false;
       const ts = Date.parse(e.ts);
-      if (since !== undefined && ts < since) continue;
-      if (until !== undefined && ts >= until) continue;
+      if (since !== undefined && ts < since) return false;
+      if (until !== undefined && ts >= until) return false;
       if (q.subject !== undefined) {
         const subject = e.subject ?? {};
         const miss = Object.entries(q.subject).some(([k, v]) => subject[k] !== v);
-        if (miss) continue;
+        if (miss) return false;
       }
-      out.push(e);
+      return q.where === undefined || q.where(e);
+    };
+    const desc = q.order === "desc";
+    const limit = q.limit ?? Number.POSITIVE_INFINITY;
+    const streamable = Number.isInteger(limit) ? limit >= 0 : limit === Number.POSITIVE_INFINITY;
+    const source = desc
+      ? this.store.entriesDesc?.(q.untilSeq)
+      : this.store.entriesFromSeq?.(q.sinceSeq ?? Number.NEGATIVE_INFINITY);
+    if (source === undefined || !streamable) {
+      // A store without lazy reads, or an odd limit: collect, then order and slice.
+      const out: AuditEntry[] = [];
+      for (const line of this.store.entries())
+        if (line.ok && matches(line.entry)) out.push(line.entry);
+      if (desc) out.reverse();
+      return out.slice(0, limit);
     }
-    if (q.order === "desc") out.reverse();
-    return out.slice(0, q.limit ?? Number.POSITIVE_INFINITY);
+    // Entries are in seq and (non-decreasing) ts order, so the walk stops at the first line past
+    // the range instead of reading to the end of the log, and at `limit` matches.
+    const out: AuditEntry[] = [];
+    if (limit === 0) return out;
+    for (const line of source) {
+      if (!line.ok) continue;
+      const e = line.entry;
+      if (desc) {
+        if (q.untilSeq !== undefined && e.seq >= q.untilSeq) continue;
+        if (q.sinceSeq !== undefined && e.seq < q.sinceSeq) break;
+        if (since !== undefined && Date.parse(e.ts) < since) break;
+      } else {
+        if (q.untilSeq !== undefined && e.seq >= q.untilSeq) break;
+        if (until !== undefined && Date.parse(e.ts) >= until) break;
+      }
+      if (!matches(e)) continue;
+      out.push(e);
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 
   /** JSON Lines (one entry per line, as stored) or a JSON array; filters as in `query`. */

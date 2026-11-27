@@ -33,6 +33,7 @@ import {
 } from "@psyche/protocol";
 import { srtSearchDirs } from "@psyche/sandbox";
 import type { BundleFetchOptions } from "@psyche/skills";
+import { failureFields } from "../process-errors.ts";
 import type { Gateway } from "../server.ts";
 import { connectorBundles } from "./connector-bundles.ts";
 import { TURN_ON_SANDBOX_PC } from "./guest-sandbox.ts";
@@ -660,7 +661,11 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
           // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
           // The vault opened: finish unbinding the items of servers removed while it was locked.
           if (event === "vault.unlocked") {
-            void adder.retryPending();
+            void adder
+              .retryPending()
+              .catch((err: unknown) =>
+                warn("mcp: retrying pending bindings failed", failureFields(err)),
+              );
             return;
           }
           if (event === "skills.changed") {

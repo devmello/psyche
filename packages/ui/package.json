@@ -14,6 +14,10 @@
       "types": "./src/i18n/node.ts",
       "default": "./src/i18n/node.ts"
     },
+    "./i18n-all": {
+      "types": "./src/i18n/register-all.ts",
+      "default": "./src/i18n/register-all.ts"
+    },
     "./theme": {
       "types": "./src/theme/index.ts",
       "default": "./src/theme/index.ts"

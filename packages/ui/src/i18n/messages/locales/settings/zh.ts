@@ -576,7 +576,7 @@ export const settings: Partial<Catalogue> = {
   "settings.learning.paused": "暂停学习",
   "settings.learning.pausedHint": "开启期间不读取也不写入任何内容，之后也不会补录。",
   "settings.learning.weeklyCard": "每周“我学到了什么”卡片",
-  "settings.learning.weeklyCardHint": "每周日在动态中发布一条，仅在有内容可审阅时发布。",
+  "settings.learning.weeklyCardHint": "每周日在主页发布一条，仅在有内容可审阅时发布。",
   "settings.learning.open": "{persona}学到了什么",
   "settings.learning.openButton": "打开成长",
   "settings.learning.forgetAll": "忘掉{persona}学到的一切",

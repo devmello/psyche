@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CATALOGUES, createI18n, en, MESSAGE_LOCALES, noticeText } from "../src/i18n/index.ts";
+import { createI18n, en, MESSAGE_LOCALES, noticeText } from "../src/i18n/index.ts";
+import { CATALOGUES } from "../src/i18n/messages/locales/index.ts";
 
 const fallback = { title: "English title", body: "English body" };
 const keyed = {

@@ -81,7 +81,7 @@ async function requestCard(name: string, params: unknown, callId: string) {
     requestedBy: { runId: null, taskId: null, threadId, toolCallId: callId },
     sideEffect: desc.sideEffect ?? "write",
     ...(desc.target === undefined ? {} : { target: desc.target }),
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     taint: true,
   });
   services.publish("approval.created", { approval: issued.approval }, threadId);

@@ -97,13 +97,18 @@ export function expireScreenFrames(
   beforeIso: string,
   unsentBeforeIso: string,
 ): number {
+  // Same rows as `tag AND (created_at < before OR (no thread AND created_at < unsent))`. Every
+  // match is older than the later of the two cutoffs, so that bound goes first and lets the
+  // created_at index narrow the scan. The OR and the tag filter then run on those rows only (G8).
+  const latest = beforeIso > unsentBeforeIso ? beforeIso : unsentBeforeIso;
   const rows = db.sqlite
     .prepare(
       `SELECT id, path FROM library_items
-       WHERE EXISTS (SELECT 1 FROM json_each(library_items.tags) WHERE value = ?)
-         AND (created_at < ? OR (thread_id IS NULL AND created_at < ?))`,
+       WHERE created_at < ?
+         AND (created_at < ? OR thread_id IS NULL)
+         AND EXISTS (SELECT 1 FROM json_each(library_items.tags) WHERE value = ?)`,
     )
-    .all(SCREEN_TAG, beforeIso, unsentBeforeIso) as { id: string; path: string }[];
+    .all(latest, beforeIso, SCREEN_TAG) as { id: string; path: string }[];
   for (const r of rows) {
     removeScreenFrame(home, r.path);
     deleteLibraryItem(db, r.id);

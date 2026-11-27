@@ -1,4 +1,6 @@
+import { createI18n, type MessageId } from "@psyche/ui/i18n-core";
 import {
+  app,
   Menu,
   type MenuItemConstructorOptions,
   type NativeImage,
@@ -33,6 +35,8 @@ export interface TrayModel {
   shortcuts?: { quickEntry?: string; askScreen?: string };
   /** `points.enabled`: the Psyche points row shows only while it is on (off until the owner's pass). */
   pointsEnabled?: boolean;
+  /** The labels' language (`app.getLocale()` by default; English when absent). */
+  locale?: string;
 }
 
 export interface TrayActions {
@@ -54,18 +58,41 @@ export interface TrayActions {
   quitEntirely(): void;
 }
 
-/** The Psyche points row. Like the other tray rows it is English; localizing them is out of scope. */
+/** The Psyche points row in English (the tray shows `desktop.tray.pointsRow` in the language). */
 export const POINTS_TRAY_LABEL = "Point me through this window…";
 
+/** The tray's words in one language; English when there is no catalogue for it. */
+function trayWords(locale: string | undefined) {
+  const i18n = createI18n({ locale: locale ?? "en" });
+  return (id: MessageId, values?: Record<string, string | number>) => i18n.t(id, values);
+}
+
+/** The system's language, for the tray's labels (English when Electron cannot say). */
+export function systemLocale(): string {
+  try {
+    return app.getLocale();
+  } catch {
+    return "en";
+  }
+}
+
 /** The tray's status row, in Psyche's name (#539); dev and external runs say so for developers. */
-export function gatewayRowLabel(run: GatewayRunState): string {
+export function gatewayRowLabel(run: GatewayRunState, locale?: string): string {
+  const t = trayWords(locale);
   if (run.kind === "running")
     return run.mode === "launchd" || run.mode === "taskscheduler" || run.mode === "systemd"
-      ? "Psyche is running"
-      : `Psyche is running (${run.mode === "dev" ? "dev" : "external"})`;
-  if (run.kind === "starting") return "Psyche is starting…";
-  if (run.kind === "stopped") return `Psyche stopped${run.reason ? ` (${run.reason})` : ""}`;
-  return "Checking Psyche…";
+      ? t("desktop.tray.gatewayRunning")
+      : t(
+          run.mode === "dev"
+            ? "desktop.tray.gatewayRunningDev"
+            : "desktop.tray.gatewayRunningExternal",
+        );
+  if (run.kind === "starting") return t("desktop.tray.gatewayStarting");
+  if (run.kind === "stopped")
+    return run.reason
+      ? t("desktop.tray.gatewayStoppedReason", { reason: run.reason })
+      : t("desktop.tray.gatewayStopped");
+  return t("desktop.tray.gatewayChecking");
 }
 
 /** What the menu shows before the registered shortcuts are known. */
@@ -89,50 +116,59 @@ function accel(
 export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorOptions[] {
   const connected = m.status.phase === "paired";
   const keys = m.shortcuts ?? defaultShortcutLabels();
+  const t = trayWords(m.locale);
   return [
-    { label: connected ? "Psyche — connected" : `Psyche — ${m.status.phase}`, enabled: false },
+    {
+      label: connected
+        ? t("desktop.tray.statusConnected")
+        : t("desktop.tray.statusOther", { phase: m.status.phase }),
+      enabled: false,
+    },
     {
       label:
         m.usagePercentRemaining === null
-          ? "Usage: —"
-          : `Usage: ${Math.round(m.usagePercentRemaining)}% remaining`,
+          ? t("desktop.tray.usageUnknown")
+          : t("desktop.tray.usageRemaining", { percent: Math.round(m.usagePercentRemaining) }),
       enabled: false,
     },
     m.pendingApprovals > 0
       ? {
           // The count only: the card itself is shown once, in the chat (approvals wave W3).
-          label: `Needs you (${m.pendingApprovals})`,
+          label: t("desktop.tray.needsYou", { count: m.pendingApprovals }),
           click: a.openApprovals,
         }
-      : { label: "Nothing needs you", enabled: false },
+      : { label: t("desktop.tray.nothingNeedsYou"), enabled: false },
     { type: "separator" },
-    { label: "Open Psyche", click: a.open },
-    { label: "New Chat", click: a.newSideChat },
-    { label: "Quick entry", ...accel(keys.quickEntry), click: a.quickEntry },
+    { label: t("desktop.menu.openPsyche"), click: a.open },
+    { label: t("desktop.menu.newChat"), click: a.newSideChat },
+    { label: t("desktop.menu.quickEntry"), ...accel(keys.quickEntry), click: a.quickEntry },
     ...(a.askScreen
-      ? [{ label: "Ask about screen", ...accel(keys.askScreen), click: a.askScreen }]
+      ? [{ label: t("settings.screenAsk.title"), ...accel(keys.askScreen), click: a.askScreen }]
       : []),
     ...(a.pointsStart && m.pointsEnabled === true
-      ? [{ label: POINTS_TRAY_LABEL, click: a.pointsStart }]
+      ? [{ label: t("desktop.tray.pointsRow"), click: a.pointsStart }]
       : []),
     { type: "separator" },
-    { label: gatewayRowLabel(m.run), enabled: false },
+    { label: gatewayRowLabel(m.run, m.locale), enabled: false },
     { type: "separator" },
-    { label: "Close window", click: a.closeWindow },
-    { label: "Quit Psyche (tasks keep running)", click: a.quitApp },
-    { label: "Quit Psyche entirely", click: a.quitEntirely },
+    { label: t("desktop.menu.closeWindow"), click: a.closeWindow },
+    { label: t("desktop.menu.quitTasks"), click: a.quitApp },
+    { label: t("desktop.menu.quitEntirely"), click: a.quitEntirely },
   ];
 }
 
 /** The tooltip (Windows shows it on hover; at most 127 characters). */
 export function trayTooltip(m: TrayModel): string {
+  const t = trayWords(m.locale);
   const state =
     m.status.phase === "paired"
       ? m.pendingApprovals > 0
-        ? `${m.pendingApprovals} ${m.pendingApprovals === 1 ? "thing needs" : "things need"} you`
-        : "connected"
+        ? m.pendingApprovals === 1
+          ? t("desktop.tray.tooltipNeedOne")
+          : t("desktop.tray.tooltipNeedMany", { count: m.pendingApprovals })
+        : t("desktop.tray.tooltipConnected")
       : m.status.phase;
-  return `Psyche — ${state}`.slice(0, 127);
+  return t("desktop.tray.statusOther", { phase: state }).slice(0, 127);
 }
 
 export interface PsycheTrayOptions {
@@ -165,7 +201,7 @@ export class PsycheTray {
 
   constructor(model: TrayModel, actions: TrayActions, opts: PsycheTrayOptions = {}) {
     this.actions = actions;
-    this.model = model;
+    this.model = { locale: systemLocale(), ...model };
     this.opts = opts;
     this.tray = new Tray(this.icon ? this.image() : nativeImage.createEmpty());
     this.tray.setToolTip("Psyche");

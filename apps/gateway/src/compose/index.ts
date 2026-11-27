@@ -139,6 +139,7 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import { failureFields } from "../process-errors.ts";
 import {
   personalizeLoopEvent,
   personalizeNotificationEvent,
@@ -1248,7 +1249,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const memory = await createMemoryStore({
     db,
-    ...(memoryLate === undefined ? {} : { sqlite: memoryDb.sqlite, deferInit: true }),
+    // The first sync runs after the Gateway listens (G12); reads and writes wait for it.
+    deferInit: true,
+    ...(memoryLate === undefined ? {} : { sqlite: memoryDb.sqlite }),
     workspaceDir: join(config.home, "workspace"),
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
@@ -1288,6 +1291,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       people?.onMemoryEvent(e);
     },
   });
+  if (memoryLate === undefined) {
+    // Plain database: arm the boot gate now, so no read beats the first sync. The sync itself runs
+    // from the first part start, after the Gateway listens.
+    memory.armBoot();
+    parts.push({
+      start: () => {
+        setImmediate(() => {
+          memory.runBoot().catch((err: unknown) => {
+            gwOptions.logger?.log("warn", "memory store setup failed", { error: String(err) });
+          });
+        });
+      },
+    });
+  }
   if (memoryLate !== undefined) {
     // First-run setup and the initial index wait for the encrypted file; until then memory reads
     // are empty and writes fail with `unavailable` (never written to the plain file).
@@ -2535,7 +2552,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         const keys: readonly string[] = [...WORKFLOW_SETTING_KEYS, ...DAILY_SETTING_KEYS];
         const p = payload as { entries?: { key: string }[] } | undefined;
         if ((p?.entries ?? []).some((e) => keys.includes(e.key))) {
-          void proactive.syncWorkflowSchedules();
+          void proactive
+            .syncWorkflowSchedules()
+            .catch((err: unknown) =>
+              gwOptions.logger?.log("warn", "workflow schedules sync failed", failureFields(err)),
+            );
         }
       });
     },

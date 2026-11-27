@@ -28,7 +28,7 @@ export function aboutInfoFrom(body: VersionResponse | null, appVersion = APP_VER
     appVersion: appVersion || unknown,
     gatewayVersion: typeof body?.version === "string" && body.version ? body.version : unknown,
     protocolVersion: Number.isFinite(protocol) ? protocol : 1,
-    platform: typeof navigator === "undefined" ? "" : navigator.platform || "web",
+    platform: typeof navigator === "undefined" ? "" : navigator.platform || unknown,
     home: "",
   };
 }

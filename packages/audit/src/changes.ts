@@ -379,9 +379,17 @@ export async function listChanges(
   log: Pick<HashChainAuditLog, "query">,
   f: ChangeFilter = {},
 ): Promise<{ record: ChangeRecord; entry: AuditEntry }[]> {
+  const limit = f.limit ?? 200;
+  const cats = f.categories === undefined ? undefined : new Set(f.categories);
   const entries = await log.query({
     kind: CHANGE_KIND,
     order: "desc",
+    // The first `limit` entries that pass: lets the query stop early instead of reading it all.
+    limit: Math.max(1, limit),
+    where: (e) => {
+      const record = changeFromEntry(e);
+      return record !== undefined && (cats === undefined || cats.has(record.category));
+    },
     ...(f.since === undefined ? {} : { since: f.since }),
     ...(f.until === undefined ? {} : { until: f.until }),
     ...(f.beforeSeq === undefined ? {} : { untilSeq: f.beforeSeq }),
@@ -391,13 +399,12 @@ export async function listChanges(
     },
   });
   const out: { record: ChangeRecord; entry: AuditEntry }[] = [];
-  const cats = f.categories === undefined ? undefined : new Set(f.categories);
   for (const entry of entries) {
     const record = changeFromEntry(entry);
     if (record === undefined) continue;
     if (cats !== undefined && !cats.has(record.category)) continue;
     out.push({ record, entry });
-    if (out.length >= (f.limit ?? 200)) break;
+    if (out.length >= limit) break;
   }
   return out;
 }
