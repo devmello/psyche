@@ -8,6 +8,7 @@ import {
 } from "../compose/ScreenAsk.tsx";
 import { desktopPlatform } from "./bridge.ts";
 import { DictationHud } from "./dictation-hud.tsx";
+import { loadFirstLocale } from "./preload-locale.ts";
 import "../compose/app.css";
 
 // The small always-warm windows (docs/design/lightweight-2026.md): the screen-ask panel, its region
@@ -24,17 +25,19 @@ const screenAskRegion = window.location.pathname === SCREEN_ASK_REGION_ROUTE;
 const screenAskBridge = (window.psyche as { screenAsk?: ScreenAskBridge }).screenAsk;
 document.documentElement.style.background = "transparent";
 document.body.style.background = "transparent";
-createRoot(root).render(
-  <StrictMode>
-    {hud ? (
-      <DictationHud />
-    ) : screenAskRegion ? (
-      <ScreenAskRegion {...(screenAskBridge ? { bridge: screenAskBridge } : {})} />
-    ) : (
-      <ScreenAsk
-        platform={desktopPlatform()}
-        {...(screenAskBridge ? { bridge: screenAskBridge } : {})}
-      />
-    )}
-  </StrictMode>,
+void loadFirstLocale().then(() =>
+  createRoot(root).render(
+    <StrictMode>
+      {hud ? (
+        <DictationHud />
+      ) : screenAskRegion ? (
+        <ScreenAskRegion {...(screenAskBridge ? { bridge: screenAskBridge } : {})} />
+      ) : (
+        <ScreenAsk
+          platform={desktopPlatform()}
+          {...(screenAskBridge ? { bridge: screenAskBridge } : {})}
+        />
+      )}
+    </StrictMode>,
+  ),
 );

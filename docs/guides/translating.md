@@ -109,7 +109,7 @@ Physical directions remain only where the meaning is physical, such as a macOS t
    ```
 
    Ids you leave out fall back to English, one by one.
-2. Register it in `messages/locales/index.ts`: import it and add it to `REGISTRY` after `en`. `MESSAGE_LOCALES`, the onboarding and Settings menus, and the check pick it up from there. Add its native name to `NATIVE_NAMES` in `i18n/locale.ts` if the runtime might not know it.
+2. Register it in three places: `messages/locales/list.ts` (the `MESSAGE_LOCALES` list the menus read), `messages/locales/index.ts` (import it and add it to `REGISTRY` after `en`; the checks and tests read this full registry) and `LOADERS` in `i18n/catalogues.ts` (the app loads one language's chunk on demand, so a window holds English plus its own language). `i18n-lazy-locales.test.tsx` fails if the three differ. Add its native name to `NATIVE_NAMES` in `i18n/locale.ts` if the runtime might not know it.
 3. Keep every `{placeholder}` and every plural or select branch. A plural needs the forms your language uses (`zero`, `one`, `two`, `few`, `many`, `other`).
 4. Run `pnpm i18n:check` (unknown ids and invalid messages fail; it prints your coverage) and `pnpm --filter @psyche/ui exec vitest run test/i18n.test.tsx`.
 5. Pick the language in Settings → Appearance → Language and region and check the app. For a right-to-left language, the layout flips on its own; Text direction should stay on Automatic.
