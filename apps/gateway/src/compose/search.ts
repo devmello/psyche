@@ -49,10 +49,12 @@ import {
 import type { HandlerDef } from "../context.ts";
 import { failureRuns } from "../failure-runs.ts";
 import type { Logger } from "../log.ts";
+import { failureFields } from "../process-errors.ts";
 import type { Gateway } from "../server.ts";
 import { markImportedHits } from "../session/imported-threads.ts";
 import { DeferredOpen } from "./deferred-open.ts";
 import { isForkThread, scrubForkSearchHits } from "./fork-hidden.ts";
+import { createLibrarySync } from "./library-sync.ts";
 import { hiddenSearchPrefixes, scrubSearchForViewer } from "./memory-chunks.ts";
 import type { PageReadHub } from "./page-reads.ts";
 import { openSearchDatabase } from "./search-db.ts";
@@ -593,7 +595,11 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     if (deps.sources?.watch === true)
       stopWatch = watchFolders(roots, () => {
         filesSource?.invalidate();
-        void sourceIndexer?.tick();
+        void sourceIndexer
+          ?.tick()
+          .catch((err: unknown) =>
+            deps.logger?.log("warn", "search: source tick failed", failureFields(err)),
+          );
       });
   };
   /**
@@ -634,7 +640,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     }, MEMORY_KICK_MS);
     memoryKick.unref?.();
   };
-  const syncLibrary = async () => {
+  /** One library diff against the index; resolves true when the image budget left work over. */
+  const reconcileLibrary = async (): Promise<boolean> => {
     const have = new Set(
       (deps.db.sqlite.prepare("SELECT id FROM library_items").all() as { id: string }[]).map(
         (r) => r.id,
@@ -650,15 +657,31 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
     for (const id of indexed) if (!have.has(id)) await index.remove(id);
     // Images are read a few at a time; the rest stay unindexed until the next sync.
     let ocrLeft = LIBRARY_OCR_PER_SYNC;
+    let leftPending = false;
     for (const id of have) {
       if (indexed.has(id)) continue;
       const item = getLibraryItem(deps.db, id);
       if (item === undefined) continue;
       const recognize = isOcrCandidate(item) ? libraryOcr("add") : undefined;
-      if (recognize !== undefined && ocrLeft-- <= 0) continue;
+      if (recognize !== undefined && ocrLeft-- <= 0) {
+        leftPending = true;
+        continue;
+      }
       await index.index(libraryDoc(item, await libraryText(deps.home, item, recognize)));
     }
+    return leftPending;
   };
+  // One pass at a time, and only when something could have changed (compose/library-sync.ts).
+  const librarySync = createLibrarySync({
+    watermark: () => {
+      const row = deps.db.sqlite
+        .prepare("SELECT COUNT(*) AS n, MAX(created_at) AS c FROM library_items")
+        .get() as { n: number; c: string | null };
+      return `${row.n}|${row.c ?? ""}`;
+    },
+    reconcile: reconcileLibrary,
+  });
+  const syncLibrary = () => librarySync.run();
   const runBackfill = (full: boolean) => {
     const run = backfill.start({ full });
     void run.done
@@ -736,7 +759,11 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         setSetting(deps.db, SOURCES_SETTING, readSourcesConfig(next));
         await indexer.applyConfig();
         syncFolders();
-        void indexer.tick();
+        void indexer
+          .tick()
+          .catch((err: unknown) =>
+            deps.logger?.log("warn", "search: index tick failed", failureFields(err)),
+          );
         publishSources();
         return indexer.status();
       },
@@ -808,6 +835,8 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
           kickMemory();
           return;
         }
+        // A library edit (an item changed, a quarantine decision) is not visible in the watermark.
+        if (event.startsWith("library.")) librarySync.changed();
         queue = queue.then(() => indexer.handle(event, f.payload));
       });
       void applySemantic();

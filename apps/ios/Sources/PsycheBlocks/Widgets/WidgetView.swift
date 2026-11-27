@@ -68,16 +68,20 @@ final class WidgetModel {
             apply(try await backend.widget(id: widgetID))
         } catch {
             if case .loaded = phase { return }  // keep what's on screen over a failed refresh
-            phase = .failed((error as? LocalizedError)?.errorDescription ?? "Psyche couldn't load this widget.")
+            phase = .failed(
+                (error as? LocalizedError)?.errorDescription
+                    ?? String(localized: "Psyche couldn't load this widget.", bundle: .module))
         }
     }
 
-    /// Something changed under the widget's topic (a bound task moved, another device acted): refetch quietly.
+    /// Something changed under the widget (its own patch, or a task or automation it binds to, which the Gateway
+    /// reports on the widgets topic too), or the connection resynced: refetch quietly. Home and activity events
+    /// are left out: each widget on screen would otherwise refetch for every one of them.
     func observe() async {
         guard let live = backend as? any LiveUpdates else { return }
         for await event in live.events() {
             switch event {
-            case .changed(.widgets), .changed(.home), .changed(.activity), .resynced: await load()
+            case .changed(.widgets), .resynced: await load()
             case .changed, .chat: break
             }
         }

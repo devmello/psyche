@@ -96,6 +96,7 @@ extension FixtureData {
 
 extension FixtureBackend: NightShiftBackend {
     public func nightShiftStatus() async throws -> NightShiftStatus {
+        reads.hit("nightShiftStatus")
         await pause()
         let review = nightShiftState.review
         var counts = NightShiftCounts()
@@ -112,6 +113,7 @@ extension FixtureBackend: NightShiftBackend {
     }
 
     public func nightShiftReview(id: String) async throws -> NightShiftReview {
+        reads.hit("nightShiftReview")
         await pause()
         guard id == nightShiftState.review.id else { throw BackendError.notFound }
         return nightShiftState.review

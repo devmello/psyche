@@ -51,6 +51,7 @@ import {
   putMany,
   type QueuedFollowUp,
   replaceLibraryWindow,
+  runsOfThread,
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
@@ -444,7 +445,7 @@ export function useThread(threadId: string | null) {
   const select = useCallback(
     (s: UiState): ThreadView => {
       const id = threadId ?? "";
-      const runs = Object.values(s.runs).filter((r) => r.threadId === id);
+      const runs = runsOfThread(s.runs, id);
       // A freshly loaded thread knows its active run only from `activeWriterRunId`.
       const active = s.threads[id]?.thread.activeWriterRunId ?? null;
       const activeRun = active === null ? undefined : s.runs[active];
@@ -465,6 +466,12 @@ export function useThread(threadId: string | null) {
     [threadId],
   );
   const view = useStoreStateShallow(select);
+
+  // An open thread is never evicted from the store (bounded memory, see `retainThread`).
+  useEffect(
+    () => (threadId === null ? undefined : store.retainThread(threadId)),
+    [store, threadId],
+  );
 
   const load = useLoader(threadId === null ? null : `thread:${threadId}`, async (st) => {
     if (threadId === null) return;

@@ -44,6 +44,7 @@ enum ChatPaging {
 
 extension FixtureBackend: ChatBackend {
     public func threads() async throws -> [ChatThreadSummary] {
+        reads.hit("threads")
         await pause()
         return chatState.summaries
     }

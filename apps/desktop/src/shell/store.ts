@@ -87,16 +87,29 @@ function withLastLine(threads: ThreadListEntry[], m: Message): ThreadListEntry[]
   );
 }
 
+export interface ShellStoreOptions {
+  /**
+   * Keep every thread's messages and streaming text (what `ChatView` reads). The composed desktop
+   * renders chat through the kit (`slots.chat`) and turns this off: nothing reads the copy.
+   */
+  messages?: boolean;
+}
+
+/** One `threads.list` page when the store refetches; later pages are not needed for the sidebar. */
+export const REFRESH_PAGE_SIZE = 50;
+
 export class ShellStore {
   private state: ShellState = INITIAL;
+  private readonly keepMessages: boolean;
   private readonly listeners = new Set<() => void>();
   private readonly offs: Unsubscribe[] = [];
   private readonly gateway: GatewayPort;
   /** Extra event consumers (pane layout's `view.command`, browser toasts). */
   private readonly eventTaps = new Set<(e: GatewayEvent) => void>();
 
-  constructor(gateway: GatewayPort) {
+  constructor(gateway: GatewayPort, options: ShellStoreOptions = {}) {
     this.gateway = gateway;
+    this.keepMessages = options.messages ?? true;
   }
 
   start(): void {
@@ -200,12 +213,18 @@ export class ShellStore {
     options: { onSwitchModel?: () => void } = {},
   ): Promise<boolean> {
     try {
-      const r = await this.call("threads.update", { threadId, ...patch });
+      const r = await this.call<{ thread?: ThreadListEntry["thread"] }>("threads.update", {
+        threadId,
+        ...patch,
+      });
       if (r === undefined) {
         this.toast(unsupportedText, "warn");
         return false;
       }
-      void this.refresh();
+      // The Gateway returns the updated thread (and emits `thread.updated`): patch that one entry
+      // rather than refetching every list.
+      if (r?.thread) this.patchThread(r.thread);
+      else void this.refresh();
       return true;
     } catch (err) {
       const refusal = isAutoModelRefusal(err);
@@ -238,7 +257,9 @@ export class ShellStore {
 
   async refresh(): Promise<void> {
     const [threads, approvals, notifications] = await Promise.allSettled([
-      this.call<{ threads: ThreadListEntry[] }>("threads.list", {}),
+      this.call<{ threads: ThreadListEntry[] }>("threads.list", {
+        limit: REFRESH_PAGE_SIZE,
+      }),
       this.call<{ approvals: ApprovalRequest[]; answerTokens?: Record<string, string> }>(
         "approvals.list",
         {},
@@ -259,7 +280,20 @@ export class ShellStore {
         ? { notifications: notifications.value.notifications }
         : {}),
     });
+    // A resync can follow a dropped connection: streaming text that never committed is stale.
+    if (Object.keys(this.state.streaming).length > 0) this.set({ streaming: {} });
     for (const threadId of Object.keys(this.state.messages)) void this.loadHistory(threadId);
+  }
+
+  /** Replaces a listed thread's record in place (order, last line and activity stay). */
+  patchThread(thread: ThreadListEntry["thread"]): void {
+    if (!this.state.threads.some((x) => x.thread.id === thread.id)) {
+      this.upsertThread(thread);
+      return;
+    }
+    this.set({
+      threads: this.state.threads.map((x) => (x.thread.id === thread.id ? { ...x, thread } : x)),
+    });
   }
 
   /** Puts a thread the Gateway just returned (New chat) in the list if it is not there. */
@@ -330,6 +364,11 @@ export class ShellStore {
   }
 
   private upsertMessage(m: Message): void {
+    if (!this.keepMessages) {
+      const threads = withLastLine(this.state.threads, m);
+      if (threads !== this.state.threads) this.set({ threads });
+      return;
+    }
     const list = this.state.messages[m.threadId] ?? [];
     const next = list
       .filter((x) => x.id !== m.id)
@@ -343,6 +382,13 @@ export class ShellStore {
     });
   }
 
+  /** Drops the streaming text of a thread whose run will never commit it (deleted, cleared). */
+  private streamingWithout(threadId: string): ShellState["streaming"] {
+    const entries = Object.entries(this.state.streaming);
+    if (!entries.some(([, v]) => v.threadId === threadId)) return this.state.streaming;
+    return Object.fromEntries(entries.filter(([, v]) => v.threadId !== threadId));
+  }
+
   private upsertApproval(a: ApprovalRequest): void {
     const rest = this.state.approvals.filter((x) => x.id !== a.id);
     this.set({ approvals: a.status === "pending" ? [...rest, a] : rest });
@@ -352,6 +398,7 @@ export class ShellStore {
     const p = e.payload as Record<string, unknown>;
     switch (e.event) {
       case "chat.delta": {
+        if (!this.keepMessages) break;
         const id = String(p.messageId);
         const prev = this.state.streaming[id]?.text ?? "";
         this.set({
@@ -381,7 +428,11 @@ export class ShellStore {
       case "thread.deleted": {
         const id = String(p.threadId);
         const { [id]: _messages, ...messages } = this.state.messages;
-        this.set({ threads: this.state.threads.filter((x) => x.thread.id !== id), messages });
+        this.set({
+          threads: this.state.threads.filter((x) => x.thread.id !== id),
+          messages,
+          streaming: this.streamingWithout(id),
+        });
         break;
       }
       case "thread.cleared": {
@@ -390,6 +441,7 @@ export class ShellStore {
         const { [id]: _messages, ...messages } = this.state.messages;
         this.set({
           messages,
+          streaming: this.streamingWithout(id),
           threads: this.state.threads.map((x) => {
             if (x.thread.id !== id) return x;
             const { lastMessage: _line, ...rest } = x;

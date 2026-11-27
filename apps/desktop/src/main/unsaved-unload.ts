@@ -17,9 +17,10 @@ export function loadUnloadStrings(systemLocale: () => string): void {
   } catch {
     return;
   }
+  // Only the system language's catalogue loads (createLoadedI18n), not all ten.
   void import("@psyche/ui/i18n-core")
-    .then(({ createI18n }) => {
-      const i18n = createI18n({ locale });
+    .then(({ createLoadedI18n }) => createLoadedI18n({ locale }))
+    .then((i18n) => {
       strings = {
         ask: i18n.t("screens.files.discardAsk"),
         discard: i18n.t("screens.files.discard"),

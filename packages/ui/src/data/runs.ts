@@ -97,6 +97,11 @@ async function withRunLoadSlot<T>(job: () => Promise<T>): Promise<T> {
  */
 const SETTLED_RUN_STATUSES: ReadonlySet<string> = new Set(["done", "failed", "cancelled"]);
 
+/** While a view shows a run's trace, the store keeps its steps and frames (see `retainRun`). */
+function useRetainedRun(store: GatewayStore, runId: string | null): void {
+  useEffect(() => (runId === null ? undefined : store.retainRun(runId)), [store, runId]);
+}
+
 /** True when the store already has this run, settled, with its steps. */
 function runIsSettledInStore(store: GatewayStore, runId: string): boolean {
   const s = store.getState();
@@ -141,6 +146,7 @@ export function useRun(
   deleteTrace: () => Promise<void>;
 } {
   const store = useStore();
+  useRetainedRun(store, runId);
   const run = useStoreState((s) => (runId === null ? undefined : s.runs[runId]));
   const steps = useStoreState((s) =>
     runId === null ? EMPTY_STEPS : (s.runSteps[runId] ?? EMPTY_STEPS),
@@ -284,6 +290,7 @@ export function useRunChildren(
 
 /** A run's steps in seq order, live (`run.step`), catching up from the last seq after a gap. */
 export function useRunSteps(runId: string | null): LoadState & { steps: readonly RunStep[] } {
+  useRetainedRun(useStore(), runId);
   const steps = useStoreState((s) =>
     runId === null ? EMPTY_STEPS : (s.runSteps[runId] ?? EMPTY_STEPS),
   );
@@ -368,6 +375,7 @@ export function useRunFrames(
   image: (seq: number, size: "thumb" | "full") => Promise<MethodResult<"runs.frame">>;
 } {
   const store = useStore();
+  useRetainedRun(store, runId);
   const all = useStoreState((s) =>
     runId === null ? EMPTY_FRAMES : (s.runFrames[runId] ?? EMPTY_FRAMES),
   );

@@ -33,6 +33,7 @@ import { hostOs, hostWords } from "@psyche/protocol/host-words";
 import { isAmbiguousActionLabel, isMoneyContext, isMoneyText } from "@psyche/protocol/money-intent";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
+import { failureFields } from "../process-errors.ts";
 import type { Gateway } from "../server.ts";
 import { ATTENTION_WINDOW_MS } from "./attention.ts";
 import {
@@ -3692,18 +3693,37 @@ export function composeComputer(services: ComposeServices): ComposedComputer {
       offs.push(registerMachineRouter(machines));
       // The tools depend on the live helper's manifest once there is one.
       syncTools();
-      void machines.syncTiers();
-      if (helper() !== undefined) void linux?.helperOnline();
+      void machines
+        .syncTiers()
+        .catch((err: unknown) =>
+          services.logger?.log("warn", "computer-use: tier sync failed", failureFields(err)),
+        );
+      if (helper() !== undefined)
+        void linux
+          ?.helperOnline()
+          .catch((err: unknown) =>
+            services.logger?.log("warn", "computer-use: helper check failed", failureFields(err)),
+          );
       offs.push(
         gw.bus.subscribe(["operator.read"], (frame) => {
           const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
           const p = f.payload ?? {};
           if (f.event === "run.updated") {
             const run = p.run as { id: string; status: string } | undefined;
-            if (run !== undefined && RUN_FINISHED.has(run.status)) void cu.runEnded(run.id);
+            if (run !== undefined && RUN_FINISHED.has(run.status))
+              void cu
+                .runEnded(run.id)
+                .catch((err: unknown) =>
+                  services.logger?.log("warn", "computer-use: run end failed", failureFields(err)),
+                );
           } else if (f.event === "task.updated") {
             const task = p.task as { id: string; status: string } | undefined;
-            if (task !== undefined && TASK_FINISHED.has(task.status)) void cu.taskEnded(task.id);
+            if (task !== undefined && TASK_FINISHED.has(task.status))
+              void cu
+                .taskEnded(task.id)
+                .catch((err: unknown) =>
+                  services.logger?.log("warn", "computer-use: task end failed", failureFields(err)),
+                );
           } else if (f.event === "node.updated") {
             const node = p.node as NodeInfo | undefined;
             if (node !== undefined && node.status !== "online") {

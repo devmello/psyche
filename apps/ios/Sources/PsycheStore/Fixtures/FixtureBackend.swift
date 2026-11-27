@@ -39,6 +39,8 @@ public actor FixtureBackend {
     public func hideSearchHits(_ hidden: Bool) { searchHitsHidden = hidden }
 
     let latency: Duration
+    /// How many times each read was answered, by name (tests count a screen's reloads with it).
+    nonisolated let reads = ReadCounter()
     /// Registered synchronously in `events()`, so an event published right after `events()` returns is never missed.
     private nonisolated let subscribers = LiveSubscribers()
 
@@ -53,6 +55,22 @@ public actor FixtureBackend {
 
     func publish(_ event: LiveEvent) {
         subscribers.yield(event)
+    }
+}
+
+/// Counts the fixture's reads by name. A lock guards it, so a read never waits on the actor to be counted.
+final class ReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+
+    func hit(_ name: String) {
+        lock.lock(); defer { lock.unlock() }
+        counts[name, default: 0] += 1
+    }
+
+    func count(_ name: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return counts[name, default: 0]
     }
 }
 

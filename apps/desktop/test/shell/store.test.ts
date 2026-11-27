@@ -199,3 +199,92 @@ describe("toasts (docs/a11y-audit.md T1)", () => {
     }
   });
 });
+
+const msg = (id: string, threadId: string, text: string, seq = 1) => ({
+  id,
+  threadId,
+  seq,
+  role: "agent",
+  createdAt: "2026-11-09T10:00:00.000Z",
+  blocks: [{ type: "text", md: text }],
+});
+const entryOf = (id: string, title = "t") => ({
+  thread: { id, kind: "side", title, permissionMode: "balanced", lastMessageAt: "x" },
+  activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
+});
+
+describe("ShellStore without messages (D7)", () => {
+  const listed = () =>
+    fakeGateway({
+      "threads.list": () => ({ threads: [entryOf("t1")], nextCursor: null }),
+      "approvals.list": () => ({ approvals: [] }),
+      "notifications.list": () => ({ notifications: [], nextCursor: null }),
+    });
+
+  it("keeps no messages or streaming, but still moves the last line", async () => {
+    const gw = listed();
+    const store = new ShellStore(gw.port, { messages: false });
+    store.start();
+    gw.pair();
+    await flush();
+    gw.emit("chat.delta", { threadId: "t1", messageId: "m1", delta: "abc" });
+    gw.emit("chat.message", { message: msg("m1", "t1", "done") });
+    expect(store.getState().streaming).toEqual({});
+    expect(store.getState().messages).toEqual({});
+    expect(store.getState().threads[0]?.lastMessage?.text).toBe("done");
+  });
+
+  it("still stores them by default (positive control)", () => {
+    const gw = listed();
+    const store = new ShellStore(gw.port);
+    store.start();
+    gw.emit("chat.delta", { threadId: "t1", messageId: "m1", delta: "abc" });
+    expect(store.getState().streaming.m1?.text).toBe("abc");
+  });
+
+  it("drops orphaned streaming text when its thread is cleared, deleted or resynced", async () => {
+    const gw = listed();
+    const store = new ShellStore(gw.port);
+    store.start();
+    gw.pair();
+    await flush();
+    for (const [i, ev] of ["thread.cleared", "thread.deleted"].entries()) {
+      gw.emit("chat.delta", { threadId: "t1", messageId: `m${i}`, delta: "x" });
+      gw.emit("chat.delta", { threadId: "other", messageId: `o${i}`, delta: "y" });
+      gw.emit(ev, { threadId: "t1" });
+      expect(Object.keys(store.getState().streaming)).toContain(`o${i}`);
+      expect(Object.keys(store.getState().streaming)).not.toContain(`m${i}`);
+    }
+    await store.refresh();
+    expect(store.getState().streaming).toEqual({});
+  });
+});
+
+describe("ShellStore refetching (D11)", () => {
+  const base = {
+    "threads.list": () => ({ threads: [entryOf("t1"), entryOf("t2")], nextCursor: null }),
+    "approvals.list": () => ({ approvals: [] }),
+    "notifications.list": () => ({ notifications: [], nextCursor: null }),
+  };
+
+  it("patches the one thread after threads.update instead of refetching", async () => {
+    const updated = { ...entryOf("t1").thread, permissionMode: "manual" };
+    const gw = fakeGateway({ ...base, "threads.update": () => ({ thread: updated }) });
+    const store = new ShellStore(gw.port);
+    await store.refresh();
+    const before = gw.calls.length;
+    await expect(store.updateThread("t1", { permissionMode: "manual" }, "n/a")).resolves.toBe(true);
+    await flush();
+    expect(gw.calls.slice(before).map((c) => c[0])).toEqual(["threads.update"]);
+    const threads = store.getState().threads;
+    expect(threads.map((x) => x.thread.id)).toEqual(["t1", "t2"]);
+    expect(threads[0]?.thread.permissionMode).toBe("manual");
+  });
+
+  it("pages threads.list on refresh", async () => {
+    const gw = fakeGateway(base);
+    await new ShellStore(gw.port).refresh();
+    const list = gw.calls.find((c) => c[0] === "threads.list");
+    expect((list?.[1] as { limit?: number } | undefined)?.limit).toBe(50);
+  });
+});

@@ -345,7 +345,13 @@ export function ShellApp({
   platform: ShellPlatform;
   slots?: ShellSlots;
 }): ReactElement {
-  const store = useMemo(() => new ShellStore(platform.gateway), [platform]);
+  // The composed desktop draws chat with the kit (`slots.chat`), which keeps its own copy of the
+  // messages: the shell store then skips storing a second one.
+  const keepMessages = !slots?.chat;
+  const store = useMemo(
+    () => new ShellStore(platform.gateway, { messages: keepMessages }),
+    [platform, keepMessages],
+  );
   const layout = useMemo(() => createLayoutStore(platform.storage), [platform]);
   useWindowMaterial(platform.chrome);
   useEffect(() => {
@@ -435,7 +441,9 @@ export function usePairingGrace(status: GatewayStatus, desktop: boolean): boolea
 function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): ReactElement {
   const { platform, store, mac } = useShell();
   const status = useShellState((s) => s.status);
-  const threads = useShellState((s) => s.threads);
+  // Only what Shell needs from the list, so another thread's event does not re-render it and
+  // the open chat; the sidebar's list subscribes to the whole list in `ThreadList`.
+  const hasThreads = useShellState((s) => s.threads.length > 0);
   const gatewayRun = useGatewayRun(platform);
   const pairingGrace = usePairingGrace(status, platform.kind === "desktop");
   const [route, setRoute] = useState(initialRoute);
@@ -462,10 +470,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const newId = useRef(randomIds()).current;
   const createdMain = useRef(false);
 
-  const mainThread: Thread | undefined = threads.find((x) => x.thread.kind === "main")?.thread;
+  const mainThread: Thread | undefined = useShellState(
+    (s) => s.threads.find((x) => x.thread.kind === "main")?.thread,
+  );
   const routeThreadId = /^\/chat\/([^/?#]+)/.exec(base)?.[1];
   const threadId = routeThreadId ?? mainThread?.id ?? null;
-  const thread = threads.find((x) => x.thread.id === threadId)?.thread ?? null;
+  const thread =
+    useShellState((s) => s.threads.find((x) => x.thread.id === threadId)?.thread) ?? null;
   const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
   // A notification's durable link (`/chat/<id>?message=` or `?approval=`) lands on its message.
   useEffect(() => {
@@ -638,7 +649,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         .then((r) => {
           if (!r?.thread) throw new Error("no thread");
           store.upsertThread(r.thread);
-          void store.refresh();
           kitStore.update((s) => ({
             ...s,
             composerContext: { ...context, threadId: r.thread.id },
@@ -699,18 +709,19 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
 
   // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.
   useEffect(() => {
-    if (status.phase !== "paired" || mainThread || createdMain.current || threads.length > 0)
-      return;
+    if (status.phase !== "paired" || mainThread || createdMain.current || hasThreads) return;
     const timer = setTimeout(() => {
       if (createdMain.current) return;
       createdMain.current = true;
       void store
-        .call("threads.create", { kind: "main" })
-        .then(() => store.refresh())
+        .call<{ thread?: Thread }>("threads.create", { kind: "main" })
+        .then((r) => {
+          if (r?.thread) store.upsertThread(r.thread);
+        })
         .catch(() => undefined);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [status.phase, mainThread, threads.length, store]);
+  }, [status.phase, mainThread, hasThreads, store]);
 
   // Re-fit layouts when the window narrows or widens.
   useEffect(() => {
@@ -802,7 +813,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         .then((r) => {
           if (r?.thread) {
             store.upsertThread(r.thread);
-            void store.refresh();
             navigate(`/chat/${r.thread.id}`);
           }
         })
@@ -857,6 +867,26 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     }
     if (next) setPermissionMode(next);
   }, [thread, setPermissionMode, autoBlockedBy]);
+
+  const parentId = isChatRoute(base) ? thread?.parentThreadId : undefined;
+  const parent = useShellState((s) =>
+    parentId ? s.threads.find((x) => x.thread.id === parentId)?.thread : undefined,
+  );
+
+  // One stable object for the chat slot: it changes only with what it carries, so a message in
+  // another thread leaves the open chat alone.
+  const chatCtx = useMemo<ChatSlotContext>(
+    () => ({
+      thread,
+      route,
+      navigate,
+      setPermissionMode,
+      openModelPicker: () => setOverlay("model"),
+      openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
+      openArtifact: (artifactId, title) => dispatch(openArtifactAction(artifactId, title)),
+    }),
+    [thread, route, navigate, setPermissionMode, dispatch],
+  );
 
   // A pane open main held while this window did not exist (Settings' Watch button). It waits for
   // the screen to have its layout key: a fresh window has no threads, so no key, yet.
@@ -965,6 +995,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           navigate("/agent/approvals");
           return true;
         case "cycleThreads": {
+          const threads = store.getState().threads;
           if (threads.length === 0) return true;
           const i = threads.findIndex((t) => t.thread.id === threadId);
           const next = threads[(i + 1) % threads.length];
@@ -979,7 +1010,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           if (thread?.activeWriterRunId) {
             // Escape closes a menu, dialog or dropdown first; only a bare Escape stops the run.
             if (escapeHasOwner()) return false;
-            void store.call("chat.cancel", { threadId: thread.id });
+            store
+              .call("chat.cancel", { threadId: thread.id })
+              .catch(() => store.toast(t("web.chat.stopFailed"), "warn"));
             return true;
           }
           // Nothing to stop: Escape goes on to the focused field or menu (the sidebar's filter).
@@ -1013,7 +1046,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       layout,
       cycleMode,
       navigate,
-      threads,
       overlay,
       thread,
       store,
@@ -1123,10 +1155,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       ? t("web.threads.mainChat")
       : thread.title || t("web.threads.sideChat")
     : sectionTitle(base);
-  const parent =
-    onChat && thread?.parentThreadId
-      ? threads.find((x) => x.thread.id === thread.parentThreadId)?.thread
-      : undefined;
   const forkedFrom = parent
     ? parent.kind === "main"
       ? t("web.threads.mainChat")
@@ -1204,15 +1232,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   });
   const content =
     onChat && slots.chat && threadId ? (
-      slots.chat(threadId, {
-        thread,
-        route,
-        navigate,
-        setPermissionMode,
-        openModelPicker: () => setOverlay("model"),
-        openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
-        openArtifact: (artifactId, title) => dispatch(openArtifactAction(artifactId, title)),
-      })
+      slots.chat(threadId, chatCtx)
     ) : onChat ? (
       <ChatView
         thread={thread}

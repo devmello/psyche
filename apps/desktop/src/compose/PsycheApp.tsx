@@ -60,7 +60,15 @@ import {
   useThread,
   useThreadExport,
 } from "@psyche/ui";
-import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
@@ -102,7 +110,13 @@ import { ComposedFilesPane, renderMarkdownEditor } from "./viewers.tsx";
 /** Cosmetic key (no admin needed) recording that onboarding finished on this Gateway. */
 export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 
-function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
+const KitChat = memo(function KitChat({
+  threadId,
+  ctx,
+}: {
+  threadId: string;
+  ctx: ChatSlotContext;
+}): ReactElement {
   // The agent sheet (`/agent/*`) is the shell's (`RoutedAgentSheet`): beside this chat on wide
   // windows, over it on narrow ones (#625); the avatar and task rows open it by route.
   const current = useThread(threadId).thread?.thread;
@@ -183,7 +197,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
       </div>
     </UiSlotsProvider>
   );
-}
+});
 
 /**
  * The agent sheet for `/agent/<tab>[/<task>][?file=][&from=]` (redesign §5.7) over the section

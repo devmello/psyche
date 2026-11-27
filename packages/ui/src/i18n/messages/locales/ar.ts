@@ -22,7 +22,9 @@ import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
+import { desktopMenu } from "./desktop-menu/ar.ts";
 import { desktopSimple } from "./desktop-simple/ar.ts";
+import { desktopTray } from "./desktop-tray/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
 import { friction } from "./friction/ar.ts";
@@ -3764,6 +3766,7 @@ export const ar: Partial<Catalogue> = {
   "web.chat.modelTitle": "النموذج (⌘⇧I)",
   "web.chat.defaultModel": "النموذج الافتراضي",
   "web.chat.conversation": "المحادثة",
+  "web.chat.stopFailed": "تعذّر الإيقاف. حاول مرة أخرى.",
   "web.chat.preparing": "يجهّز Psyche دردشتك الرئيسية.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {الدردشة الرئيسية} other {غير متصل}}{approvals, plural, =0 {} one { · موافقة واحدة بالانتظار} two { · موافقتان بالانتظار} few { · # موافقات بالانتظار} many { · # موافقة بالانتظار} other { · # موافقة بالانتظار} zero {}}",
@@ -3949,6 +3952,8 @@ export const ar: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
+  ...desktopTray,
   ...friction,
   ...update,
   ...spaces,

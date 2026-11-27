@@ -419,6 +419,7 @@ export const web = {
   "web.chat.modelTitle": "Model (⌘⇧I)",
   "web.chat.defaultModel": "default model",
   "web.chat.conversation": "Conversation",
+  "web.chat.stopFailed": "Couldn't stop. Try again.",
   "web.chat.preparing": "Psyche is getting your main chat ready.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {main chat} other {offline}}{approvals, plural, =0 {} one { · # approval waiting} other { · # approvals waiting}}",

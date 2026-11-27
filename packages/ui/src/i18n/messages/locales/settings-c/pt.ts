@@ -57,7 +57,7 @@ export const settingsC: Partial<Catalogue> = {
     "Enquanto ativado, nada é lido nem gravado, e nada é recuperado depois.",
   "settings.learning.weeklyCard": "Cartão semanal “O que aprendi”",
   "settings.learning.weeklyCardHint":
-    "Uma publicação no Feed aos domingos, só quando há algo para revisar.",
+    "Uma publicação em Início aos domingos, só quando há algo para revisar.",
   "settings.learning.open": "O que {persona} aprendeu",
   "settings.learning.openButton": "Abrir Crescimento",
   "settings.learning.forgetAll": "Esquecer tudo o que {persona} aprendeu",

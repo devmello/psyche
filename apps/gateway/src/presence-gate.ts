@@ -145,7 +145,7 @@ export async function requireFreshPresence(
       grantKey: binding,
       requestedBy: { runId: null, taskId: null, threadId: null },
       sideEffect: "destructive",
-      // `web`: the server-mode web client answers with a passkey (issue #79).
+      // `offMac`: paired clients off this Mac (the iPhone app) can answer the card; the desktop answers here.
       surfaces: ["desktop", "offMac", "notification"],
       scopesOffered: ["once"],
       taint: false,

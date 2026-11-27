@@ -324,7 +324,7 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
       skills: new FakeSkillLoader({ ids }),
       clock,
       ids,
-      approvalSurfaces: ["desktop", "web"],
+      approvalSurfaces: ["desktop", "offMac"],
     });
     const calls = new CallContexts();
     const tools = calls.adopt(loop.registry);

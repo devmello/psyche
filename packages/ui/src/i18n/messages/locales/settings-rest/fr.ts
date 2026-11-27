@@ -668,7 +668,7 @@ export const settingsRest: Partial<Catalogue> = {
     "Tant que c’est activé, rien n’est lu ni écrit, et rien n’est rattrapé ensuite.",
   "settings.learning.weeklyCard": "Carte hebdomadaire « Ce que j’ai appris »",
   "settings.learning.weeklyCardHint":
-    "Une publication dans Feed le dimanche, uniquement s’il y a quelque chose à vérifier.",
+    "Une publication dans Home le dimanche, uniquement s’il y a quelque chose à vérifier.",
   "settings.learning.open": "Ce que {persona} a appris",
   "settings.learning.openButton": "Ouvrir Progression",
   "settings.learning.forgetAll": "Oublier tout ce que {persona} a appris",
