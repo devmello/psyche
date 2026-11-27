@@ -211,7 +211,14 @@ export function createContext(deps: ContextDeps) {
           `maxTokens ${p.limits.maxTokens} is over the model's ${limits.contextWindow}-token window`,
         );
       }
-      setSetting(db, threadKey(p.threadId), p.limits ?? {});
+      // A set limit changes only the fields it names: the others keep the thread's own values.
+      setSetting(
+        db,
+        threadKey(p.threadId),
+        p.limits === null || p.limits === undefined
+          ? {}
+          : { ...threadLimits(db, p.threadId), ...p.limits },
+      );
       return { limits: await window(p.threadId), threadLimits: threadLimits(db, p.threadId) };
     },
     "threads.compact": async (
