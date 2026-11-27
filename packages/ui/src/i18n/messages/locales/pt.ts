@@ -13,6 +13,7 @@ import { charts } from "./charts/pt.ts";
 import { chatA } from "./chat-a/pt.ts";
 import { computerWatch } from "./computer-watch/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
+import { desktopDialog } from "./desktop-dialog/pt.ts";
 import { desktopMenu } from "./desktop-menu/pt.ts";
 import { desktopSimple } from "./desktop-simple/pt.ts";
 import { desktopTray } from "./desktop-tray/pt.ts";
@@ -50,6 +51,7 @@ import { settingsD } from "./settings-d/pt.ts";
 import { settingsDrill } from "./settings-drill/pt.ts";
 import { settingsE } from "./settings-e/pt.ts";
 import { simplifyB8 } from "./simplify-b8/pt.ts";
+import { simplifyB1 } from "./simplify-b1/pt.ts";
 import { spaces } from "./spaces/pt.ts";
 import { specialistsA } from "./specialists-a/pt.ts";
 import { teachA } from "./teach-a/pt.ts";
@@ -3906,6 +3908,8 @@ export const pt: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

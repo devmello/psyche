@@ -21,6 +21,7 @@ import { computerWatch } from "./computer-watch/ja.ts";
 import { dailyRest } from "./daily-rest/ja.ts";
 import { deckRest } from "./deck-rest/ja.ts";
 import { designRest } from "./design-rest/ja.ts";
+import { desktopDialog } from "./desktop-dialog/ja.ts";
 import { desktopMenu } from "./desktop-menu/ja.ts";
 import { desktopSimple } from "./desktop-simple/ja.ts";
 import { desktopTray } from "./desktop-tray/ja.ts";
@@ -68,6 +69,7 @@ import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
 import { simplifyB8 } from "./simplify-b8/ja.ts";
+import { simplifyB1 } from "./simplify-b1/ja.ts";
 import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
 import { update } from "./update/ja.ts";
@@ -3925,6 +3927,8 @@ export const ja: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

@@ -17,6 +17,7 @@ import { computerWatch } from "./computer-watch/fr.ts";
 import { dailyRest } from "./daily-rest/fr.ts";
 import { deckRest } from "./deck-rest/fr.ts";
 import { designRest } from "./design-rest/fr.ts";
+import { desktopDialog } from "./desktop-dialog/fr.ts";
 import { desktopMenu } from "./desktop-menu/fr.ts";
 import { desktopSimple } from "./desktop-simple/fr.ts";
 import { desktopTray } from "./desktop-tray/fr.ts";
@@ -60,6 +61,7 @@ import { settingsDrill } from "./settings-drill/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
 import { simplifyB8 } from "./simplify-b8/fr.ts";
+import { simplifyB1 } from "./simplify-b1/fr.ts";
 import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { update } from "./update/fr.ts";
@@ -3977,6 +3979,8 @@ export const fr: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

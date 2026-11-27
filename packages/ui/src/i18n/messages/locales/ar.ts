@@ -22,6 +22,7 @@ import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
+import { desktopDialog } from "./desktop-dialog/ar.ts";
 import { desktopMenu } from "./desktop-menu/ar.ts";
 import { desktopSimple } from "./desktop-simple/ar.ts";
 import { desktopTray } from "./desktop-tray/ar.ts";
@@ -66,6 +67,7 @@ import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { simplifyB8 } from "./simplify-b8/ar.ts";
+import { simplifyB1 } from "./simplify-b1/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
@@ -3956,6 +3958,8 @@ export const ar: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,
