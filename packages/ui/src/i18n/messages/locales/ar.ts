@@ -26,6 +26,7 @@ import { desktopDialog } from "./desktop-dialog/ar.ts";
 import { desktopMenu } from "./desktop-menu/ar.ts";
 import { desktopSimple } from "./desktop-simple/ar.ts";
 import { desktopTray } from "./desktop-tray/ar.ts";
+import { simplifyB2 } from "./simplify-b2/ar.ts";
 import { deviceAccess } from "./device-access/ar.ts";
 import { final202611 } from "./final-2026-11/ar.ts";
 import { friction } from "./friction/ar.ts";
@@ -3955,6 +3956,7 @@ export const ar: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...desktopDialog,
   ...friction,
   ...update,

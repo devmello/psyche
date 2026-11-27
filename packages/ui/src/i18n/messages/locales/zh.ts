@@ -26,6 +26,7 @@ import { desktopDialog } from "./desktop-dialog/zh.ts";
 import { desktopMenu } from "./desktop-menu/zh.ts";
 import { desktopSimple } from "./desktop-simple/zh.ts";
 import { desktopTray } from "./desktop-tray/zh.ts";
+import { simplifyB2 } from "./simplify-b2/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
 import { friction } from "./friction/zh.ts";
@@ -3830,6 +3831,7 @@ export const zh: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...desktopDialog,
   ...friction,
   ...update,

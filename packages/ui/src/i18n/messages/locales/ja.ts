@@ -25,6 +25,7 @@ import { desktopDialog } from "./desktop-dialog/ja.ts";
 import { desktopMenu } from "./desktop-menu/ja.ts";
 import { desktopSimple } from "./desktop-simple/ja.ts";
 import { desktopTray } from "./desktop-tray/ja.ts";
+import { simplifyB2 } from "./simplify-b2/ja.ts";
 import { everythingRest } from "./everything-rest/ja.ts";
 import { final202611 } from "./final-2026-11/ja.ts";
 import { friction } from "./friction/ja.ts";
@@ -3924,6 +3925,7 @@ export const ja: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...desktopDialog,
   ...friction,
   ...update,

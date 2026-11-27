@@ -25,6 +25,7 @@ import { desktopDialog } from "./desktop-dialog/ko.ts";
 import { desktopMenu } from "./desktop-menu/ko.ts";
 import { desktopSimple } from "./desktop-simple/ko.ts";
 import { desktopTray } from "./desktop-tray/ko.ts";
+import { simplifyB2 } from "./simplify-b2/ko.ts";
 import { everythingRest } from "./everything-rest/ko.ts";
 import { final202611 } from "./final-2026-11/ko.ts";
 import { friction } from "./friction/ko.ts";
@@ -3895,6 +3896,7 @@ export const ko: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB2,
   ...desktopDialog,
   ...friction,
   ...update,
