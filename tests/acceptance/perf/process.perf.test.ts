@@ -101,6 +101,7 @@ function targets(): Target[] {
     argv: [
       process.execPath,
       "--disable-warning=ExperimentalWarning",
+      "--disable-warning=DEP0040",
       join(ROOT, "apps/gateway/src/main.ts"),
     ],
   });
