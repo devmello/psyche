@@ -70,6 +70,13 @@ export interface TaskWorkerPoolOptions {
   /** Applied when a task has no budget of its own. */
   defaultBudget?: TaskBudget;
   /**
+   * A turn the loop refuses with `thread_busy` (a chat run on the same thread is still
+   * finishing, e.g. the one that called `task.start`) is retried with exponential backoff, at
+   * most `maxTries` starts in all. After that the task fails with `thread_busy`.
+   * Default: 8 starts, 250 ms doubling, capped at 4 s per wait.
+   */
+  threadBusyRetry?: { maxTries?: number; baseMs?: number; maxMs?: number };
+  /**
    * Which tasks this pool claims (docs/agent/specialists-2026.md §4.5): the specialist pool
    * claims only `subagent` jobs, at most `perParentLimit` per parent thread; the chat pool
    * excludes them.
@@ -460,26 +467,30 @@ export class TaskWorkerPool {
           ...(reads === undefined ? {} : { reads }),
         };
       }
-      const stream = loop.startTurn({
-        ...(staging === undefined ? {} : { staging }),
-        threadId: record.task.threadId,
-        runId,
-        taskId,
-        input,
-        mode: record.runMode,
-        permissionMode,
-        signal: controller.signal,
-        // Write-ahead (#63): the step is `running` on disk before the executor runs, so a crash
-        // after the provider applied it is reconciled as `uncertain`, never re-sent.
-        beforeDispatch: async (call) => {
-          if (stopped !== undefined) throw new PsycheError("cancelled", `task ${stopped}`);
-          await engine.checkpoint(taskId, {
-            stepId: call.toolCallId,
-            replaySafe: this.#replaySafe(call.tool),
-            status: "running",
-          });
-        },
-      });
+      const stream = this.#startTurnPatiently(
+        () =>
+          loop.startTurn({
+            ...(staging === undefined ? {} : { staging }),
+            threadId: record.task.threadId,
+            runId,
+            taskId,
+            input,
+            mode: record.runMode,
+            permissionMode,
+            signal: controller.signal,
+            // Write-ahead (#63): the step is `running` on disk before the executor runs, so a crash
+            // after the provider applied it is reconciled as `uncertain`, never re-sent.
+            beforeDispatch: async (call) => {
+              if (stopped !== undefined) throw new PsycheError("cancelled", `task ${stopped}`);
+              await engine.checkpoint(taskId, {
+                stepId: call.toolCallId,
+                replaySafe: this.#replaySafe(call.tool),
+                status: "running",
+              });
+            },
+          }),
+        controller.signal,
+      );
       let acked = false;
       for await (const ev of stream) {
         // A worker that lost its lease writes nothing: another worker owns the task now.
@@ -613,6 +624,52 @@ export class TaskWorkerPool {
     }
     if (stopped === "budget_exceeded") return { ...report("budget_exceeded"), task };
     return { ...report(outcome), task };
+  }
+
+  /**
+   * Starts a turn, and starts it again (backoff, bounded, abortable) while the loop refuses it as
+   * `thread_busy` before emitting anything: the chat run that started the task is still ending.
+   * Any other refusal, or the last try's, goes through as the turn's own `end`.
+   */
+  async *#startTurnPatiently(
+    start: () => AsyncIterable<AgentEvent>,
+    signal: AbortSignal,
+  ): AsyncGenerator<AgentEvent> {
+    const cfg = this.#o.threadBusyRetry ?? {};
+    const maxTries = cfg.maxTries ?? 8;
+    const baseMs = cfg.baseMs ?? 250;
+    const maxMs = cfg.maxMs ?? 4_000;
+    for (let attempt = 1; ; attempt += 1) {
+      const it = start()[Symbol.asyncIterator]();
+      const first = await it.next();
+      const busy =
+        !first.done &&
+        first.value.type === "end" &&
+        first.value.outcome === "failed" &&
+        first.value.error === "thread_busy";
+      if (!busy || attempt >= maxTries || signal.aborted) {
+        if (!first.done) yield first.value;
+        for (;;) {
+          const next = await it.next();
+          if (next.done) return;
+          yield next.value;
+        }
+      }
+      await new Promise<void>((resolve) => {
+        const onAbort = () => {
+          this.#timers.clearTimeout(handle);
+          resolve();
+        };
+        const handle = this.#timers.setTimeout(
+          () => {
+            signal.removeEventListener("abort", onAbort);
+            resolve();
+          },
+          Math.min(maxMs, baseMs * 2 ** (attempt - 1)),
+        );
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    }
   }
 
   /** Writes a finished turn's result; every write is checked against `lease` in its transaction. */
