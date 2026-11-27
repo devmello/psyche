@@ -64,7 +64,7 @@ function start(over: { model?: () => ModelRef | undefined; host?: () => CardHost
     },
   } as never);
   const gw = {
-    bus: { subscribe: () => () => undefined, publish: () => undefined },
+    bus: { subscribe: () => () => undefined, tap: () => () => undefined, publish: () => undefined },
     context: {
       updateGate: { accepting: () => true },
       nodes: { hostHelper: () => undefined, onHostHelperChange: () => () => undefined },

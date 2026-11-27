@@ -27,8 +27,15 @@ function setup() {
   } as unknown as ComposeServices);
   part.start?.({
     bus: {
-      subscribe: (_s: unknown, cb: (f: string) => void) => {
-        frame = cb;
+      tap: (_e: unknown, cb: (event: string, payload: unknown) => void) => {
+        frame = (frame: string) => {
+          try {
+            const f = JSON.parse(frame) as { event: string; payload: unknown };
+            cb(f.event, f.payload);
+          } catch {
+            // not a frame
+          }
+        };
         return () => {};
       },
     },

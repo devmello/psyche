@@ -4,6 +4,41 @@ import { redactMcpServers } from "./redact.ts";
 
 export type FrameSink = (frame: string) => void;
 
+/**
+ * An in-process listener (`EventBus.tap`). The payload is the object the publisher passed, read
+ * as the least trusted reader would read it (see `tap`): treat it as read-only.
+ */
+export type TapListener = (event: EventName, payload: unknown, meta: TapMeta) => void;
+
+export interface TapMeta {
+  /** The thread the publish named, when it named one. */
+  threadId?: string;
+  stateVersion: number;
+}
+
+export interface TapOptions {
+  /** Scopes the tap reads with, like `subscribe`'s; default `["operator.read"]`. */
+  scopes?: readonly DeviceScope[];
+}
+
+interface Tap {
+  names: Set<string>;
+  prefixes: string[];
+  all: boolean;
+  scopes: readonly DeviceScope[];
+  fn: TapListener;
+}
+
+const TAP_DEFAULT_SCOPES: readonly DeviceScope[] = ["operator.read"];
+
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value as object)) deepFreeze(v);
+  }
+  return value;
+}
+
 /** A `settings.changed` payload with the tool-server setting redacted (`redactMcpServers`). */
 export function redactSettingsPayload(payload: unknown): unknown {
   const entries = (payload as { entries?: unknown } | null)?.entries;
@@ -117,10 +152,139 @@ export class EventBus {
   #stateVersion: number;
   readonly #subscribers = new Map<FrameSink, Subscriber>();
   readonly #persistVersion: (v: number) => void;
+  readonly #taps: Tap[] = [];
+  /** Event name -> the taps that want it; cleared whenever a tap is added or removed. */
+  readonly #tapIndex = new Map<string, Tap[]>();
+  readonly #freezeTaps: boolean;
+  readonly #onTapError: ((event: string, err: unknown) => void) | undefined;
 
-  constructor(initialStateVersion: number, persistVersion: (v: number) => void) {
+  constructor(
+    initialStateVersion: number,
+    persistVersion: (v: number) => void,
+    options: {
+      /** Hand taps a deep-frozen copy so a tap that mutates its payload fails (tests, dev). */
+      freezeTaps?: boolean;
+      onTapError?: (event: string, err: unknown) => void;
+    } = {},
+  ) {
     this.#stateVersion = initialStateVersion;
     this.#persistVersion = persistVersion;
+    this.#freezeTaps = options.freezeTaps === true;
+    this.#onTapError = options.onTapError;
+  }
+
+  /**
+   * An in-process listener for a part of the Gateway: it gets the payload object itself, with no
+   * serialization and no `seq`, and only for the event names it asked for (exact names, prefixes
+   * ending in `*`, or `"*"`). Scope rules apply as for `subscribe`.
+   *
+   * It reads as a subscriber with no identity always did: the fork-hidden filter, the
+   * personalizer and the core scrub run for the least trusted reader, once per event (not per
+   * tap), and a `SCRUBBED_EVENTS` event nobody personalised for it is not delivered. The payload
+   * is shared with the publisher and other taps: never mutate it. A tap that throws is skipped
+   * and does not stop delivery to the others.
+   */
+  tap(events: readonly string[] | "*", fn: TapListener, options: TapOptions = {}): () => void {
+    const names = new Set<string>();
+    const prefixes: string[] = [];
+    let all = events === "*";
+    if (events !== "*") {
+      for (const e of events) {
+        if (e === "*") all = true;
+        else if (e.endsWith("*")) prefixes.push(e.slice(0, -1));
+        else names.add(e);
+      }
+    }
+    const tap: Tap = { names, prefixes, all, scopes: options.scopes ?? TAP_DEFAULT_SCOPES, fn };
+    this.#taps.push(tap);
+    this.#tapIndex.clear();
+    return () => {
+      const i = this.#taps.indexOf(tap);
+      if (i >= 0) this.#taps.splice(i, 1);
+      this.#tapIndex.clear();
+    };
+  }
+
+  #tapsFor(event: string): Tap[] {
+    let list = this.#tapIndex.get(event);
+    if (list === undefined) {
+      list = this.#taps.filter(
+        (t) => t.all || t.names.has(event) || t.prefixes.some((p) => event.startsWith(p)),
+      );
+      this.#tapIndex.set(event, list);
+    }
+    return list;
+  }
+
+  /** What a Gateway part (no identity) may read of this event, or `SKIP_EVENT`. */
+  #payloadForReader(
+    event: EventName,
+    payload: unknown,
+    scopes: readonly DeviceScope[],
+    threadId: string | undefined,
+  ): unknown {
+    let own = this.#personalizer?.(
+      event,
+      payload,
+      { deviceId: null, scopes, reader: NO_READER },
+      threadId,
+    );
+    if (own === SKIP_EVENT) return SKIP_EVENT;
+    if (own === undefined) {
+      const core = this.#coreScrubs.get(event);
+      if (core !== undefined) own = core(payload, NO_READER);
+      if (own === SKIP_EVENT) return SKIP_EVENT;
+    }
+    if (own === undefined && SCRUBBED_EVENTS.has(event)) return SKIP_EVENT;
+    return own === undefined ? payload : own;
+  }
+
+  #deliverToTaps(event: EventName, payload: unknown, threadId: string | undefined): void {
+    const taps = this.#tapsFor(event);
+    if (taps.length === 0) return;
+    const requiredScope = eventScope(event);
+    // One answer per distinct scope list, not per tap.
+    const answers = new Map<readonly DeviceScope[], unknown>();
+    for (const tap of taps) {
+      if (requiredScope !== null && !tap.scopes.includes(requiredScope)) continue;
+      let answer: unknown;
+      if (answers.has(tap.scopes)) answer = answers.get(tap.scopes);
+      else {
+        try {
+          answer = this.#payloadForReader(event, payload, tap.scopes, threadId);
+        } catch (err) {
+          // A scrub that throws delivers nothing (fail closed).
+          this.#reportTapError(event, err);
+          answer = SKIP_EVENT;
+        }
+        answers.set(tap.scopes, answer);
+      }
+      if (answer === SKIP_EVENT) continue;
+      const meta: TapMeta = { stateVersion: this.#stateVersion };
+      if (threadId !== undefined) meta.threadId = threadId;
+      try {
+        let given = answer;
+        if (this.#freezeTaps) {
+          try {
+            given = deepFreeze(structuredClone(answer));
+          } catch {
+            given = answer;
+          }
+        }
+        const out = tap.fn(event, given, meta) as unknown;
+        if (out instanceof Promise) out.catch((err) => this.#reportTapError(event, err));
+      } catch (err) {
+        this.#reportTapError(event, err);
+      }
+    }
+  }
+
+  #reportTapError(event: string, err: unknown): void {
+    try {
+      this.#onTapError?.(event, err);
+    } catch {
+      // Reporting must not break delivery either.
+    }
   }
 
   get stateVersion(): number {
@@ -171,7 +335,13 @@ export class EventBus {
       event === "settings.changed" ? redactSettingsPayload(rawPayload) : rawPayload
     ) as EventPayload<E>;
     this.#seq += 1;
+    this.#deliverToTaps(event, payload, threadId);
     const requiredScope = eventScope(event);
+    // The frame around a payload is the same for every viewer except `seq`: serialize the shared
+    // payload once and splice each viewer's own `seq` in. A personalised payload is serialized
+    // once per distinct object the personalizer returns.
+    const serialized = new Map<unknown, { head: string; tail: string } | null>();
+    const stateVersion = this.#stateVersion;
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
@@ -191,15 +361,23 @@ export class EventBus {
       }
       if (own === undefined && SCRUBBED_EVENTS.has(event)) continue;
       sub.seq += 1;
+      const body = own === undefined ? payload : (own as EventPayload<E>);
+      let parts = serialized.get(body);
+      if (parts === undefined) {
+        const json = JSON.stringify(body === undefined ? null : body);
+        parts =
+          json === undefined
+            ? null
+            : {
+                head: `{"type":"event","event":${JSON.stringify(event)},"payload":${json},"seq":`,
+                tail: `,"stateVersion":${stateVersion}}`,
+              };
+        serialized.set(body, parts);
+      }
       sink(
-        JSON.stringify(
-          eventFrame(
-            event,
-            own === undefined ? payload : (own as EventPayload<E>),
-            sub.seq,
-            this.#stateVersion,
-          ),
-        ),
+        parts === null
+          ? JSON.stringify(eventFrame(event, body, sub.seq, stateVersion))
+          : `${parts.head}${sub.seq}${parts.tail}`,
       );
     }
   }

@@ -2531,14 +2531,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       gw.context.deviceDisconnected.add(meetingsDisconnect);
       // Settings → Mail & meetings: a changed key re-syncs the jobs' schedules (the digest's time
       // and days, the mail check cadence, each workflow's switch). Everything else is read per run.
-      unsubscribeWorkflows = gw.bus.subscribe(["operator.read"], (frame) => {
-        const f = JSON.parse(frame) as {
-          event?: string;
-          payload?: { entries?: { key: string }[] };
-        };
-        if (f.event !== "settings.changed") return;
+      unsubscribeWorkflows = gw.bus.tap(["settings.changed"], (_event, payload) => {
         const keys: readonly string[] = [...WORKFLOW_SETTING_KEYS, ...DAILY_SETTING_KEYS];
-        if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
+        const p = payload as { entries?: { key: string }[] } | undefined;
+        if ((p?.entries ?? []).some((e) => keys.includes(e.key))) {
           void proactive.syncWorkflowSchedules();
         }
       });
@@ -3134,8 +3130,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   gatewayRef = gateway;
   // The owner's own messages and approval answers count as input (pause-when-unwatched, #272).
-  const unsubscribeAttention = gateway.bus.subscribe(["operator.read"], (frame) =>
-    attention.observe(frame),
+  const unsubscribeAttention = gateway.bus.tap(
+    ["chat.message", "approval.updated"],
+    (event, payload) => attention.observeEvent(event, payload),
   );
   vault.attach(gateway.context.nodes);
   // The helper's availability follows connect and disconnect directly: the banner clears and the
@@ -3150,25 +3147,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // A run that ends lets a waiting Forget trace pass go on (no polling). This relies on the
   // `run.updated` frame; a run that ends without one is picked up at the next wake or at the
   // pass's 24 h expiry.
-  const unsubscribeTraceScrub = gateway.bus.subscribe(["operator.read"], (frame) => {
-    if (!frame.includes('"run.updated"')) return;
-    try {
-      const f = JSON.parse(frame) as { event?: string; payload?: { run?: { status?: string } } };
-      const status = f.payload?.run?.status;
-      if (f.event === "run.updated" && status !== "running" && !status?.startsWith("awaiting")) {
-        traceScrub.wake();
-      }
-    } catch {
-      // A frame that is not JSON is not a run ending.
+  const unsubscribeTraceScrub = gateway.bus.tap(["run.updated"], (_event, payload) => {
+    const status = (payload as { run?: { status?: string } } | undefined)?.run?.status;
+    if (status !== "running" && !status?.startsWith("awaiting")) {
+      traceScrub.wake();
     }
   });
-  const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
-    const f = JSON.parse(frame) as {
-      event?: string;
-      payload?: { entries?: { key: string; value: unknown }[] };
-    };
-    if (f.event !== "settings.changed") return;
-    for (const entry of f.payload?.entries ?? []) {
+  const unsubscribePolicy = gateway.bus.tap(["settings.changed"], (_event, payload) => {
+    const p = payload as { entries?: { key: string; value: unknown }[] } | undefined;
+    for (const entry of p?.entries ?? []) {
       if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
       if (entry.key === MEMORY_RECALL_MODE_SETTING) void memoryRecall.apply();
       if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)

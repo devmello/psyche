@@ -179,13 +179,10 @@ export function createOtherChats(deps: OtherChatsDeps): OtherChats {
     let unsubscribe: (() => void) | undefined;
     return {
       start(gateway: Gateway) {
-        unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-          const f = JSON.parse(frame) as {
-            event?: string;
-            payload?: { message?: { threadId?: string; role?: string } };
-          };
-          const m = f.payload?.message;
-          if (f.event === "chat.message" && m?.role === "agent" && typeof m.threadId === "string") {
+        unsubscribe = gateway.bus.tap(["chat.message"], (_event, payload) => {
+          const m = (payload as { message?: { threadId?: string; role?: string } } | undefined)
+            ?.message;
+          if (m?.role === "agent" && typeof m.threadId === "string") {
             void refresh(m.threadId).catch(() => undefined);
           }
         });

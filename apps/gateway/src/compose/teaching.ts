@@ -520,13 +520,8 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
     }
   };
 
-  const onFrame = (frame: string) => {
-    let f: { event?: string; payload?: Record<string, unknown> };
-    try {
-      f = JSON.parse(frame) as typeof f;
-    } catch {
-      return;
-    }
+  const onEvent = (event: string, payload: unknown) => {
+    const f = { event, payload: (payload ?? undefined) as Record<string, unknown> | undefined };
     if (f.event === "run.updated") {
       const r = f.payload?.run as { id?: string; threadId?: string; status?: string } | undefined;
       // Settled runs only: the controller has committed the agent's messages by then.
@@ -573,7 +568,10 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
   const part: ComposedPart = {
     start(gateway: Gateway) {
       gatewayRef = gateway;
-      unsubscribe = gateway.bus.subscribe(["operator.read"], onFrame);
+      unsubscribe = gateway.bus.tap(
+        ["run.updated", "task.updated", "feed.post", "idea.updated"],
+        onEvent,
+      );
       gateway.context.chatRedo.add(onRedo);
       service.retain();
       const every = deps.retentionIntervalMs ?? 24 * 3_600_000;

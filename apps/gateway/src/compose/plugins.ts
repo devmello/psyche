@@ -72,15 +72,9 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
     manager,
     handlers: mountParamsOnly(createPluginsHandlers(manager, enabled) as never),
     async start(gateway: Gateway) {
-      unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-        const f = JSON.parse(frame) as {
-          event?: string;
-          payload?: { entries?: { key: string }[] };
-        };
-        if (
-          f.event === "settings.changed" &&
-          f.payload?.entries?.some((e) => e.key === PLUGINS_SETTING)
-        ) {
+      unsubscribe = gateway.bus.tap(["settings.changed"], (_event, payload) => {
+        const p = payload as { entries?: { key: string }[] } | undefined;
+        if (p?.entries?.some((e) => e.key === PLUGINS_SETTING)) {
           void manager.sync();
         }
       });

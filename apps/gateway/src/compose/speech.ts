@@ -442,19 +442,19 @@ export function composeSpeech(setup: SpeechSetup = {}) {
         gateway = gw;
         gw.context.deviceDisconnected.add(onDisconnect);
         // `speech.stt.order` applies on the next selection; a finished download refreshes readiness.
-        unsubscribeSettings = gw.bus.subscribe(["operator.read"], (frame) => {
-          const f = JSON.parse(frame) as {
-            event?: string;
-            payload?: { entries?: { key: string }[]; phase?: string };
-          };
-          if (f.event === "speech.model_download" && f.payload?.phase === "finished") {
-            refreshReady();
-          }
-          if (f.event !== "settings.changed") return;
-          if ((f.payload?.entries ?? []).some((e) => e.key === STT_ORDER_SETTING)) {
-            stack.selector.configure(sttSettings(db));
-          }
-        });
+        unsubscribeSettings = gw.bus.tap(
+          ["speech.model_download", "settings.changed"],
+          (event, payload) => {
+            const p = (payload ?? {}) as { entries?: { key: string }[]; phase?: string };
+            if (event === "speech.model_download" && p.phase === "finished") {
+              refreshReady();
+            }
+            if (event !== "settings.changed") return;
+            if ((p.entries ?? []).some((e) => e.key === STT_ORDER_SETTING)) {
+              stack.selector.configure(sttSettings(db));
+            }
+          },
+        );
       },
       async stop() {
         gateway?.context.deviceDisconnected.delete(onDisconnect);

@@ -121,8 +121,15 @@ function compose() {
   const part = composeComputer(services as never);
   const gw = {
     bus: {
-      subscribe: (_s: unknown, fn: (f: string) => void) => {
-        handler = fn;
+      tap: (_e: unknown, fn: (event: string, payload: unknown) => void) => {
+        handler = (frame: string) => {
+          try {
+            const f = JSON.parse(frame) as { event: string; payload: unknown };
+            fn(f.event, f.payload);
+          } catch {
+            // not a frame
+          }
+        };
         return () => undefined;
       },
     },

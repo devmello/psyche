@@ -654,29 +654,29 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
       // Unbinds a removed server's vault items that an earlier run could not (the vault was locked).
       void adder.retryPending().catch(() => undefined);
-      unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-        const f = JSON.parse(frame) as {
-          event?: string;
-          payload?: { entries?: { key: string; value: unknown }[] };
-        };
-        // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
-        // The vault opened: finish unbinding the items of servers removed while it was locked.
-        if (f.event === "vault.unlocked") {
-          void adder.retryPending();
-          return;
-        }
-        if (f.event === "skills.changed") {
-          void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
-          return;
-        }
-        if (f.event !== "settings.changed") return;
-        // The event carries a redacted copy: reconcile from the stored setting.
-        for (const entry of f.payload?.entries ?? []) {
-          if (entry.key === MCP_SERVERS_SETTING) {
-            void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+      unsubscribe = gateway.bus.tap(
+        ["vault.unlocked", "skills.changed", "settings.changed"],
+        (event, payload) => {
+          // A key or bundle was revoked: servers that came from it stop (`bundles.stale`).
+          // The vault opened: finish unbinding the items of servers removed while it was locked.
+          if (event === "vault.unlocked") {
+            void adder.retryPending();
+            return;
           }
-        }
-      });
+          if (event === "skills.changed") {
+            void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+            return;
+          }
+          if (event !== "settings.changed") return;
+          // The event carries a redacted copy: reconcile from the stored setting.
+          const p = payload as { entries?: { key: string; value: unknown }[] } | undefined;
+          for (const entry of p?.entries ?? []) {
+            if (entry.key === MCP_SERVERS_SETTING) {
+              void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
+            }
+          }
+        },
+      );
     },
     async stop() {
       unsubscribe?.();

@@ -262,6 +262,29 @@ export const CARD_SETTINGS = {
 const STATUS_EVERY_MS = 500;
 
 /** Every scope, so the indexer sees each event whatever scope it is published under. */
+/**
+ * The events this part acts on: its own (settings, a pairing, memory) and the ones `SearchIndexer`
+ * indexes (its `#dispatch` switch). Anything else is not delivered.
+ */
+const SEARCH_TAP_EVENTS: readonly string[] = [
+  "settings.changed",
+  "device.updated",
+  "memory.entity.*",
+  "memory.graph.*",
+  "thread.updated",
+  "chat.message",
+  "task.updated",
+  "task.action",
+  "approval.created",
+  "receipt.created",
+  "thread.deleted",
+  "thread.cleared",
+  "feed.post",
+  "feed.updated",
+  "idea.updated",
+  "goal.updated",
+];
+
 const ALL_SCOPES: DeviceScope[] = [
   "operator.read",
   "operator.write",
@@ -787,29 +810,30 @@ function buildSearch(deps: SearchDeps, sqlite: PsycheDb["sqlite"]): ComposedSear
         tick: () => sourceTick(),
       });
       unsubscribeHelper = gw.context.nodes.onHostHelperChange(() => resume("connect"));
-      unsubscribe = gw.bus.subscribe(ALL_SCOPES, (frame) => {
-        const f = JSON.parse(frame) as { event?: string; payload?: unknown };
-        const event = f.event;
-        if (event === undefined) return;
-        if (event === PAIRING_APPROVED_EVENT) resume("approval");
-        if (event === "settings.changed") {
-          const entries = (f.payload as { entries?: { key: string }[] }).entries ?? [];
-          const keys: string[] = Object.values(SEMANTIC_SETTINGS);
-          if (entries.some((e) => keys.includes(e.key))) void applySemantic();
-          // "Index on battery" turned on: the waiting backfills start now, not at the next beat.
-          if (entries.some((e) => e.key === RUN_ON_BATTERY_SETTING))
-            void sourceTick().catch(() => undefined);
-          // Memory on or off, its agent access, either encryption switch: the Memory source
-          // follows them (the agent flag is synced into the index by applyConfig).
-          if (entries.some((e) => MEMORY_SOURCE_SETTINGS.includes(e.key))) kickMemory(true);
-          return;
-        }
-        if (event.startsWith("memory.entity.") || event.startsWith("memory.graph.")) {
-          kickMemory();
-          return;
-        }
-        queue = queue.then(() => indexer.handle(event, f.payload));
-      });
+      unsubscribe = gw.bus.tap(
+        SEARCH_TAP_EVENTS,
+        (event, payload) => {
+          if (event === PAIRING_APPROVED_EVENT) resume("approval");
+          if (event === "settings.changed") {
+            const entries = (payload as { entries?: { key: string }[] }).entries ?? [];
+            const keys: string[] = Object.values(SEMANTIC_SETTINGS);
+            if (entries.some((e) => keys.includes(e.key))) void applySemantic();
+            // "Index on battery" turned on: the waiting backfills start now, not at the next beat.
+            if (entries.some((e) => e.key === RUN_ON_BATTERY_SETTING))
+              void sourceTick().catch(() => undefined);
+            // Memory on or off, its agent access, either encryption switch: the Memory source
+            // follows them (the agent flag is synced into the index by applyConfig).
+            if (entries.some((e) => MEMORY_SOURCE_SETTINGS.includes(e.key))) kickMemory(true);
+            return;
+          }
+          if (event.startsWith("memory.entity.") || event.startsWith("memory.graph.")) {
+            kickMemory();
+            return;
+          }
+          queue = queue.then(() => indexer.handle(event, payload));
+        },
+        { scopes: ALL_SCOPES },
+      );
       void applySemantic();
       // A new index (or new adapters) fills from the stores; an interrupted pass resumes.
       if (backfill.needed()) runBackfill(false);
