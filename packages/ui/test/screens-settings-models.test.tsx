@@ -1,9 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW } from "../src/fixtures/index.ts";
-import { EndpointProbeStatus } from "../src/screens/settings/ModelSection.tsx";
+import { EndpointProbeStatus, ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
 import {
   sampleEndpointProbes,
@@ -172,8 +172,8 @@ describe("Model & providers over models.*", () => {
 describe("subscription providers (Claude Code, Codex)", () => {
   it("shows them without keys, probes them on click and picks a Claude Code model", async () => {
     const gateway = setup(true);
-    expect(await screen.findByText("Claude Code (subscription)")).toBeTruthy();
-    expect(screen.getByText("ChatGPT via Codex (subscription)")).toBeTruthy();
+    expect((await screen.findAllByText("Claude Code (subscription)")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("ChatGPT via Codex (subscription)").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/No API key: runs through the CLI you are signed in to/),
     ).toHaveLength(2);
@@ -307,5 +307,24 @@ describe("removing a stored provider key in Settings", () => {
     expect(
       screen.queryByRole("button", { name: /Remove the key for Ollama|Remove the key for OpenAI/ }),
     ).toBeNull();
+  });
+});
+
+describe("plain model choice at rest (B8)", () => {
+  it("shows the primary choice first; roles, probes and context live under Advanced", async () => {
+    const { container } = render(
+      <ModelProvidersPanel
+        providers={[]}
+        values={{ "models.primary": "x/y" }}
+        onChange={vi.fn()}
+      />,
+    );
+    const primary = within(container).getByLabelText(/^Primary/);
+    expect(primary.closest("details")).toBeNull();
+    const advanced = container.querySelector("details");
+    expect(advanced).not.toBeNull();
+    expect(advanced?.textContent).toMatch(/Utility/);
+    expect(advanced?.textContent).toMatch(/Context/);
+    expect(advanced?.contains(primary)).toBe(false);
   });
 });
