@@ -501,8 +501,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       // Not while an app update is being prepared: the files are about to be handed over. The
       // checks before each authorizing read still run.
       if (!ctx.updateGate.accepting()) return;
-      recoveries.processInbox();
-      recoveries.applyDue();
+      recoveries.tick();
     } catch (err) {
       log.log("warn", "security state poll failed", { code: PsycheError.from(err).code });
     }

@@ -44,6 +44,11 @@ const MAX_WAITING_PER_OP = 5;
 const MAX_MAC_CANCELS_PER_HOUR = 5;
 /** Old inbox rows are dropped after this. */
 const INBOX_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+/** `tick()` rescans the inbox and the due recoveries at least this often, whatever data_version says. */
+const BACKSTOP_MS = 30_000;
+/** How often `tick()` prunes old inbox rows. */
+const STRICT_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+const PRUNE_EVERY_MS = 60 * 60 * 1000;
 
 const SCOPES = new Set<string>((DeviceScope as unknown as { enum: string[] }).enum);
 /** The default for `psyched devices approve <code>`: the owner's first device. */
@@ -138,8 +143,69 @@ export class SecurityRecoveries {
     return this.#d.delayMs ?? RECOVERY_DELAY_MS;
   }
 
+  #lastDv: number | null = null;
+  #lastScan = 0;
+  #lastPrune = 0;
+  /** Earliest `not_before` of a waiting recovery, in ms; null when none waits. */
+  #nextDue: number | null = null;
+
+  /**
+   * The 1 Hz poll's work. Reads only `PRAGMA data_version` (which moves when another connection
+   * commits, such as the CLI's insert) unless it moved, 30 s passed, or a recovery is due. Its own
+   * writes never move `data_version`, and it keeps its own copy, so `seal.ensure()` is unaffected.
+   */
+  tick(): void {
+    const dv = this.#d.db.sqlite.prepare("PRAGMA data_version").pluck().get() as number;
+    const nowMs = this.#d.now().getTime();
+    // A clock that stepped back must not postpone the backstop.
+    const stale = nowMs - this.#lastScan >= BACKSTOP_MS || nowMs < this.#lastScan;
+    if (dv !== this.#lastDv || stale) {
+      // Read before scanning, recorded only after it worked: a commit that lands meanwhile moves
+      // it again, and a scan that threw (SQLITE_BUSY) is retried on the next tick.
+      this.processInbox({ prune: false });
+      if (nowMs - this.#lastPrune >= PRUNE_EVERY_MS || nowMs < this.#lastPrune) {
+        this.#lastPrune = nowMs;
+        this.prune();
+      }
+      this.applyDue();
+      this.#refreshNextDue();
+      this.#lastDv = dv;
+      this.#lastScan = nowMs;
+      return;
+    }
+    if (this.#nextDue !== null && nowMs >= this.#nextDue) {
+      this.applyDue();
+      this.#refreshNextDue();
+    }
+  }
+
+  /**
+   * The earliest time a waiting recovery may be due. Rows are read as the database has them,
+   * sealed or not, and anything that is not a strict ISO time counts as due now: `applyDue` then
+   * runs every tick and skips it, as it always did, so a planted row cannot postpone the real ones.
+   */
+  #refreshNextDue(): void {
+    const rows = this.#d.db.sqlite
+      .prepare("SELECT not_before AS t FROM security_recoveries WHERE status = 'waiting'")
+      .all() as { t: unknown }[];
+    let min: number | null = null;
+    for (const { t } of rows) {
+      const ms =
+        typeof t === "string" && STRICT_ISO.test(t) ? Date.parse(t) : Number.NEGATIVE_INFINITY;
+      const v = Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+      if (min === null || v < min) min = v;
+    }
+    this.#nextDue = min;
+  }
+
+  /** Drops inbox rows older than the retention window. */
+  prune(): void {
+    const cutoff = new Date(this.#d.now().getTime() - INBOX_KEEP_MS).toISOString();
+    this.#d.db.sqlite.prepare("DELETE FROM security_requests WHERE created_at < ?").run(cutoff);
+  }
+
   /** Takes every new inbox request. Never throws: a bad request is refused in its own row. */
-  processInbox(): number {
+  processInbox(opts: { prune?: boolean } = {}): number {
     const { db } = this.#d;
     const rows = db.sqlite
       .prepare(
@@ -166,8 +232,7 @@ export class SecurityRecoveries {
           r.id,
         );
     }
-    const cutoff = new Date(this.#d.now().getTime() - INBOX_KEEP_MS).toISOString();
-    db.sqlite.prepare("DELETE FROM security_requests WHERE created_at < ?").run(cutoff);
+    if (opts.prune !== false) this.prune();
     return rows.length;
   }
 
