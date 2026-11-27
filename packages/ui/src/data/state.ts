@@ -447,13 +447,14 @@ export function withThreadEvicted(state: UiState, threadId: string): UiState {
       .filter((r) => !isUnsettled(r))
       .map((r) => r.id),
   );
-  const keep = <T>(dict: Dict<T>, runOf: (key: string, value: T) => string | undefined) =>
-    Object.fromEntries(
+  function keep<T>(dict: Dict<T>, runOf: (key: string, value: T) => string | undefined) {
+    return Object.fromEntries(
       Object.entries(dict).filter(([key, value]) => {
         const run = runOf(key, value);
         return run === undefined || !runIds.has(run);
       }),
     ) as Dict<T>;
+  }
   const { [threadId]: _messages, ...messages } = state.messages;
   const { [threadId]: _cursor, ...historyCursor } = state.historyCursor;
   return {
