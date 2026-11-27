@@ -47,7 +47,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.perSource.ref": "{source}의 모델",
   "everything.sources.title": "읽는 대상",
   "everything.sources.description":
-    "메모리는 검색이 읽는 내용에서 설정 → 검색 출처와 같은 순서로 학습합니다. 여기서 끄면 학습을 중지하지만 검색은 계속할 수 있습니다.",
+    "메모리는 검색이 읽는 내용에서 설정 → 커넥터 및 소스 → 검색와 같은 순서로 학습합니다. 여기서 끄면 학습을 중지하지만 검색은 계속할 수 있습니다.",
   "everything.sources.learning": "학습 중",
   "everything.sources.notLearning": "학습하지 않음",
   "everything.sources.notRead": "Psyche가 {source}을(를) 읽지 않습니다.",

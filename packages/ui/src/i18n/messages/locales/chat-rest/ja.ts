@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** chat strings not covered elsewhere (ja); merged into `../ja.ts`. */
 export const chatRest: Partial<Catalogue> = {
   "chat.offline.waiting":
-    "現在Gatewayに接続できません。送信したメッセージはここで待機し、復旧後に送信されます。",
+    "現在Psycheに接続できません。送信したメッセージはここで待機し、復旧後に送信されます。",
   "chat.outbox.list": "送信待ちのメッセージ",
   "chat.outbox.waiting": "待機中:",
   "chat.outbox.old": "（1日以上前）",
@@ -146,7 +146,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.fixed.model": "モデル呼び出し",
   "chat.steps.fixed.thinking": "考え中",
   "chat.steps.fixed.thinkingDone": "考えました",
-  "chat.system.gatewayRestart": "このターンの途中で Gateway が再起動したため、停止しました。",
+  "chat.system.gatewayRestart": "このターンの途中で Psyche が再起動したため、停止しました。",
   "chat.feed.runDone": "実行が完了しました。",
   "chat.feed.runFailed": "実行は完了しませんでした。",
   "chat.steps.status.running": "実行中",

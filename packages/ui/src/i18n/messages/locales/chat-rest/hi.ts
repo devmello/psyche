@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** `chat.*` strings (hi); merged into `../hi.ts`. */
 export const chatRest: Partial<Catalogue> = {
   "chat.offline.waiting":
-    "अभी Gateway तक नहीं पहुँचा जा सकता। आपके भेजे संदेश यहीं रुके रहेंगे और उसके लौटते ही चले जाएँगे।",
+    "अभी Psyche तक नहीं पहुँचा जा सकता। आपके भेजे संदेश यहीं रुके रहेंगे और उसके लौटते ही चले जाएँगे।",
   "chat.outbox.list": "भेजे जाने की प्रतीक्षा में संदेश",
   "chat.outbox.waiting": "प्रतीक्षा में:",
   "chat.outbox.old": "(एक दिन से पुराना)",
@@ -143,7 +143,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.fixed.model": "मॉडल कॉल",
   "chat.steps.fixed.thinking": "सोच रहा है",
   "chat.steps.fixed.thinkingDone": "सोच लिया",
-  "chat.system.gatewayRestart": "इस टर्न के दौरान Gateway रीस्टार्ट हुआ, इसलिए इसे रोक दिया गया।",
+  "chat.system.gatewayRestart": "इस टर्न के दौरान Psyche रीस्टार्ट हुआ, इसलिए इसे रोक दिया गया।",
   "chat.feed.runDone": "रन पूरा हुआ।",
   "chat.feed.runFailed": "रन पूरा नहीं हुआ।",
   "chat.steps.status.running": "चल रहा है",

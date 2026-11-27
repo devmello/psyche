@@ -120,9 +120,10 @@ export const memoryA: Partial<Catalogue> = {
     "As mensagens da pessoa não serão lidas e nada será aprendido sobre ela. O que já se sabe permanece até você esquecer.",
   "personData.after.said":
     "A pessoa, as mensagens dela e tudo que você mesmo adicionou permanecem.",
-  "personData.after.exclude": "Você pode permitir de novo em Ajustes → Memória → Privacidade.",
+  "personData.after.exclude":
+    "Você pode permitir de novo em Ajustes → Memória → Pessoas e privacidade.",
   "personData.after.exclude_forget":
-    "Você pode permitir de novo em Ajustes → Memória → Privacidade, mas o que foi excluído não volta.",
+    "Você pode permitir de novo em Ajustes → Memória → Pessoas e privacidade, mas o que foi excluído não volta.",
   "personData.confirm.said": "Esquecer o que disse",
   "personData.confirm.exclude": "Parar de aprender",
   "personData.confirm.exclude_forget": "Parar e esquecer",
@@ -223,7 +224,7 @@ export const memoryA: Partial<Catalogue> = {
   "everything.perSource.ref": "Modelo para {source}",
   "everything.sources.title": "O que lê",
   "everything.sources.description":
-    "A memória aprende com o que a Pesquisa lê, na mesma ordem de Ajustes → Fontes de pesquisa. Desative uma aqui para parar de aprender com ela; continua pesquisável.",
+    "A memória aprende com o que a Pesquisa lê, na mesma ordem de Ajustes → Conectores e fontes → Pesquisa. Desative uma aqui para parar de aprender com ela; continua pesquisável.",
   "everything.sources.learning": "Aprendendo com ela",
   "everything.sources.notLearning": "Sem aprender com ela",
   "everything.sources.notRead": "O Psyche não lê {source}.",

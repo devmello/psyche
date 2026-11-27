@@ -26,7 +26,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "Percorso della cartella",
   "blocks.folder.mustPick": "Scegli la cartella da condividere prima di consentire.",
   "blocks.folder.scope":
-    "“Solo questa chat” dura fino alla fine della conversazione. “Sempre” mantiene la cartella finché non la rimuovi in Impostazioni → Permessi → Accesso.",
+    "“Solo questa chat” dura fino alla fine della conversazione. “Sempre” mantiene la cartella finché non la rimuovi in Impostazioni → Privacy e sicurezza → Accesso ai file.",
   "blocks.folder.scope.once": "Solo questa chat",
   "blocks.folder.scope.always": "Sempre, questa cartella e quelle al suo interno",
   "blocks.folder.scope.space": "Consenti in questo spazio",

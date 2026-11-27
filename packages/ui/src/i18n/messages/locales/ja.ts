@@ -230,9 +230,9 @@ export const ja: Partial<Catalogue> = {
   "errors.reason.needs_helper":
     "これには Psyche Helper が必要ですが、実行されていません。設定 → デバイスで再起動してください。",
   "errors.reason.apple_not_connected":
-    "Apple のアプリはまだ接続されていません。設定 → コネクタで接続してください。",
+    "Apple のアプリはまだ接続されていません。設定 → コネクタとソースで接続してください。",
   "errors.reason.no_folder_shared":
-    "共有しているフォルダがまだありません。設定 → ファイルアクセスで共有してください。",
+    "共有しているフォルダがまだありません。設定 → プライバシーとセキュリティ → ファイルアクセスで共有してください。",
   "errors.reason.memory_opening":
     "メモリはまだ開いているところです。少し待ってからもう一度お試しください。",
   "errors.reason.outlook_object_model_guard":
@@ -996,7 +996,7 @@ export const ja: Partial<Catalogue> = {
   "shell.palette.inbox": "通知を開く",
   "shell.palette.settings": "設定",
   "shell.palette.appearance": "設定 → 外観",
-  "shell.palette.permissions": "設定 → 権限",
+  "shell.palette.permissions": "設定 → プライバシーとセキュリティ",
   "shell.palette.goTo": "{label}へ移動",
   "shell.palette.title": "コマンドパレット",
   "shell.palette.description": "Psycheを検索するか、コマンドを実行",
@@ -1100,7 +1100,7 @@ export const ja: Partial<Catalogue> = {
   "settings.page.memory": "メモリ",
   "settings.page.daily": "ルーティンとスキル",
   "settings.page.permissions": "プライバシーとセキュリティ",
-  "settings.page.devices": "デバイスとサーバー",
+  "settings.page.devices": "デバイス",
   "settings.nav.general": "一般",
   "settings.nav.search": "検索",
   "settings.search.title": "検索",
@@ -1119,7 +1119,7 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.appearance": "外観",
   "settings.nav.voice": "音声と音声入力",
   "settings.nav.data": "プライバシーとデータ",
-  "settings.nav.server": "デバイスとサーバ",
+  "settings.nav.server": "デバイス",
   "settings.nav.usage": "使用状況",
   "settings.nav.about": "情報",
   "settings.row.moreFor": "{name}のその他の操作",
@@ -1128,7 +1128,7 @@ export const ja: Partial<Catalogue> = {
   "settings.macHelper.paired.text":
     "このMacでコンピュータ操作、メッセージ、音声入力、キーチェーン、通知を担当します。",
   "settings.macHelper.starting.chip": "起動中…",
-  "settings.macHelper.starting.text": "Psyche Helperが起動し、Gatewayに接続しています。",
+  "settings.macHelper.starting.text": "Psyche Helperが起動し、Psycheに接続しています。",
   "settings.macHelper.offline.chip": "未接続",
   "settings.macHelper.offline.text": "Psycheはこれがなくても動作します。自動的に再起動されます。",
   "settings.macHelper.unbundled.chip": "未インストール",
@@ -1149,7 +1149,7 @@ export const ja: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "コンピュータ操作を許可",
   "settings.key.computerUse.apps": "アプリへのアクセス",
-  "settings.key.feed.sources": "フィードのソース",
+  "settings.key.feed.sources": "ブリーフィングのソース",
   "settings.key.computerUse.linuxRevoke": "Linux コンピュータを忘れる",
   "settings.key.context.maxTokens": "コンテキスト上限",
   "settings.key.search.web.provider": "Web検索プロバイダ",
@@ -1591,7 +1591,7 @@ export const ja: Partial<Catalogue> = {
   "settings.about.runtime": "ランタイム",
   "settings.about.revealHome": "Finderに表示",
   "settings.about.unknown": "不明",
-  "settings.about.doctorDescription": "Gateway、サンドボックス、権限、保管庫を確認します。",
+  "settings.about.doctorDescription": "Psyche、サンドボックス、権限、保管庫を確認します。",
   "settings.about.running": "実行中",
   "settings.about.runChecks": "チェックを実行",
   "settings.about.openLogs": "ログを開く",
@@ -1968,7 +1968,8 @@ export const ja: Partial<Catalogue> = {
     "エージェントがメモリファイルだけでなく、過去のチャット記録も検索できるようにします。",
   "settings.data.days": "{n, plural, other {#日}}",
   "settings.data.export": "書き出し",
-  "settings.data.exportHint": "ワークスペース（SOUL.md、メモリ、メモ）とすべての事実のzip。",
+  "settings.data.exportHint":
+    "ワークスペース（エージェントの人格、メモリ、メモ）とすべての主張をまとめたzip。",
   "settings.data.git.title": "git にバックアップ",
   "settings.data.git.description":
     "メモリを、あなたが所有する非公開の git リポジトリにコピーします。送信するとメモリはこのデバイスの外に出るため、送信前にすべてのファイルで認証情報やカード番号を確認します。Psyche はあなた自身の git 認証情報を使い、何も保存しません。",
@@ -2255,10 +2256,8 @@ export const ja: Partial<Catalogue> = {
   "settings.permissions.noConnectors": "コネクタがまだないため、設定するアクションはありません。",
   "settings.permissions.scopeMode": "（{mode}）",
   "settings.permissions.grantsRevoked": "許可を取り消しました",
-  "settings.permissions.hashOk": "tools/listのハッシュは一致",
   "settings.permissions.toolsChanged":
     "{name}は承認後にツールリストを変更したため、Psycheはその許可を取り消しました。確認するまで、すべてのアクションを再度確認します。",
-  "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.sendsTitle": "常に許可している宛先",
   "settings.permissions.sendsHint":
     "これらの宛先へのメールは確認なしで送信されます。削除すると再度確認します。",
@@ -2325,7 +2324,6 @@ export const ja: Partial<Catalogue> = {
   "settings.server.remote.none": "未設定",
   "settings.server.remote.tailscale": "Tailscale Serve",
   "settings.server.remote.proxy": "リバースプロキシ",
-  "settings.server.title": "デバイスとサーバ",
   "settings.server.description": "Gatewayが待ち受ける場所と、ほかのデバイスからの接続方法。",
   "settings.server.loadLabel": "サーバの状態",
   "settings.server.remoteAccess": "リモートアクセス",
@@ -2466,13 +2464,12 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.version": " · v{version}",
   "settings.skills.reviewUpdate": "アップデートを確認",
   "settings.skills.removeDescription":
-    "ファイルはこのGatewayから削除されます。再インストールには信頼カードの確認が必要です。",
+    "ファイルはこのコンピュータから削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.switchOn": "{name}をオン",
   "settings.plugins.title": "プラグイン",
   "settings.plugins.description":
     "文脈を追加したり、ツール呼び出しを確認したり、評価を実行したりするコードです。各プラグインは独自のプロセスで動作します。プラグインが権限を与えることはありません。",
-  "settings.plugins.off":
-    "この Gateway ではプラグインがオフになっているため、動作しているものはありません。",
+  "settings.plugins.off": "プラグインはオフになっているため、動作しているものはありません。",
   "settings.plugins.loading": "プラグインを読み込んでいます…",
   "settings.plugins.error": "プラグインを読み込めませんでした。{reason}",
   "settings.plugins.empty": "インストールされたプラグインはありません。",
@@ -2505,7 +2502,7 @@ export const ja: Partial<Catalogue> = {
   "settings.plugins.capability.evaluate": "評価",
   "settings.plugins.removeTitle": "{name} を削除しますか？",
   "settings.plugins.removeDescription":
-    "ファイルはこの Gateway から削除されます。再インストールには信頼カードの確認が必要です。",
+    "ファイルはこのコンピュータから削除されます。再インストールには信頼カードの確認が必要です。",
   "settings.skills.asksFor": "求めるもの：",
   "settings.skills.toolsLabel": "ツール：",
   "settings.skills.title": "スキル",
@@ -2525,7 +2522,7 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.installed": "インストール済み",
   "settings.skills.noInstalled":
     "インストールされたスキルはまだありません。同梱のスキルは下にあります。",
-  "settings.skills.noBundled": "このGatewayに同梱のスキルはありません。",
+  "settings.skills.noBundled": "同梱のスキルはありません。",
   "settings.skills.search.label": "スキルを検索",
   "settings.skills.search.placeholder": "名前または説明で検索",
   "settings.skills.search.loading": "検索中…",
@@ -2535,7 +2532,7 @@ export const ja: Partial<Catalogue> = {
   "settings.skills.detail.workspace": "このワークスペース",
   "settings.skills.detail.home": "スキルフォルダ",
   "settings.skills.detail.path": "ファイル",
-  "settings.skills.detail.text": "SKILL.md",
+  "settings.skills.detail.text": "手順",
   "settings.skills.detail.noText": "このスキルのファイルを読み取れません。",
   "settings.skills.detail.loading": "スキルを読み込み中…",
   "settings.skills.detail.failed": "Psyche はこのスキルを開けませんでした（{reason}）。",
@@ -2708,7 +2705,7 @@ export const ja: Partial<Catalogue> = {
   "settings.connect.path.privacy":
     "システム設定 → プライバシーとセキュリティ → {pane} → Psyche (Helper)",
   "settings.connect.path.shortcuts": "ショートカット App",
-  "settings.connect.path.files": "設定 → Psyche のファイルアクセス",
+  "settings.connect.path.files": "設定 → Psyche のプライバシーとセキュリティ → ファイルアクセス",
   "settings.connect.checkAgain": "再確認",
   "settings.connectors.status.needsPermission": "許可が必要",
   "settings.connectors.catalog.connected": "{name}（接続済み）",
@@ -2871,7 +2868,7 @@ export const ja: Partial<Catalogue> = {
   "screens.search.scope.memory": "メモリ",
   "screens.search.scope.library": "ライブラリ",
   "screens.search.scope.feed": "ホーム",
-  "screens.search.scope.ideas": "アイデア",
+  "screens.search.scope.ideas": "提案",
   "screens.search.scope.goals": "目標",
   "screens.search.scope.connectors": "コネクタ",
   "screens.search.type.pdf": "PDF",
@@ -2960,11 +2957,11 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sourcesCount": "ソース（{n, number}）",
   "screens.feed.sources": "ソース",
   "screens.feed.sourcesEditor.button": "ソース",
-  "screens.feed.sourcesEditor.title": "フィードのソース",
+  "screens.feed.sourcesEditor.title": "ブリーフィングのソース",
   "screens.feed.sourcesEditor.description":
-    "フィードが読むソースです。変更は行うたびに保存されます。",
+    "ブリーフィングが読むソースです。変更は行うたびに保存されます。",
   "screens.feed.sourcesEditor.builtIn": "内蔵",
-  "screens.feed.sourcesEditor.builtInHint": "オフにしない限り、フィードはこれらを読みます。",
+  "screens.feed.sourcesEditor.builtInHint": "オフにしない限り、ブリーフィングはこれらを読みます。",
   "screens.feed.sourcesEditor.hackerNews": "Hacker News",
   "screens.feed.sourcesEditor.hackerNewsHint": "Hacker News の注目記事",
   "screens.feed.sourcesEditor.arxiv": "arXiv",
@@ -2973,7 +2970,7 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.feedsHint":
     "各フィードは https:// または http:// で始まるウェブアドレスです。",
   "screens.feed.sourcesEditor.fetchNote":
-    "フィードは、各フィードを最後に読んだ時刻や失敗の有無をまだ表示しません。",
+    "ブリーフィングは、各フィードを最後に読んだ時刻や失敗の有無をまだ表示しません。",
   "screens.feed.sourcesEditor.empty": "フィードはまだ追加されていません。",
   "screens.feed.sourcesEditor.notRead": "読み込まれません",
   "screens.feed.sourcesEditor.kind": "RSS または Atom",
@@ -2985,7 +2982,7 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.removeLabel": "{host} を削除",
   "screens.feed.sourcesEditor.removeTitle": "フィードから {host} を削除しますか？",
   "screens.feed.sourcesEditor.removeBody":
-    "フィードはこのアドレスを読まなくなります。すでに書かれた投稿はそのまま残ります。アドレスは後から再び追加できます。",
+    "ブリーフィングはこのアドレスを読まなくなります。すでに書かれた投稿はそのまま残ります。アドレスは後から再び追加できます。",
   "screens.feed.sourcesEditor.confirmRemove": "フィードを削除",
   "screens.feed.sourcesEditor.openLabel": "{host} をブラウザで開く",
   "screens.feed.sourcesEditor.openFailed": "{host} を開けませんでした: {reason}",
@@ -2995,7 +2992,7 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.errScheme":
     "フィードに使えるのは http:// と https:// のアドレスだけです。",
   "screens.feed.sourcesEditor.errDuplicate": "このフィードはすでに一覧にあります。",
-  "screens.feed.sourcesEditor.saved": "フィードのソースを保存しました",
+  "screens.feed.sourcesEditor.saved": "ブリーフィングのソースを保存しました",
   "screens.feed.sourcesEditor.added": "フィードを追加しました",
   "screens.feed.sourcesEditor.removed": "フィードを削除しました",
   "screens.feed.sourcesEditor.saveFailed": "フィードのソースを保存できませんでした: {reason}",
@@ -3010,7 +3007,7 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.hide": "{source}を非表示",
   "screens.feed.loading": "フィードを読み込み中",
   "screens.feed.loadFailed": "Psycheはフィードを読み込めませんでした",
-  "screens.feed.safe": "投稿とフィードバックはGateway上に安全に保存されています。",
+  "screens.feed.safe": "投稿とフィードバックはこのコンピュータ上に安全に保存されています。",
   "screens.feed.writingFirst":
     "最初のブリーフィングを作成しています。準備ができるとここに表示されます。",
   "screens.feed.generating": "ブリーフィングを生成中",
@@ -3030,8 +3027,7 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.editor.instructions": "フィードに何について書いてほしいですか？",
   "screens.feed.editor.placeholder":
     "ロボット工学の論文を多めに、芸能ニュースは少なめに。一次情報を優先。投稿は短く。",
-  "screens.feed.editor.hint":
-    "興味、優先または避けたいソース、口調、長さ。ワークスペースのfeed/INSTRUCTIONS.mdに保存されます。",
+  "screens.feed.editor.hint": "興味、優先または避けるソース、トーンと長さ。",
   "screens.feed.editor.count": "{n, number} / {max, number}",
   "screens.feed.editor.interests": "興味",
   "screens.feed.editor.interestsHint":
@@ -3054,7 +3050,8 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.editor.noSchedule": "朝のブリーフィングはスケジュールされていません。",
   "screens.feed.editor.scheduleLine": "朝のブリーフィング {when}",
   "screens.feed.editor.changeSchedule": "変更",
-  "screens.feed.editor.saved": "フィードの指示を保存しました。次のブリーフィングから使われます。",
+  "screens.feed.editor.saved":
+    "ブリーフィングの指示を保存しました。次のブリーフィングから使われます。",
   "screens.feed.editor.conflict":
     "編集中にファイルが変更されました。閉じて開き直すと、新しいバージョンが読み込まれます。",
   "screens.feed.editor.saveFailed": "Psycheは指示を保存できませんでした。",
@@ -3135,7 +3132,8 @@ export const ja: Partial<Catalogue> = {
   "screens.files.loadingShared": "共有フォルダを読み込み中",
   "screens.files.noneShared": "{name}と共有しているフォルダはありません。",
   "screens.files.share": "フォルダを共有",
-  "screens.files.shareInSettings": "設定 → ファイルアクセスで共有してください。",
+  "screens.files.shareInSettings":
+    "設定 → プライバシーとセキュリティ → ファイルアクセスで共有してください。",
   "screens.files.previewOf": "{name}のプレビュー",
   "screens.files.preview": "プレビュー",
   "screens.files.needsApp": "プレビューにはデスクトップアプリが必要です。",
@@ -3414,7 +3412,7 @@ export const ja: Partial<Catalogue> = {
   "web.bytes.gb": "{n} GB",
   "web.backups.title": "バックアップ",
   "web.backups.description":
-    "{persona}のすべて（状態、ワークスペース、保管庫、ライブラリ、チャンネルのセッション）を含む暗号化アーカイブ。保管庫はその中でも暗号化されたままです。",
+    "{persona}のすべて（状態、ワークスペース、保管庫、ライブラリ）を含む暗号化アーカイブ。保管庫はその中でも暗号化されたままです。",
   "web.backups.needsGateway":
     "バックアップには新しいGatewayが必要です。それまでは`{command}`を使用してください。",
   "web.backups.needsGatewayMeanwhile": "バックアップには新しいGatewayが必要です。それまでは：",

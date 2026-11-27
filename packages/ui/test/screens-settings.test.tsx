@@ -105,7 +105,7 @@ describe("SettingsScreen", () => {
       "Memory",
       "Routines & skills",
       "Privacy & security",
-      "Devices & server",
+      "Devices",
     ]);
     // An old pane id opens that pane one level inside its page, with a way back to the page.
     expect(within(nav).getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe(
@@ -142,7 +142,7 @@ describe("SettingsScreen", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(document.activeElement?.textContent).toBe("Connectors & sources");
     await userEvent.keyboard("{End}");
-    expect(document.activeElement?.textContent).toBe("Devices & server");
+    expect(document.activeElement?.textContent).toBe("Devices");
     await userEvent.keyboard("{ArrowDown}");
     expect(document.activeElement?.textContent).toBe("General");
   });
@@ -188,7 +188,6 @@ describe("paneForKey", () => {
       (k) => !elsewhere.has(k) && paneForKey(k) === null,
     );
     expect(missing).toEqual([]);
-    expect(paneForKey("memory.recall.mode")).toBe("learning");
     expect(paneForKey("permissions.policy")).toBe("permissions");
     expect(paneForKey("permissions.folders")).toBe("files");
     expect(paneForKey("search.web.provider")).toBe("search");

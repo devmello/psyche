@@ -41,7 +41,8 @@ export const nudges: Partial<Catalogue> = {
   "nudges.settings.title": "保持联系",
   "nudges.settings.description": "温和地提醒你联系久未联系的人、生日，以及你许下的承诺。",
   "nudges.settings.enabled": "提醒我保持联系",
-  "nudges.settings.enabledHint": "早间简报中最多三条，另有安静的动态卡片。绝不会替你发送任何内容。",
+  "nudges.settings.enabledHint":
+    "早间简报中最多三条，另有主页上的安静卡片。绝不会替你发送任何内容。",
   "nudges.settings.sensitivity": "频率",
   "nudges.settings.sensitivityHint": "一条消息要等多久，Psyche 才会提醒。",
   "nudges.settings.low": "温和",

@@ -85,7 +85,6 @@ export const settingsA: Partial<Catalogue> = {
     "Um modelo pequeno na nuvem deduz os filtros de tempo, pessoa e fonte. Só a pergunta é enviada, nunca os seus itens.",
   "settings.key.search.semantic.engine": "Mecanismo de embeddings",
   "settings.key.search.semantic.allowCloud": "Permitir um serviço de embeddings na nuvem",
-  "settings.key.memory.recall.mode": "Como a memória é recuperada",
   "settings.key.widgets.remoteImages": "Imagens remotas nos widgets",
   "settings.key.ui.map.tiles": "Blocos do mapa",
   "settings.key.ui.map.styleUrl": "URL do estilo do mapa",
@@ -116,7 +115,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progresso da introdução",
   "settings.key.permissions.liftedFloors": "Ações permitidas sem perguntar para {id}",
   "settings.key.specialists.maxConcurrent": "Especialistas ao mesmo tempo",
-  "settings.key.specialists.showInFeed": "Mostrar resultados dos especialistas no Feed",
+  "settings.key.specialists.showInFeed": "Mostrar resultados dos especialistas no Início",
   "settings.key.specialists.enabled": "{role} ativado",
   "settings.key.specialists.model": "Modelo de {role}",
   "settings.credentials.payments.description":
@@ -195,8 +194,6 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "Remover a porta {port}",
   "settings.browser.agent.ports.label": "Número da porta",
   "settings.browser.agent.ports.add": "Adicionar porta",
-  "settings.browser.agent.fromEnv":
-    "Definido pela variável de ambiente {variable}. Remova-a para mudar isto aqui.",
   "settings.browser.agent.refuse.notUrl":
     "Isso não é um endereço de site. Use uma forma como https://exemplo.com.br.",
   "settings.browser.agent.refuse.wildcard":
@@ -310,7 +307,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.obsidian.newVault": "Pasta do novo cofre",
   "settings.obsidian.noVault": "Nenhum cofre escolhido",
   "settings.obsidian.vaultHint":
-    "O Psyche lê o cofre por meio de uma pasta compartilhada (Ajustes → Permissões → Acesso): compartilhe-a e depois use-a.",
+    "O Psyche lê o cofre por meio de uma pasta compartilhada (Ajustes → Privacidade e segurança → Acesso a arquivos): compartilhe-a e depois use-a.",
   "settings.obsidian.share": "Compartilhar esta pasta",
   "settings.obsidian.shared": "Compartilhada",
   "settings.obsidian.useVault": "Usar este cofre",

@@ -118,7 +118,6 @@ export const settingsRest: Partial<Catalogue> = {
     "소형 클라우드 모델이 시간, 사람, 출처 필터를 판단합니다. 질문만 전송되며 항목은 전송되지 않습니다.",
   "settings.key.search.semantic.engine": "임베딩 엔진",
   "settings.key.search.semantic.allowCloud": "클라우드 임베딩 서비스 허용",
-  "settings.key.memory.recall.mode": "메모리 불러오기 방식",
   "settings.key.widgets.remoteImages": "위젯의 원격 이미지",
   "settings.key.ui.map.tiles": "지도 타일",
   "settings.key.ui.map.styleUrl": "지도 스타일 URL",
@@ -148,7 +147,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "온보딩 진행 상황",
   "settings.key.permissions.liftedFloors": "{id}에서 묻지 않고 허용하는 작업",
   "settings.key.specialists.maxConcurrent": "동시에 실행할 전문가 수",
-  "settings.key.specialists.showInFeed": "전문가 결과를 피드에 표시",
+  "settings.key.specialists.showInFeed": "전문가 결과를 홈에 표시",
   "settings.key.specialists.enabled": "{role} 켜기",
   "settings.key.specialists.model": "{role} 모델",
   "settings.credentials.payments.description":
@@ -224,8 +223,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "포트 {port} 제거",
   "settings.browser.agent.ports.label": "포트 번호",
   "settings.browser.agent.ports.add": "포트 추가",
-  "settings.browser.agent.fromEnv":
-    "환경 변수 {variable}(으)로 설정되어 있습니다. 여기서 바꾸려면 환경 변수를 해제하세요.",
   "settings.browser.agent.refuse.notUrl":
     "사이트 주소가 아닙니다. https://example.com 형식으로 입력하세요.",
   "settings.browser.agent.refuse.wildcard":
@@ -336,7 +333,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "새 Vault 폴더",
   "settings.obsidian.noVault": "선택된 Vault 없음",
   "settings.obsidian.vaultHint":
-    "Psyche는 공유 폴더(설정 → 권한 → 접근)를 통해 Vault를 읽습니다. 공유한 다음 사용하십시오.",
+    "Psyche는 공유 폴더(설정 → 개인정보 및 보안 → 파일 접근)를 통해 Vault를 읽습니다. 공유한 다음 사용하십시오.",
   "settings.obsidian.share": "이 폴더 공유",
   "settings.obsidian.shared": "공유됨",
   "settings.obsidian.useVault": "이 Vault 사용",
@@ -659,14 +656,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, other {학습 내용 #개}}와 {events, plural, other {피드백 #개}}를 지웠습니다.",
   "settings.data.reasoningRetentionHint":
     "각 단계의 생각 전문을 보관하는 기간입니다. 끄면 한 줄 요약만 남습니다.",
-  "settings.data.recallModeHint":
-    "Markdown 메모리 파일이 계속 기준이 됩니다. 임베딩을 사용하면 매 턴마다 의미로 메모리를 찾을 수 있습니다.",
-  "settings.data.recallMode.markdown": "Markdown만",
-  "settings.data.recallMode.markdownHint":
-    "파일을 읽고 단어로 일치시킵니다. 추가로 실행할 것은 없습니다.",
-  "settings.data.recallMode.embeddings": "Markdown과 임베딩",
-  "settings.data.recallMode.embeddingsHint":
-    "검색과 같은 임베딩 설정을 사용합니다. 모델은 필요할 때 로드되고 사용하지 않으면 해제됩니다.",
   "settings.data.recallState.off": "Markdown만 사용.",
   "settings.data.encryptMemory": "디스크의 메모리 암호화",
   "settings.data.encryptMemoryHint":
@@ -784,7 +773,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "이름 (선택)",
   "settings.gateways.addHint":
-    "Psyche를 실행하는 Mac의 페어링 링크를 붙여넣으십시오 (설정 → 기기 및 서버 → 다른 컴퓨터 페어링). 링크가 없으면 Tailscale 주소(https://<host>.<tailnet>.ts.net)를 입력하십시오. 그러면 이 컴퓨터가 페어링을 요청하고, 소유자가 그쪽에서 승인합니다.",
+    "Psyche를 실행하는 Mac의 페어링 링크를 붙여넣으십시오 (설정 → 기기 → 네트워크 및 원격 접속 → 다른 컴퓨터 페어링). 링크가 없으면 Tailscale 주소(https://<host>.<tailnet>.ts.net)를 입력하십시오. 그러면 이 컴퓨터가 페어링을 요청하고, 소유자가 그쪽에서 승인합니다.",
   "settings.gateways.newLink": "새 페어링 링크가 도착했습니다. 사용하시겠습니까?",
   "settings.gateways.useNewLink": "사용",
   "settings.gateways.ignoreNewLink": "무시",
@@ -1138,7 +1127,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "이 키로 서명된 스킬은 더 이상 로드되지 않고, 이 키로 서명된 새 파일은 거부됩니다. 나중에 다시 신뢰할 수 있습니다.",
   "settings.skills.author.revokeConfirm": "해제",
-  "settings.usage.unavailable": "이 Gateway에서는 아직 사용량을 확인할 수 없습니다.",
+  "settings.usage.unavailable": "아직 사용량을 확인할 수 없습니다.",
   "settings.usage.thisMonth": "이번 달",
   "settings.usage.monthLine":
     "{turns, plural, other {#턴}} 동안 {cost}, {tokens} 토큰. 오늘 지금까지: {today}.",
@@ -1198,7 +1187,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.aboutYouHint": "내 카드: {persona}가 나에 대해 알게 된 각 사실과 그 출처.",
   "settings.people.openOwnCard": "내 카드 열기",
   "settings.people.ownCardHint": "프로필, 대화, 연결된 앱에서 얻은 나에 대한 사실.",
-  "settings.people.editUserMd": "USER.md 편집",
+  "settings.people.editUserMd": "내 프로필 편집",
   "settings.people.blocked": "사람에서 차단됨",
   "settings.people.blockedHint":
     "앞으로 학습하지 않습니다. 도메인을 차단하면 해당 도메인의 모든 주소가 포함됩니다.",
@@ -1250,7 +1239,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "동시에 실행할 전문가 수",
   "settings.specialists.concurrentHint": "많을수록 병렬로 실행되고 나머지는 순서를 기다립니다.",
   "settings.specialists.monthlyCapNone": "한도 없음",
-  "settings.specialists.showInFeed": "결과를 피드에 표시",
+  "settings.specialists.showInFeed": "결과를 홈에 표시",
   "settings.specialists.showInFeedHint": "어느 쪽이든 모든 결과는 받은 편지함에 전달됩니다.",
   "settings.specialists.roles": "역할",
   "settings.specialists.rolesHint":

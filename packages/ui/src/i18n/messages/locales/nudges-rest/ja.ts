@@ -42,7 +42,7 @@ export const nudgesRest: Partial<Catalogue> = {
     "疎遠になった人、誕生日、あなたがした約束について、やさしくお知らせします。",
   "nudges.settings.enabled": "連絡を取るようリマインド",
   "nudges.settings.enabledHint":
-    "朝の概要に最大3件、フィードに静かなカードで表示します。代わりに何かが送信されることはありません。",
+    "朝の概要に最大3件、ホームに静かなカードで表示します。代わりに何かが送信されることはありません。",
   "nudges.settings.sensitivity": "頻度",
   "nudges.settings.sensitivityHint": "Psycheが何か言うまで、メッセージをどのくらい待つか。",
   "nudges.settings.low": "控えめ",

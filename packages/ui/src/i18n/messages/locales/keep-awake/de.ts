@@ -16,10 +16,6 @@ export const keepAwake: Partial<Catalogue> = {
     "Die Wiederholung konnte nicht abgebrochen werden ({reason}).",
   "settings.updates.group": "Updates",
   "settings.updates.hint": "Psyche sucht nach signierten Updates und installiert sie beim Beenden.",
-  "settings.updates.channel": "Release-Kanal",
-  "settings.updates.channel.stable": "Stabil",
-  "settings.updates.channel.note":
-    "Stabil ist vorerst der einzige Kanal. Beta erscheint hier, sobald Beta-Builds veröffentlicht werden. Jedes Update wird in jedem Fall mit dem Release-Schlüssel von Psyche geprüft.",
   "settings.storage.title": "Speicher",
   "settings.storage.hint":
     "Speicherplatz, den Psyche in seinem Datenordner auf diesem Computer belegt.",

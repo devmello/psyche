@@ -12,14 +12,14 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "退出 Psyche 后重新打开。",
   "settings.sandbox.pc.title": "开启沙盒 PC",
   "settings.sandbox.pc.body":
-    "srt 是 Psyche 用于命令的轻量沙盒，无法在 Windows 上运行。这里，Psyche 创建的脚本、命令服务器和连接器会改在沙盒 PC 中运行：这是一台独立的小型 Linux 电脑，无法访问你的文件。请在“设置 → 沙盒 PC”中开启，然后重新检查。",
+    "srt 是 Psyche 用于命令的轻量沙盒，无法在 Windows 上运行。这里，Psyche 创建的脚本、命令服务器和连接器会改在隐私与安全 → 电脑使用 → 虚拟机模式 中运行：这是一台独立的小型 Linux 电脑，无法访问你的文件。请在“设置 → 沙盒 PC”中开启，然后重新检查。",
   "settings.sandbox.pc.notReady.title": "沙盒 PC 尚未就绪",
   "settings.sandbox.pc.notReady.body":
-    "它已开启，但尚未运行，或其中的 Psyche 已过时。请在“设置 → 沙盒 PC”中启动或更新，然后重新检查。",
+    "它已开启，但尚未运行，或其中的 Psyche 已过时。请在“设置 → 隐私与安全 → 电脑使用 → 虚拟机模式”中启动或更新，然后重新检查。",
   "settings.sandbox.pc.ready":
     "沙盒 PC 已开启：Psyche 创建的脚本、命令服务器和连接器会在其中运行。",
   "settings.sandbox.pc.open": "打开沙盒 PC 设置",
-  "settings.sandbox.pc.where": "位于“设置 → 沙盒 PC”。",
+  "settings.sandbox.pc.where": "位于“设置 → 隐私与安全 → 电脑使用 → 虚拟机模式”。",
   "settings.devices.platform.windows": "Windows 电脑",
   "settings.devices.nodeKind.winHelper": "Windows 助手",
   "settings.devices.thisPcAdmin": "这台电脑是管理设备。另一台管理设备可以在这里撤销它。",

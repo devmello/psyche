@@ -6,7 +6,7 @@ export const chatA: Partial<Catalogue> = {
   "settings.appearance.accent.ink": "Tinta",
   "settings.appearance.gray.paper": "Papel",
   "chat.offline.waiting":
-    "No se puede conectar con el Gateway ahora mismo. Los mensajes que envíes esperan aquí y salen cuando vuelva.",
+    "No se puede conectar con Psyche ahora mismo. Los mensajes que envíes esperan aquí y salen cuando vuelva.",
   "chat.outbox.list": "Mensajes pendientes de enviar",
   "chat.outbox.waiting": "En espera:",
   "chat.outbox.old": "(de hace más de un día)",
@@ -150,7 +150,7 @@ export const chatA: Partial<Catalogue> = {
   "chat.steps.fixed.model": "Llamada al modelo",
   "chat.steps.fixed.thinking": "Pensando",
   "chat.steps.fixed.thinkingDone": "Pensado",
-  "chat.system.gatewayRestart": "El Gateway se reinició durante este turno, así que se detuvo.",
+  "chat.system.gatewayRestart": "Psyche se reinició durante este turno, así que se detuvo.",
   "chat.feed.runDone": "La ejecución terminó.",
   "chat.feed.runFailed": "La ejecución no terminó.",
   "chat.steps.status.running": "en curso",

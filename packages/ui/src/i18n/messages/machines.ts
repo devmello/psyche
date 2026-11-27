@@ -16,7 +16,7 @@ export const machines = {
   "machines.add.account.dedicatedHint":
     "Psyche sees only that account's files and apps. It has no sudo and no password.",
   "machines.add.needsNetwork":
-    "Other computers can't reach this one yet. Turn on remote access or local network access in Settings → Devices & server first.",
+    "Other computers can't reach this one yet. Turn on remote access or local network access in Settings → Devices → Network & remote access first.",
   "machines.add.make": "Show the commands",
   "machines.add.again": "Make new commands",
   "machines.add.commands": "Commands for the Linux computer",

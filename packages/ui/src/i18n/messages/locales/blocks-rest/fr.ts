@@ -26,7 +26,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "Chemin du dossier",
   "blocks.folder.mustPick": "Choisissez le dossier à partager avant d’autoriser.",
   "blocks.folder.scope":
-    "« Cette discussion seulement » dure jusqu’à la fin de la conversation. « Toujours » conserve le dossier jusqu’à ce que vous le retiriez dans Réglages → Autorisations → Accès.",
+    "« Cette discussion seulement » dure jusqu’à la fin de la conversation. « Toujours » conserve le dossier jusqu’à ce que vous le retiriez dans Réglages → Confidentialité et sécurité → Accès aux fichiers.",
   "blocks.folder.scope.once": "Cette discussion seulement",
   "blocks.folder.scope.always": "Toujours, ce dossier et ses sous-dossiers",
   "blocks.folder.scope.space": "Autoriser dans cet espace",

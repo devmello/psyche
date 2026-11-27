@@ -116,7 +116,6 @@ export const settingsRest: Partial<Catalogue> = {
     "एक छोटा क्लाउड मॉडल समय, व्यक्ति और स्रोत के फ़िल्टर निकालता है। सिर्फ़ सवाल भेजा जाता है, आपके आइटम कभी नहीं।",
   "settings.key.search.semantic.engine": "एम्बेडिंग इंजन",
   "settings.key.search.semantic.allowCloud": "क्लाउड एम्बेडिंग सेवा की अनुमति दें",
-  "settings.key.memory.recall.mode": "मेमोरी कैसे याद की जाती है",
   "settings.key.widgets.remoteImages": "विजेट में रिमोट चित्र",
   "settings.key.ui.map.tiles": "मैप टाइल",
   "settings.key.ui.map.styleUrl": "मैप स्टाइल का URL",
@@ -146,7 +145,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "ऑनबोर्डिंग की प्रगति",
   "settings.key.permissions.liftedFloors": "{id} के लिए बिना पूछे अनुमत कार्रवाइयाँ",
   "settings.key.specialists.maxConcurrent": "एक साथ स्पेशलिस्ट",
-  "settings.key.specialists.showInFeed": "फ़ीड में स्पेशलिस्ट के नतीजे दिखाएँ",
+  "settings.key.specialists.showInFeed": "होम पर स्पेशलिस्ट के नतीजे दिखाएँ",
   "settings.key.specialists.enabled": "{role} चालू",
   "settings.key.specialists.model": "{role} का मॉडल",
   "settings.credentials.payments.description":
@@ -221,8 +220,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "पोर्ट {port} हटाएँ",
   "settings.browser.agent.ports.label": "पोर्ट नंबर",
   "settings.browser.agent.ports.add": "पोर्ट जोड़ें",
-  "settings.browser.agent.fromEnv":
-    "{variable} एनवायरनमेंट वेरिएबल द्वारा सेट है। यहाँ बदलने के लिए उसे हटाएँ।",
   "settings.browser.agent.refuse.notUrl":
     "यह साइट का पता नहीं है। https://example.com जैसा रूप इस्तेमाल करें।",
   "settings.browser.agent.refuse.wildcard":
@@ -331,7 +328,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "नया वॉल्ट फ़ोल्डर",
   "settings.obsidian.noVault": "कोई वॉल्ट नहीं चुना",
   "settings.obsidian.vaultHint":
-    "Psyche वॉल्ट को साझा फ़ोल्डर के ज़रिए पढ़ता है (सेटिंग्ज़ → अनुमतियाँ → एक्सेस): उसे साझा करें, फिर उपयोग करें।",
+    "Psyche वॉल्ट को साझा फ़ोल्डर के ज़रिए पढ़ता है (सेटिंग्ज़ → गोपनीयता और सुरक्षा → फ़ाइल ऐक्सेस): उसे साझा करें, फिर उपयोग करें।",
   "settings.obsidian.share": "यह फ़ोल्डर साझा करें",
   "settings.obsidian.shared": "साझा",
   "settings.obsidian.useVault": "यह वॉल्ट उपयोग करें",
@@ -647,14 +644,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, one {# सीख} other {# सीखें}} और {events, plural, one {# प्रतिक्रिया घटना} other {# प्रतिक्रिया घटनाएँ}} भुला दी गईं।",
   "settings.data.reasoningRetentionHint":
     "हर चरण का पूरा सोच-विचार कितने समय तक रखा जाता है। बंद करने पर एक पंक्ति का सारांश रहता है।",
-  "settings.data.recallModeHint":
-    "आपकी Markdown मेमोरी फ़ाइलें ही मूल स्रोत रहती हैं। एम्बेडिंग हर टर्न को यादें अर्थ के आधार पर खोजने देती हैं।",
-  "settings.data.recallMode.markdown": "सिर्फ़ Markdown",
-  "settings.data.recallMode.markdownHint":
-    "फ़ाइलें पढ़ता है और शब्द मिलाता है। अलग से कुछ चलाने की ज़रूरत नहीं।",
-  "settings.data.recallMode.embeddings": "Markdown और एम्बेडिंग",
-  "settings.data.recallMode.embeddingsHint":
-    "खोज जैसा ही एम्बेडिंग विकल्प उपयोग करता है। मॉडल ज़रूरत पर लोड होता है और खाली रहने पर मुक्त हो जाता है।",
   "settings.data.recallState.off": "सिर्फ़ Markdown।",
   "settings.data.encryptMemory": "डिस्क पर मेमोरी एन्क्रिप्ट करें",
   "settings.data.encryptMemoryHint":
@@ -771,7 +760,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "नाम (वैकल्पिक)",
   "settings.gateways.addHint":
-    "Psyche चलाने वाले Mac से पेयरिंग लिंक पेस्ट करें (सेटिंग्ज़, सर्वर और रिमोट एक्सेस, दूसरा कंप्यूटर पेयर करें)। लिंक के बिना, उसका Tailscale पता टाइप करें, https://<host>.<tailnet>.ts.net; फिर यह कंप्यूटर पेयर करने को कहता है, और मालिक वहाँ उसे स्वीकृत करता है।",
+    "Psyche चलाने वाले Mac से पेयरिंग लिंक पेस्ट करें (सेटिंग्ज़, डिवाइस → नेटवर्क और रिमोट एक्सेस, दूसरा कंप्यूटर पेयर करें)। लिंक के बिना, उसका Tailscale पता टाइप करें, https://<host>.<tailnet>.ts.net; फिर यह कंप्यूटर पेयर करने को कहता है, और मालिक वहाँ उसे स्वीकृत करता है।",
   "settings.gateways.newLink": "नया पेयरिंग लिंक आया है। इसका उपयोग करें?",
   "settings.gateways.useNewLink": "उपयोग करें",
   "settings.gateways.ignoreNewLink": "अनदेखा करें",
@@ -1117,7 +1106,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "इससे हस्ताक्षरित स्किल लोड होना बंद हो जाती हैं, और इससे हस्ताक्षरित नई फ़ाइलें अस्वीकार कर दी जाती हैं। आप बाद में फिर भरोसा कर सकते हैं।",
   "settings.skills.author.revokeConfirm": "रद्द करें",
-  "settings.usage.unavailable": "इस Gateway से उपयोग अभी उपलब्ध नहीं है।",
+  "settings.usage.unavailable": "उपयोग अभी उपलब्ध नहीं है।",
   "settings.usage.thisMonth": "इस महीने",
   "settings.usage.monthLine":
     "{turns, plural, one {# टर्न} other {# टर्न}} में {cost} और {tokens} टोकन। आज अब तक: {today}।",
@@ -1176,7 +1165,7 @@ export const settingsRest: Partial<Catalogue> = {
     "आपका अपना कार्ड: आपके बारे में {persona} ने जो भी सीखा, हर तथ्य उसके स्रोत के साथ।",
   "settings.people.openOwnCard": "अपना कार्ड खोलें",
   "settings.people.ownCardHint": "आपकी प्रोफ़ाइल, चैट और जुड़े ऐप्स से आपके बारे में तथ्य।",
-  "settings.people.editUserMd": "USER.md संपादित करें",
+  "settings.people.editUserMd": "अपनी प्रोफ़ाइल बदलें",
   "settings.people.blocked": "लोग से ब्लॉक किए",
   "settings.people.blockedHint":
     "इनके बारे में दोबारा कभी नहीं सीखा जाता। ब्लॉक किया गया डोमेन उसके हर पते को कवर करता है।",
@@ -1228,7 +1217,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "एक साथ स्पेशलिस्ट",
   "settings.specialists.concurrentHint": "उतने ज़्यादा साथ-साथ चलते हैं; बाकी कतार में इंतज़ार करते हैं।",
   "settings.specialists.monthlyCapNone": "कोई सीमा नहीं",
-  "settings.specialists.showInFeed": "नतीजे फ़ीड में दिखाएँ",
+  "settings.specialists.showInFeed": "नतीजे होम पर दिखाएँ",
   "settings.specialists.showInFeedHint": "आपके इनबॉक्स को हर नतीजा किसी भी हाल में मिलता है।",
   "settings.specialists.roles": "भूमिकाएँ",
   "settings.specialists.rolesHint":

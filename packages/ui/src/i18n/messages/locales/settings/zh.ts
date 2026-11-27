@@ -83,7 +83,6 @@ export const settings: Partial<Catalogue> = {
     "由一个小型云端模型推断时间、人物和来源筛选条件。只发送问题，绝不发送你的项目。",
   "settings.key.search.semantic.engine": "嵌入引擎",
   "settings.key.search.semantic.allowCloud": "允许使用云端嵌入服务",
-  "settings.key.memory.recall.mode": "记忆的调用方式",
   "settings.key.widgets.remoteImages": "小组件中的远程图片",
   "settings.key.ui.map.tiles": "地图图块",
   "settings.key.ui.map.styleUrl": "地图样式 URL",
@@ -113,7 +112,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "引导进度",
   "settings.key.permissions.liftedFloors": "{id}无需询问即可执行的操作",
   "settings.key.specialists.maxConcurrent": "同时运行的专员数",
-  "settings.key.specialists.showInFeed": "在动态中显示专员的结果",
+  "settings.key.specialists.showInFeed": "在主页显示专员的结果",
   "settings.key.specialists.enabled": "{role}已开启",
   "settings.key.specialists.model": "{role}模型",
   "settings.credentials.payments.description":
@@ -187,7 +186,6 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "移除端口 {port}",
   "settings.browser.agent.ports.label": "端口号",
   "settings.browser.agent.ports.add": "添加端口",
-  "settings.browser.agent.fromEnv": "由环境变量 {variable} 设置。取消该变量才能在此更改。",
   "settings.browser.agent.refuse.notUrl": "这不是网站地址。请使用 https://example.com 这样的格式。",
   "settings.browser.agent.refuse.wildcard": "不允许使用通配符。请逐个填写每个网站的完整地址。",
   "settings.browser.agent.refuse.credentials": "不允许包含用户名或密码的地址。",
@@ -287,7 +285,7 @@ export const settings: Partial<Catalogue> = {
   "settings.obsidian.newVault": "新的资料库文件夹",
   "settings.obsidian.noVault": "未选择资料库",
   "settings.obsidian.vaultHint":
-    "Psyche 通过共享文件夹读取资料库（设置 → 权限 → 访问）：先共享，再使用。",
+    "Psyche 通过共享文件夹读取资料库（设置 → 隐私与安全 → 文件访问）：先共享，再使用。",
   "settings.obsidian.share": "共享此文件夹",
   "settings.obsidian.shared": "已共享",
   "settings.obsidian.useVault": "使用此资料库",
@@ -588,13 +586,6 @@ export const settings: Partial<Catalogue> = {
   "settings.learning.forgotAll":
     "已忘掉 {lessons, plural, other {# 条经验}}和 {events, plural, other {# 个反馈事件}}。",
   "settings.data.reasoningRetentionHint": "每一步完整思考内容保留多久。关闭则只保留一行摘要。",
-  "settings.data.recallModeHint":
-    "你的 Markdown 记忆文件仍是事实来源。嵌入让每一轮都能按含义找到记忆。",
-  "settings.data.recallMode.markdown": "仅 Markdown",
-  "settings.data.recallMode.markdownHint": "读取文件并匹配字词，无需额外运行任何东西。",
-  "settings.data.recallMode.embeddings": "Markdown 加嵌入",
-  "settings.data.recallMode.embeddingsHint":
-    "与“搜索”使用相同的嵌入选项。模型在需要时载入，空闲时释放。",
   "settings.data.recallState.off": "仅 Markdown。",
   "settings.data.encryptMemory": "在磁盘上加密记忆",
   "settings.data.encryptMemoryHint":
@@ -703,7 +694,7 @@ export const settings: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "名称（可选）",
   "settings.gateways.addHint":
-    "粘贴运行 Psyche 的 Mac 上的配对链接（设置 → 设备与服务器 → 配对另一台电脑）。没有链接时，请输入它的 Tailscale 地址 https://<host>.<tailnet>.ts.net；这台电脑随后会请求配对，由所有者在那边批准。",
+    "粘贴运行 Psyche 的 Mac 上的配对链接（设置 → 设备 → 网络与远程访问 → 配对另一台电脑）。没有链接时，请输入它的 Tailscale 地址 https://<host>.<tailnet>.ts.net；这台电脑随后会请求配对，由所有者在那边批准。",
   "settings.gateways.newLink": "收到了新的配对链接。要使用吗？",
   "settings.gateways.useNewLink": "使用",
   "settings.gateways.ignoreNewLink": "忽略",
@@ -1026,7 +1017,7 @@ export const settings: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "用它签名的技能将不再载入，用它签名的新文件将被拒绝。之后你可以重新信任它。",
   "settings.skills.author.revokeConfirm": "撤销",
-  "settings.usage.unavailable": "此 Gateway 暂时不提供用量信息。",
+  "settings.usage.unavailable": "暂时没有用量信息。",
   "settings.usage.thisMonth": "本月",
   "settings.usage.monthLine":
     "{turns, plural, other {# 轮}}共花费 {cost}，使用 {tokens} 个 token。今天到目前为止：{today}。",
@@ -1080,7 +1071,7 @@ export const settings: Partial<Catalogue> = {
   "settings.people.aboutYouHint": "你自己的卡片：{persona}了解到的关于你的每条事实及其来源。",
   "settings.people.openOwnCard": "打开你的卡片",
   "settings.people.ownCardHint": "来自你的个人资料、聊天和已连接 App 的关于你的事实。",
-  "settings.people.editUserMd": "编辑 USER.md",
+  "settings.people.editUserMd": "编辑你的个人资料",
   "settings.people.blocked": "已从“人物”中屏蔽",
   "settings.people.blockedHint": "不会再了解他们。屏蔽某个域名会涵盖该域名下的所有地址。",
   "settings.people.noneBlocked": "没有屏蔽任何人。",
@@ -1130,7 +1121,7 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.concurrent": "同时运行的专员数",
   "settings.specialists.concurrentHint": "可以并行运行更多；其余的排队等候。",
   "settings.specialists.monthlyCapNone": "无上限",
-  "settings.specialists.showInFeed": "在动态中显示结果",
+  "settings.specialists.showInFeed": "在主页显示结果",
   "settings.specialists.showInFeedHint": "无论如何，你的收件箱都会收到每个结果。",
   "settings.specialists.roles": "角色",
   "settings.specialists.rolesHint": "角色来自技能。你安装的角色在开启之前保持关闭。",

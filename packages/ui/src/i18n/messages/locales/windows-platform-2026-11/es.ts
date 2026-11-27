@@ -15,14 +15,15 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Cierra Psyche y vuelve a abrirlo.",
   "settings.sandbox.pc.title": "Activar el PC de entorno aislado",
   "settings.sandbox.pc.body":
-    "srt, el entorno aislado ligero de Psyche para los comandos, no funciona en Windows. Aquí, los scripts, los servidores de comandos y los conectores que crea Psyche se ejecutan en el PC de entorno aislado: un pequeño equipo Linux propio, sin acceso a tus archivos. Actívalo en Ajustes → PC de entorno aislado y vuelve a comprobarlo.",
+    "srt, el entorno aislado ligero de Psyche para los comandos, no funciona en Windows. Aquí, los scripts, los servidores de comandos y los conectores que crea Psyche se ejecutan en el Privacidad y seguridad → Uso del ordenador → Modo VM: un pequeño equipo Linux propio, sin acceso a tus archivos. Actívalo en Ajustes → PC de entorno aislado y vuelve a comprobarlo.",
   "settings.sandbox.pc.notReady.title": "El PC de entorno aislado aún no está listo",
   "settings.sandbox.pc.notReady.body":
-    "Está activado, pero todavía no se está ejecutando o el Psyche que contiene está desactualizado. Inícialo o actualízalo en Ajustes → PC de entorno aislado y vuelve a comprobarlo.",
+    "Está activado, pero todavía no se está ejecutando o el Psyche que contiene está desactualizado. Inícialo o actualízalo en Ajustes → Privacidad y seguridad → Uso del ordenador → Modo VM y vuelve a comprobarlo.",
   "settings.sandbox.pc.ready":
     "El PC de entorno aislado está activado: los scripts, servidores de comandos y conectores que crea Psyche se ejecutan en él.",
   "settings.sandbox.pc.open": "Abrir los ajustes del PC de entorno aislado",
-  "settings.sandbox.pc.where": "Está en Ajustes → PC de entorno aislado.",
+  "settings.sandbox.pc.where":
+    "Está en Ajustes → Privacidad y seguridad → Uso del ordenador → Modo VM.",
   "settings.devices.platform.windows": "PC con Windows",
   "settings.devices.nodeKind.winHelper": "Helper de Windows",
   "settings.devices.thisPcAdmin":

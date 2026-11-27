@@ -99,9 +99,9 @@ export const memoryReview = {
   "personData.excludeOnly":
     "Their messages will not be read and nothing will be learned about them. What is already known stays until you forget it.",
   "personData.after.said": "The person, their messages and anything you added yourself stay.",
-  "personData.after.exclude": "You can allow them again in Settings → Memory → Privacy.",
+  "personData.after.exclude": "You can allow them again in Settings → Memory → People and privacy.",
   "personData.after.exclude_forget":
-    "You can allow them again in Settings → Memory → Privacy, but what was deleted does not come back.",
+    "You can allow them again in Settings → Memory → People and privacy, but what was deleted does not come back.",
   "personData.confirm.said": "Forget what they said",
   "personData.confirm.exclude": "Stop learning",
   "personData.confirm.exclude_forget": "Stop and forget",
@@ -199,7 +199,7 @@ export const memoryReview = {
   "everything.perSource.ref": "Model for {source}",
   "everything.sources.title": "What it reads",
   "everything.sources.description":
-    "Memory learns from what Search reads, in the same order as Settings → Search sources. Switch one off here to stop learning from it; it stays searchable.",
+    "Memory learns from what Search reads, in the same order as Settings → Connectors & sources → Search. Switch one off here to stop learning from it; it stays searchable.",
   "everything.sources.learning": "Learning from it",
   "everything.sources.notLearning": "Not learning from it",
   "everything.sources.notRead": "Psyche doesn't read {source}.",
@@ -336,7 +336,6 @@ export const memoryReview = {
   "memoryAdvanced.title": "Advanced",
   "memoryAdvanced.description":
     "Models, schedule, how things are recalled, encryption and your data.",
-  "memoryAdvanced.recall": "Recall",
   "memoryAdvanced.data": "Your data",
   "memoryAdvanced.dataHint": "Export, back up or reset everything {persona} remembers.",
   "memoryAdvanced.dataOpen": "Open Privacy & data",

@@ -30,7 +30,6 @@ export const shell: Partial<Catalogue> = {
   "shell.palette.keywords.addTodo": "جديد مهمة واجب موعد نهائي مستحق تذكير إنشاء",
   "shell.palette.addProject": "إضافة مشروع",
   "shell.palette.keywords.addProject": "جديد مشروع دورة صف وظيفة مبادرة إنشاء تتبع",
-  "shell.browser.open": "فتح المتصفح",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

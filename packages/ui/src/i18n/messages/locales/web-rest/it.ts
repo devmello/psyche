@@ -80,7 +80,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "La sua prova di identità non ha superato la verifica, quindi Psyche non si collegherà.",
   "web.splash.remote.identityOrigin":
-    "Ha risposto per un indirizzo diverso da quello chiamato da questo computer. Su {host}, imposta l’indirizzo pubblico in Impostazioni → Dispositivi e server.",
+    "Ha risposto per un indirizzo diverso da quello chiamato da questo computer. Su {host}, imposta l’indirizzo pubblico in Impostazioni → Dispositivi → Rete e accesso remoto.",
   "web.splash.remote.certChanged":
     "Il suo certificato di rete non è quello fissato da questo computer. Potrebbe rispondere un’altra macchina di questa rete al suo posto, oppure il certificato è stato sostituito.",
   "web.splash.remote.certMissing":

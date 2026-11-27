@@ -74,13 +74,13 @@ export const scheduledA: Partial<Catalogue> = {
   "scheduled.routine.notesFolder.name": "Carpeta de grabaciones",
   "scheduled.routine.notesFolder.does":
     "Busca grabaciones de reuniones nuevas y las convierte en notas.",
-  "scheduled.routine.feedBrief.name": "Resumen del Feed",
+  "scheduled.routine.feedBrief.name": "Resumen de la mañana",
   "scheduled.routine.feedBrief.does": "Escribe el resumen del día en Inicio.",
   "scheduled.routine.feedBriefing.does": "Escribe tu resumen personalizado en Inicio.",
-  "scheduled.routine.ideasMine.name": "Ideas: búsqueda nocturna",
+  "scheduled.routine.ideasMine.name": "Sugerencias (por la noche)",
   "scheduled.routine.ideasMine.does":
     "Repasa el día en busca de ideas que merezca la pena conservar.",
-  "scheduled.routine.ideasDeliver.name": "Ideas: ventana de entrega",
+  "scheduled.routine.ideasDeliver.name": "Sugerencias (entrega)",
   "scheduled.routine.ideasDeliver.does": "Te envía las ideas que encontró, en un buen momento.",
   "scheduled.routine.goalCheckin.does": "Revisa cómo va este objetivo.",
   "scheduled.routine.goalWatch.does": "Vigila las novedades sobre este objetivo.",

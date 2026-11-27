@@ -32,9 +32,9 @@ export const miscRest: Partial<Catalogue> = {
   "personData.after.said":
     "La personne, ses messages et tout ce que vous avez ajouté vous-même restent.",
   "personData.after.exclude":
-    "Vous pourrez l’autoriser à nouveau dans Réglages → Mémoire → Confidentialité.",
+    "Vous pourrez l’autoriser à nouveau dans Réglages → Mémoire → Personnes et confidentialité.",
   "personData.after.exclude_forget":
-    "Vous pourrez l’autoriser à nouveau dans Réglages → Mémoire → Confidentialité, mais ce qui a été supprimé ne reviendra pas.",
+    "Vous pourrez l’autoriser à nouveau dans Réglages → Mémoire → Personnes et confidentialité, mais ce qui a été supprimé ne reviendra pas.",
   "personData.confirm.said": "Oublier ce qu’elle a dit",
   "personData.confirm.exclude": "Arrêter d’apprendre",
   "personData.confirm.exclude_forget": "Arrêter et oublier",
@@ -56,7 +56,6 @@ export const miscRest: Partial<Catalogue> = {
   "memoryBasics.paused": "La mémoire est en pause.",
   "memoryAdvanced.title": "Avancé",
   "memoryAdvanced.description": "Modèles, planning, mode de rappel, chiffrement et vos données.",
-  "memoryAdvanced.recall": "Rappel",
   "memoryAdvanced.data": "Vos données",
   "memoryAdvanced.dataHint":
     "Exportez, sauvegardez ou réinitialisez tout ce dont {persona} se souvient.",

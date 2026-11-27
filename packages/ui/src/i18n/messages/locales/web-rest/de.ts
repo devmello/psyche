@@ -80,7 +80,7 @@ export const webRest: Partial<Catalogue> = {
   "web.splash.remote.identityInvalid":
     "Sein Identitätsnachweis war nicht stimmig, daher verbindet sich Psyche nicht.",
   "web.splash.remote.identityOrigin":
-    "Er hat für eine andere Adresse geantwortet als die, die dieser Computer gewählt hat. Lege auf {host} die öffentliche Adresse unter Einstellungen → Geräte & Server fest.",
+    "Er hat für eine andere Adresse geantwortet als die, die dieser Computer gewählt hat. Lege auf {host} die öffentliche Adresse unter Einstellungen → Geräte → Netzwerk und Fernzugriff fest.",
   "web.splash.remote.certChanged":
     "Sein Netzwerkzertifikat ist nicht das, das dieser Computer festgelegt hat. Möglicherweise antwortet eine andere Maschine in diesem Netzwerk an seiner Stelle, oder sein Zertifikat wurde ersetzt.",
   "web.splash.remote.certMissing":

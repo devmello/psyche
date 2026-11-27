@@ -11,7 +11,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "添加 Google、Microsoft 或电子邮件账户",
   "onboarding.step.memory": "记忆与日常习惯",
   "onboarding.about.lead":
-    "一些基本信息，让 Psyche 一开始就认识你。这里的一切都是可选的，保存在 USER.md 中，你随时可以编辑。",
+    "告诉 Psyche 几件事，让它一开始就了解你。这里的一切都是可选的，保存在你的个人资料中，随时可以编辑。",
   "onboarding.about.name": "你的名字",
   "onboarding.about.nameHint": "Psyche 该怎么称呼你？",
   "onboarding.about.timeZone": "时区",
@@ -61,7 +61,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.folders.desktop": "桌面",
   "onboarding.folders.downloads": "下载",
   "onboarding.folders.hint": "你可以随时在“设置”的“文件访问”中更改。",
-  "onboarding.folders.shareLater": "你可以稍后在“设置 → 文件访问”中共享这些文件夹。",
+  "onboarding.folders.shareLater": "你可以稍后在“设置 → 隐私与安全 → 文件访问”中共享这些文件夹。",
   "onboarding.folders.openFileAccess": "打开文件访问",
   "onboarding.folders.retry": "重试",
   "onboarding.folders.continueWithout": "不共享，继续",

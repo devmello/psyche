@@ -42,7 +42,7 @@ export const nudgesRest: Partial<Catalogue> = {
     "Sanfte Erinnerungen an Menschen, zu denen der Kontakt eingeschlafen ist, an Geburtstage und an Versprechen, die du gegeben hast.",
   "nudges.settings.enabled": "Erinnere mich daran, in Kontakt zu bleiben",
   "nudges.settings.enabledHint":
-    "Bis zu drei in deiner Morgenübersicht und leise Feed-Karten. Es wird nie etwas für dich gesendet.",
+    "Bis zu drei in deiner Morgenübersicht und leise Karten auf Home. Es wird nie etwas für dich gesendet.",
   "nudges.settings.sensitivity": "Wie oft",
   "nudges.settings.sensitivityHint": "Wie lange eine Nachricht wartet, bevor Psyche etwas sagt.",
   "nudges.settings.low": "Sanft",

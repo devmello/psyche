@@ -12,7 +12,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "أضف حساب Google أو Microsoft أو بريد إلكتروني",
   "onboarding.step.memory": "الذاكرة والعادات اليومية",
   "onboarding.about.lead":
-    "بعض المعلومات ليبدأ Psyche وهو يعرفك. كل ما هنا اختياري ويُحفظ في USER.md، ويمكنك تعديله في أي وقت.",
+    "بضع معلومات ليعرفك Psyche من البداية. كل ما هنا اختياري ويُحفظ في ملفك الشخصي الذي يمكنك تعديله في أي وقت.",
   "onboarding.about.name": "اسمك",
   "onboarding.about.nameHint": "بماذا يناديك Psyche؟",
   "onboarding.about.timeZone": "المنطقة الزمنية",
@@ -64,7 +64,7 @@ export const onboarding: Partial<Catalogue> = {
   "onboarding.folders.downloads": "التنزيلات",
   "onboarding.folders.hint": "يمكنك تغيير ذلك في أي وقت من الإعدادات، ضمن الوصول إلى الملفات.",
   "onboarding.folders.shareLater":
-    "يمكنك مشاركة هذه المجلدات لاحقًا من الإعدادات ← الوصول إلى الملفات.",
+    "يمكنك مشاركة هذه المجلدات لاحقًا من الإعدادات ← الخصوصية والأمان → الوصول إلى الملفات.",
   "onboarding.folders.openFileAccess": "فتح الوصول إلى الملفات",
   "onboarding.folders.retry": "حاول مرة أخرى",
   "onboarding.folders.continueWithout": "المتابعة دون مشاركة",

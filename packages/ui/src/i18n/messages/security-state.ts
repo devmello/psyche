@@ -18,7 +18,7 @@ export const securityState = {
   "web.security.alert.changed":
     "A program on this Mac changed {count, plural, one {1 security record} other {# security records}} without going through Psyche. Psyche put {count, plural, one {it} other {them}} back. If you did not do this, check the Mac for unwanted software.",
   "web.security.alert.untrusted":
-    "The check of Psyche's security records failed. New devices, security settings and Touch ID approvals are blocked. Review your devices, then run psyched security reseal on the Mac; it applies after 24 hours.",
+    "The check of Psyche's security records failed. New devices, security settings and Touch ID approvals are blocked. Review your devices in Settings → Devices, then tap Mark reviewed. If Psyche asks to accept the current records, tap Approve now; it applies after 24 hours.",
   "web.security.alert.firstSeal":
     "Psyche now checks its security records ({devices, plural, one {1 paired device} other {# paired devices}}). A change made outside Psyche is undone and shown here. Review your devices once.",
   "web.security.alert.resealed": "Psyche sealed its security records again.",

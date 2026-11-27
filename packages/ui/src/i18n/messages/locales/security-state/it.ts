@@ -16,7 +16,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "Un programma su questo Mac ha modificato {count, plural, one {1 dato di sicurezza} other {# dati di sicurezza}} senza passare da Psyche. Psyche {count, plural, one {l’ha ripristinato} other {li ha ripristinati}}. Se non sei stato tu, controlla il Mac per software indesiderato.",
   "web.security.alert.untrusted":
-    "Il controllo dei dati di sicurezza di Psyche non è riuscito. Nuovi dispositivi, impostazioni di sicurezza e approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui psyched security reseal sul Mac; si applica dopo 24 ore.",
+    "Il controllo dei registri di sicurezza di Psyche non è riuscito. Nuovi dispositivi, impostazioni di sicurezza e approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi in Impostazioni → Dispositivi, poi tocca «Segna come controllato». Se Psyche chiede di accettare i registri attuali, tocca «Approva ora»; si applica dopo 24 ore.",
   "web.security.alert.firstSeal":
     "Psyche ora controlla i suoi dati di sicurezza ({devices, plural, one {1 dispositivo abbinato} other {# dispositivi abbinati}}). Una modifica fatta fuori da Psyche viene annullata e mostrata qui. Controlla i tuoi dispositivi una volta.",
   "web.security.alert.resealed": "Psyche ha sigillato di nuovo i suoi dati di sicurezza.",

@@ -14,10 +14,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "تعذّر إلغاء إعادة المحاولة ({reason}).",
   "settings.updates.group": "التحديثات",
   "settings.updates.hint": "يبحث Psyche عن تحديثات موقّعة ويثبّتها عند الإنهاء.",
-  "settings.updates.channel": "قناة الإصدارات",
-  "settings.updates.channel.stable": "مستقرة",
-  "settings.updates.channel.note":
-    "القناة المستقرة هي الوحيدة حاليًا. ستظهر القناة التجريبية هنا عند نشر إصدارات تجريبية. يُتحقَّق من كل تحديث بمفتاح إصدار Psyche في كل الأحوال.",
   "settings.storage.title": "التخزين",
   "settings.storage.hint": "مساحة القرص التي يستخدمها Psyche في مجلد بياناته على هذا الكمبيوتر.",
   "settings.storage.total": "الإجمالي",

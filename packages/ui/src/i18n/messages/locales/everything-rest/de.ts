@@ -47,7 +47,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.perSource.ref": "Modell für {source}",
   "everything.sources.title": "Was gelesen wird",
   "everything.sources.description":
-    "Das Gedächtnis lernt aus dem, was die Suche liest, in derselben Reihenfolge wie unter Einstellungen → Suchquellen. Schalte hier eine aus, um nicht mehr daraus zu lernen; sie bleibt durchsuchbar.",
+    "Das Gedächtnis lernt aus dem, was die Suche liest, in derselben Reihenfolge wie unter Einstellungen → Connectors & Quellen → Suche. Schalte hier eine aus, um nicht mehr daraus zu lernen; sie bleibt durchsuchbar.",
   "everything.sources.learning": "Lernt daraus",
   "everything.sources.notLearning": "Lernt nicht daraus",
   "everything.sources.notRead": "Psyche liest {source} nicht.",

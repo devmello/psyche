@@ -11,7 +11,7 @@ export const settingsE: Partial<Catalogue> = {
   "settings.specialists.concurrent": "Especialistas ao mesmo tempo",
   "settings.specialists.concurrentHint": "Mais rodam lado a lado; o resto espera na fila.",
   "settings.specialists.monthlyCapNone": "Sem limite",
-  "settings.specialists.showInFeed": "Mostrar resultados no Feed",
+  "settings.specialists.showInFeed": "Mostrar resultados no Início",
   "settings.specialists.showInFeedHint":
     "Sua caixa de entrada recebe todos os resultados de qualquer forma.",
   "settings.specialists.roles": "Funções",

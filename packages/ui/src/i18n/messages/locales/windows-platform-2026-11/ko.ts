@@ -15,14 +15,14 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Psyche를 종료했다가 다시 여세요.",
   "settings.sandbox.pc.title": "샌드박스 PC 켜기",
   "settings.sandbox.pc.body":
-    "명령용 경량 샌드박스인 srt는 Windows에서 실행되지 않습니다. 대신 Psyche가 만드는 스크립트, 명령 서버, 커넥터는 샌드박스 PC에서 실행됩니다. 샌드박스 PC는 전용 소형 Linux 컴퓨터이며 내 파일에는 접근할 수 없습니다. 설정 → 샌드박스 PC에서 켠 뒤 다시 확인하세요.",
+    "명령용 경량 샌드박스인 srt는 Windows에서 실행되지 않습니다. 대신 Psyche가 만드는 스크립트, 명령 서버, 커넥터는 개인정보 및 보안 → 컴퓨터 사용 → VM 모드에서 실행됩니다. 샌드박스 PC는 전용 소형 Linux 컴퓨터이며 내 파일에는 접근할 수 없습니다. 설정 → 샌드박스 PC에서 켠 뒤 다시 확인하세요.",
   "settings.sandbox.pc.notReady.title": "샌드박스 PC가 아직 준비되지 않았습니다",
   "settings.sandbox.pc.notReady.body":
-    "켜져는 있지만 아직 실행 중이 아니거나, 안의 Psyche가 오래되었습니다. 설정 → 샌드박스 PC에서 시작하거나 업데이트한 뒤 다시 확인하세요.",
+    "켜져는 있지만 아직 실행 중이 아니거나, 안의 Psyche가 오래되었습니다. 설정 → 개인정보 및 보안 → 컴퓨터 사용 → VM 모드에서 시작하거나 업데이트한 뒤 다시 확인하세요.",
   "settings.sandbox.pc.ready":
     "샌드박스 PC가 켜져 있습니다: Psyche가 만든 스크립트, 명령 서버, 커넥터가 여기서 실행됩니다.",
   "settings.sandbox.pc.open": "샌드박스 PC 설정 열기",
-  "settings.sandbox.pc.where": "설정 → 샌드박스 PC에 있습니다.",
+  "settings.sandbox.pc.where": "설정 → 개인정보 및 보안 → 컴퓨터 사용 → VM 모드에 있습니다.",
   "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.winHelper": "Windows 헬퍼",
   "settings.devices.thisPcAdmin":

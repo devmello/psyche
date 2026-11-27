@@ -84,7 +84,6 @@ export const settingsA: Partial<Catalogue> = {
     "Un modelo pequeño en la nube deduce los filtros de tiempo, persona y fuente. Solo se envía la pregunta, nunca tus elementos.",
   "settings.key.search.semantic.engine": "Motor de embeddings",
   "settings.key.search.semantic.allowCloud": "Permitir un servicio de embeddings en la nube",
-  "settings.key.memory.recall.mode": "Cómo se recupera la memoria",
   "settings.key.widgets.remoteImages": "Imágenes remotas en los widgets",
   "settings.key.ui.map.tiles": "Teselas del mapa",
   "settings.key.ui.map.styleUrl": "URL del estilo del mapa",
@@ -115,7 +114,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Progreso de la introducción",
   "settings.key.permissions.liftedFloors": "Acciones permitidas sin preguntar para {id}",
   "settings.key.specialists.maxConcurrent": "Especialistas a la vez",
-  "settings.key.specialists.showInFeed": "Mostrar los resultados de los especialistas en el Feed",
+  "settings.key.specialists.showInFeed": "Mostrar los resultados de los especialistas en Inicio",
   "settings.key.specialists.enabled": "{role} activado",
   "settings.key.specialists.model": "Modelo de {role}",
   "settings.credentials.payments.description":
@@ -194,8 +193,6 @@ export const settingsA: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "Quitar el puerto {port}",
   "settings.browser.agent.ports.label": "Número de puerto",
   "settings.browser.agent.ports.add": "Añadir puerto",
-  "settings.browser.agent.fromEnv":
-    "Lo define la variable de entorno {variable}. Quítala para cambiarlo aquí.",
   "settings.browser.agent.refuse.notUrl":
     "Eso no es una dirección de sitio. Usa una forma como https://ejemplo.com.",
   "settings.browser.agent.refuse.wildcard":
@@ -306,7 +303,7 @@ export const settingsA: Partial<Catalogue> = {
   "settings.obsidian.newVault": "Carpeta de la nueva bóveda",
   "settings.obsidian.noVault": "No se ha elegido ninguna bóveda",
   "settings.obsidian.vaultHint":
-    "Psyche lee la bóveda a través de una carpeta compartida (Ajustes → Permisos → Acceso): compártela y luego úsala.",
+    "Psyche lee la bóveda a través de una carpeta compartida (Ajustes → Privacidad y seguridad → Acceso a archivos): compártela y luego úsala.",
   "settings.obsidian.share": "Compartir esta carpeta",
   "settings.obsidian.shared": "Compartida",
   "settings.obsidian.useVault": "Usar esta bóveda",

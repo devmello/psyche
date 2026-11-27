@@ -38,7 +38,6 @@ export const shellRest: Partial<Catalogue> = {
   "shell.palette.addProject": "プロジェクトを追加",
   "shell.palette.keywords.addProject":
     "新規 プロジェクト コース 授業 仕事 取り組み 作成 追跡 new project course class job",
-  "shell.browser.open": "ブラウザを開く",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

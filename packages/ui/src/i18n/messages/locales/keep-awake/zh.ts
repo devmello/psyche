@@ -14,10 +14,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "无法取消重试（{reason}）。",
   "settings.updates.group": "更新",
   "settings.updates.hint": "Psyche 会检查已签名的更新，并在你退出时安装。",
-  "settings.updates.channel": "发布渠道",
-  "settings.updates.channel.stable": "稳定版",
-  "settings.updates.channel.note":
-    "目前只有稳定版渠道。发布测试版后，测试版会显示在这里。无论哪个渠道，每次更新都会用 Psyche 的发布密钥验证。",
   "settings.storage.title": "存储",
   "settings.storage.hint": "Psyche 在这台电脑的数据文件夹中占用的磁盘空间。",
   "settings.storage.total": "总计",
