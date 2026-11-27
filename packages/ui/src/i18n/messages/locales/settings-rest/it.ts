@@ -121,7 +121,6 @@ export const settingsRest: Partial<Catalogue> = {
     "Un piccolo modello cloud ricava i filtri di tempo, persona e fonte. Viene inviata solo la domanda, mai i tuoi elementi.",
   "settings.key.search.semantic.engine": "Motore di embedding",
   "settings.key.search.semantic.allowCloud": "Consenti un servizio di embedding cloud",
-  "settings.key.memory.recall.mode": "Come viene richiamata la memoria",
   "settings.key.widgets.remoteImages": "Immagini remote nei widget",
   "settings.key.ui.map.tiles": "Tessere della mappa",
   "settings.key.ui.map.styleUrl": "URL dello stile della mappa",
@@ -152,7 +151,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Avanzamento della configurazione iniziale",
   "settings.key.permissions.liftedFloors": "Azioni consentite senza chiedere per {id}",
   "settings.key.specialists.maxConcurrent": "Specialisti contemporaneamente",
-  "settings.key.specialists.showInFeed": "Mostra i risultati degli specialisti nel Feed",
+  "settings.key.specialists.showInFeed": "Mostra i risultati degli specialisti in Home",
   "settings.key.specialists.enabled": "{role} attivo",
   "settings.key.specialists.model": "Modello di {role}",
   "settings.credentials.payments.description":
@@ -232,8 +231,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "Rimuovi la porta {port}",
   "settings.browser.agent.ports.label": "Numero di porta",
   "settings.browser.agent.ports.add": "Aggiungi porta",
-  "settings.browser.agent.fromEnv":
-    "Impostato dalla variabile d'ambiente {variable}. Rimuovila per cambiarlo qui.",
   "settings.browser.agent.refuse.notUrl":
     "Non è un indirizzo di sito. Usa una forma come https://esempio.it.",
   "settings.browser.agent.refuse.wildcard":
@@ -348,7 +345,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "Nuova cartella del vault",
   "settings.obsidian.noVault": "Nessun vault scelto",
   "settings.obsidian.vaultHint":
-    "Psyche legge il vault tramite una cartella condivisa (Impostazioni → Permessi → Accesso): condividila, poi usala.",
+    "Psyche legge il vault tramite una cartella condivisa (Impostazioni → Privacy e sicurezza → Accesso ai file): condividila, poi usala.",
   "settings.obsidian.share": "Condividi questa cartella",
   "settings.obsidian.shared": "Condivisa",
   "settings.obsidian.useVault": "Usa questo vault",
@@ -683,14 +680,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, one {Dimenticata # lezione} other {Dimenticate # lezioni}} e {events, plural, one {# evento di riscontro} other {# eventi di riscontro}}.",
   "settings.data.reasoningRetentionHint":
     "Per quanto tempo si conserva il ragionamento completo di ogni passaggio. Se disattivato, resta un riassunto di una riga.",
-  "settings.data.recallModeHint":
-    "I tuoi file di memoria Markdown restano la fonte di verità. Gli embedding permettono a ogni turno di trovare i ricordi per significato.",
-  "settings.data.recallMode.markdown": "Solo Markdown",
-  "settings.data.recallMode.markdownHint":
-    "Legge i file e abbina le parole. Nulla di aggiuntivo da eseguire.",
-  "settings.data.recallMode.embeddings": "Markdown più embedding",
-  "settings.data.recallMode.embeddingsHint":
-    "Usa la stessa scelta di embedding di Cerca. Il modello si carica quando serve e viene liberato quando è inattivo.",
   "settings.data.recallState.off": "Solo Markdown.",
   "settings.data.encryptMemory": "Cifra la memoria su disco",
   "settings.data.encryptMemoryHint":
@@ -809,7 +798,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Nome (facoltativo)",
   "settings.gateways.addHint":
-    "Incolla il link di abbinamento dal Mac che esegue Psyche (Impostazioni, Dispositivi e server, Abbina un altro computer). Senza link, digita il suo indirizzo Tailscale, https://<host>.<tailnet>.ts.net; questo computer chiede di abbinarsi e il proprietario lo approva lì.",
+    "Incolla il link di abbinamento dal Mac che esegue Psyche (Impostazioni, Dispositivi → Rete e accesso remoto, Abbina un altro computer). Senza link, digita il suo indirizzo Tailscale, https://<host>.<tailnet>.ts.net; questo computer chiede di abbinarsi e il proprietario lo approva lì.",
   "settings.gateways.newLink": "È arrivato un nuovo link di abbinamento. Vuoi usarlo?",
   "settings.gateways.useNewLink": "Usalo",
   "settings.gateways.ignoreNewLink": "Ignora",
@@ -1179,7 +1168,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "Le skill firmate con essa smettono di caricarsi, e i nuovi file firmati con essa vengono rifiutati. Potrai fidarti di nuovo in seguito.",
   "settings.skills.author.revokeConfirm": "Revoca",
-  "settings.usage.unavailable": "L’utilizzo non è ancora disponibile da questo Gateway.",
+  "settings.usage.unavailable": "L’utilizzo non è ancora disponibile.",
   "settings.usage.thisMonth": "Questo mese",
   "settings.usage.monthLine":
     "{cost} e {tokens} token in {turns, plural, one {# turno} other {# turni}}. Oggi finora: {today}.",
@@ -1243,7 +1232,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.openOwnCard": "Apri la tua scheda",
   "settings.people.ownCardHint":
     "Fatti su di te dal tuo profilo, dalle chat e dalle app collegate.",
-  "settings.people.editUserMd": "Modifica USER.md",
+  "settings.people.editUserMd": "Modifica il tuo profilo",
   "settings.people.blocked": "Bloccati da Persone",
   "settings.people.blockedHint":
     "Non si impara più nulla su di loro. Un dominio bloccato copre ogni indirizzo al suo interno.",
@@ -1296,7 +1285,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "Specialisti contemporaneamente",
   "settings.specialists.concurrentHint": "Più ne girano affiancati; gli altri aspettano in coda.",
   "settings.specialists.monthlyCapNone": "Nessun limite",
-  "settings.specialists.showInFeed": "Mostra i risultati nel Feed",
+  "settings.specialists.showInFeed": "Mostra i risultati in Home",
   "settings.specialists.showInFeedHint": "La tua Posta in arrivo riceve comunque ogni risultato.",
   "settings.specialists.roles": "Ruoli",
   "settings.specialists.rolesHint":

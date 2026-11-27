@@ -14,7 +14,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "이 Mac의 프로그램이 Psyche를 거치지 않고 보안 기록 {count}건을 변경했습니다. Psyche가 원래대로 되돌렸습니다. 본인이 한 일이 아니라면 Mac에 원치 않는 소프트웨어가 있는지 확인하세요.",
   "web.security.alert.untrusted":
-    "Psyche 보안 기록 확인에 실패했습니다. 새 기기, 보안 설정, Touch ID 승인이 차단됩니다. 기기를 확인한 다음 Mac에서 psyched security reseal을 실행하세요. 24시간 후에 적용됩니다.",
+    'Psyche의 보안 기록 확인에 실패했습니다. 새 기기, 보안 설정, Touch ID 승인이 차단됩니다. 설정 → 기기에서 기기를 확인한 다음 "확인함으로 표시"를 누르세요. Psyche가 현재 기록을 수락할지 물으면 "지금 승인"을 누르세요. 24시간 뒤에 적용됩니다.',
   "web.security.alert.firstSeal":
     "이제 Psyche가 보안 기록을 확인합니다(페어링된 기기 {devices}대). Psyche 밖에서 이루어진 변경은 되돌려지고 여기에 표시됩니다. 기기를 한 번 확인하세요.",
   "web.security.alert.resealed": "Psyche가 보안 기록을 다시 봉인했습니다.",

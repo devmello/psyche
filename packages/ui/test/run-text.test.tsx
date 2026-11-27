@@ -50,7 +50,7 @@ describe("Gateway-authored run text, worded by the UI", () => {
         md: "The Gateway restarted during this turn, so it was stopped.",
         noteKey: "gateway_restart",
       }),
-    ).toContain("Gateway");
+    ).toContain("Psyche");
     expect(systemNoteText({ md: "x", noteKey: "gateway_restart" })).not.toBe("x");
     // Controls: no key, or a key from a newer Gateway, shows the stored text.
     expect(systemNoteText({ md: "stored" })).toBe("stored");

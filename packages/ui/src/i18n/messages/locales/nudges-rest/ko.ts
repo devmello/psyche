@@ -42,7 +42,7 @@ export const nudgesRest: Partial<Catalogue> = {
     "연락이 뜸해진 사람, 생일, 사용자가 한 약속을 부드럽게 알려 드립니다.",
   "nudges.settings.enabled": "연락하도록 알림",
   "nudges.settings.enabledHint":
-    "아침 브리핑에 최대 3개, 피드에 조용한 카드로 표시합니다. 대신 무언가가 전송되는 일은 없습니다.",
+    "아침 브리핑에 최대 3개, 홈에 조용한 카드로 표시합니다. 대신 무언가가 전송되는 일은 없습니다.",
   "nudges.settings.sensitivity": "빈도",
   "nudges.settings.sensitivityHint": "Psyche가 말을 꺼내기까지 메시지를 얼마나 기다릴지입니다.",
   "nudges.settings.low": "부드럽게",

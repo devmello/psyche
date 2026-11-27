@@ -50,7 +50,7 @@ describe("Settings → Specialists (specialists §6.4)", () => {
     );
     await userEvent.click(planner);
     fireEvent.change(screen.getByLabelText("Specialists at once"), { target: { value: "5" } });
-    await userEvent.click(screen.getByRole("switch", { name: "Show results in Feed" }));
+    await userEvent.click(screen.getByRole("switch", { name: "Show results on Home" }));
     await waitFor(() =>
       expect(writes(spy)).toEqual([
         ["specialists.enabled.planner", true],

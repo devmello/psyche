@@ -86,7 +86,6 @@ export const settings: Partial<Catalogue> = {
     "يستخلص نموذج سحابي صغير مرشّحات الوقت والشخص والمصدر. يُرسل السؤال فقط، ولا تُرسل عناصرك أبدًا.",
   "settings.key.search.semantic.engine": "محرك التضمين",
   "settings.key.search.semantic.allowCloud": "السماح بخدمة تضمين سحابية",
-  "settings.key.memory.recall.mode": "كيفية استرجاع الذاكرة",
   "settings.key.widgets.remoteImages": "الصور البعيدة في الأدوات",
   "settings.key.ui.map.tiles": "مربعات الخريطة",
   "settings.key.ui.map.styleUrl": "عنوان URL لنمط الخريطة",
@@ -116,7 +115,7 @@ export const settings: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "تقدّم الإعداد الأولي",
   "settings.key.permissions.liftedFloors": "إجراءات مسموح بها دون سؤال لـ {id}",
   "settings.key.specialists.maxConcurrent": "عدد المختصين في وقت واحد",
-  "settings.key.specialists.showInFeed": "إظهار نتائج المختصين في الخلاصة",
+  "settings.key.specialists.showInFeed": "إظهار نتائج المختصين في الرئيسية",
   "settings.key.specialists.enabled": "{role} مفعّل",
   "settings.key.specialists.model": "نموذج {role}",
   "settings.credentials.payments.description":
@@ -194,8 +193,6 @@ export const settings: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "إزالة المنفذ {port}",
   "settings.browser.agent.ports.label": "رقم المنفذ",
   "settings.browser.agent.ports.add": "إضافة منفذ",
-  "settings.browser.agent.fromEnv":
-    "تم تعيينه بواسطة متغير البيئة {variable}. ألغِ تعيينه لتغييره من هنا.",
   "settings.browser.agent.refuse.notUrl":
     "هذا ليس عنوان موقع. استخدم صيغة مثل https://example.com.",
   "settings.browser.agent.refuse.wildcard": "لا يُسمح بالأحرف البديلة. أدرج كل موقع بعنوانه الدقيق.",
@@ -304,7 +301,7 @@ export const settings: Partial<Catalogue> = {
   "settings.obsidian.newVault": "مجلد خزنة جديد",
   "settings.obsidian.noVault": "لم تُختر خزنة",
   "settings.obsidian.vaultHint":
-    "يقرأ Psyche الخزنة عبر مجلد مشترك (الإعدادات ← الأذونات ← الوصول): شاركه ثم استخدمه.",
+    "يقرأ Psyche الخزنة عبر مجلد مشترك (الإعدادات ← الخصوصية والأمان → الوصول إلى الملفات): شاركه ثم استخدمه.",
   "settings.obsidian.share": "مشاركة هذا المجلد",
   "settings.obsidian.shared": "مشارَك",
   "settings.obsidian.useVault": "استخدام هذه الخزنة",
@@ -623,13 +620,6 @@ export const settings: Partial<Catalogue> = {
     "نُسي {lessons, plural, zero {لا دروس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}} و{events, plural, zero {لا أحداث ملاحظات} one {حدث ملاحظات واحد} two {حدثا ملاحظات} few {# أحداث ملاحظات} many {# حدث ملاحظات} other {# حدث ملاحظات}}.",
   "settings.data.reasoningRetentionHint":
     "مدة الاحتفاظ بالتفكير الكامل لكل خطوة. الإيقاف يُبقي ملخصًا من سطر واحد.",
-  "settings.data.recallModeHint":
-    "تبقى ملفات ذاكرتك بصيغة Markdown هي المصدر الموثوق. يتيح التضمين لكل دور أن يجد الذكريات بمعناها.",
-  "settings.data.recallMode.markdown": "Markdown فقط",
-  "settings.data.recallMode.markdownHint": "قراءة الملفات ومطابقة الكلمات. لا شيء إضافي يُشغَّل.",
-  "settings.data.recallMode.embeddings": "Markdown مع التضمين",
-  "settings.data.recallMode.embeddingsHint":
-    "يستخدم خيار التضمين نفسه في البحث. يُحمَّل النموذج عند الحاجة ويُحرَّر عند الخمول.",
   "settings.data.recallState.off": "Markdown فقط.",
   "settings.data.encryptMemory": "تشفير الذاكرة على القرص",
   "settings.data.encryptMemoryHint":
@@ -744,7 +734,7 @@ export const settings: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "الاسم (اختياري)",
   "settings.gateways.addHint":
-    "الصق رابط الإقران من جهاز Mac الذي يشغّل Psyche (الإعدادات ← الأجهزة والخادم ← إقران كمبيوتر آخر). وبدون رابط، اكتب عنوان Tailscale الخاص به https://<host>.<tailnet>.ts.net؛ عندها يطلب هذا الكمبيوتر الإقران ويوافق عليه المالك هناك.",
+    "الصق رابط الإقران من جهاز Mac الذي يشغّل Psyche (الإعدادات ← الأجهزة → الشبكة والوصول عن بُعد ← إقران كمبيوتر آخر). وبدون رابط، اكتب عنوان Tailscale الخاص به https://<host>.<tailnet>.ts.net؛ عندها يطلب هذا الكمبيوتر الإقران ويوافق عليه المالك هناك.",
   "settings.gateways.newLink": "وصل رابط إقران جديد. استخدامه؟",
   "settings.gateways.useNewLink": "استخدامه",
   "settings.gateways.ignoreNewLink": "تجاهل",
@@ -1092,7 +1082,7 @@ export const settings: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "تتوقف المهارات الموقّعة به عن التحميل، وتُرفض الملفات الجديدة الموقّعة به. يمكنك الوثوق به مجددًا لاحقًا.",
   "settings.skills.author.revokeConfirm": "إلغاء",
-  "settings.usage.unavailable": "الاستخدام غير متاح من هذا Gateway بعد.",
+  "settings.usage.unavailable": "الاستخدام غير متاح بعد.",
   "settings.usage.thisMonth": "هذا الشهر",
   "settings.usage.monthLine":
     "{cost} و{tokens} رمز (token) عبر {turns, plural, zero {لا أدوار} one {دور واحد} two {دورين} few {# أدوار} many {# دورًا} other {# دور}}. اليوم حتى الآن: {today}.",
@@ -1152,7 +1142,7 @@ export const settings: Partial<Catalogue> = {
   "settings.people.aboutYouHint": "بطاقتك أنت: كل معلومة تعلّمها {persona} عنك مع مصدرها.",
   "settings.people.openOwnCard": "فتح بطاقتك",
   "settings.people.ownCardHint": "معلومات عنك من ملفك الشخصي ودردشاتك وتطبيقاتك المرتبطة.",
-  "settings.people.editUserMd": "تعديل USER.md",
+  "settings.people.editUserMd": "تعديل ملفك الشخصي",
   "settings.people.blocked": "محظورون من الأشخاص",
   "settings.people.blockedHint": "لا يُتعلَّم عنهم مجددًا أبدًا. حظر نطاق يشمل كل عنوان عليه.",
   "settings.people.noneBlocked": "لم يُحظر أحد.",
@@ -1203,7 +1193,7 @@ export const settings: Partial<Catalogue> = {
   "settings.specialists.concurrent": "عدد المختصين في وقت واحد",
   "settings.specialists.concurrentHint": "يعمل عدد أكبر جنبًا إلى جنب؛ والباقون ينتظرون في الطابور.",
   "settings.specialists.monthlyCapNone": "بلا حد أقصى",
-  "settings.specialists.showInFeed": "إظهار النتائج في الخلاصة",
+  "settings.specialists.showInFeed": "إظهار النتائج في الرئيسية",
   "settings.specialists.showInFeedHint": "يتلقى صندوق الوارد كل نتيجة في الحالتين.",
   "settings.specialists.roles": "الأدوار",
   "settings.specialists.rolesHint": "يأتي الدور من مهارة. الدور الذي ثبّتّه يبقى متوقفًا حتى تفعّله.",

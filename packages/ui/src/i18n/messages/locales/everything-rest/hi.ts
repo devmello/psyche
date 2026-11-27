@@ -46,7 +46,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.perSource.ref": "{source} के लिए मॉडल",
   "everything.sources.title": "यह क्या पढ़ता है",
   "everything.sources.description":
-    "मेमोरी उससे सीखती है जो खोज पढ़ती है, उसी क्रम में जैसा सेटिंग्ज़ → खोज स्रोत में है। किसी से सीखना रोकने के लिए उसे यहाँ बंद करें; वह फिर भी खोजा जा सकता है।",
+    "मेमोरी उससे सीखती है जो खोज पढ़ती है, उसी क्रम में जैसा सेटिंग्ज़ → कनेक्टर और स्रोत → खोज में है। किसी से सीखना रोकने के लिए उसे यहाँ बंद करें; वह फिर भी खोजा जा सकता है।",
   "everything.sources.learning": "इससे सीख रहा है",
   "everything.sources.notLearning": "इससे नहीं सीख रहा",
   "everything.sources.notRead": "Psyche {source} नहीं पढ़ता।",

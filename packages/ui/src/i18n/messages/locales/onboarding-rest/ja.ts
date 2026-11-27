@@ -11,7 +11,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "Google、Microsoft、メールのアカウントを追加",
   "onboarding.step.memory": "メモリと毎日の習慣",
   "onboarding.about.lead":
-    "Psycheが最初からあなたのことを知っているための、いくつかの情報です。すべて任意で、USER.mdに保存され、いつでも編集できます。",
+    "Psycheが最初からあなたを知っているように、いくつか教えてください。ここはすべて任意で、プロフィールに保存され、いつでも編集できます。",
   "onboarding.about.name": "お名前",
   "onboarding.about.nameHint": "Psycheにどう呼んでほしいですか？",
   "onboarding.about.timeZone": "タイムゾーン",
@@ -64,7 +64,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.downloads": "ダウンロード",
   "onboarding.folders.hint": "設定の「ファイルアクセス」でいつでも変更できます。",
   "onboarding.folders.shareLater":
-    "これらのフォルダは、あとで「設定 → ファイルアクセス」から共有できます。",
+    "これらのフォルダは、あとで「設定 → プライバシーとセキュリティ → ファイルアクセス」から共有できます。",
   "onboarding.folders.openFileAccess": "ファイルアクセスを開く",
   "onboarding.folders.retry": "もう一度試す",
   "onboarding.folders.continueWithout": "共有せずに続ける",

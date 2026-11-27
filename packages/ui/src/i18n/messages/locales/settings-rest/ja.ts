@@ -119,7 +119,6 @@ export const settingsRest: Partial<Catalogue> = {
     "小型のクラウドモデルが、時間・人物・情報源の絞り込み条件を判断します。送信されるのは質問のみで、項目は送信されません。",
   "settings.key.search.semantic.engine": "埋め込みエンジン",
   "settings.key.search.semantic.allowCloud": "クラウドの埋め込みサービスを許可",
-  "settings.key.memory.recall.mode": "メモリの呼び出し方法",
   "settings.key.widgets.remoteImages": "ウィジェット内のリモート画像",
   "settings.key.ui.map.tiles": "地図タイル",
   "settings.key.ui.map.styleUrl": "地図スタイルのURL",
@@ -149,7 +148,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "オンボーディングの進行状況",
   "settings.key.permissions.liftedFloors": "{id}で確認なしに許可する操作",
   "settings.key.specialists.maxConcurrent": "同時に動くスペシャリスト数",
-  "settings.key.specialists.showInFeed": "スペシャリストの結果をフィードに表示",
+  "settings.key.specialists.showInFeed": "スペシャリストの結果をホームに表示",
   "settings.key.specialists.enabled": "{role}をオン",
   "settings.key.specialists.model": "{role}のモデル",
   "settings.credentials.payments.description":
@@ -228,8 +227,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "ポート {port} を削除",
   "settings.browser.agent.ports.label": "ポート番号",
   "settings.browser.agent.ports.add": "ポートを追加",
-  "settings.browser.agent.fromEnv":
-    "環境変数 {variable} で設定されています。ここで変更するには、その変数を外してください。",
   "settings.browser.agent.refuse.notUrl":
     "サイトのアドレスではありません。https://example.com の形式で入力してください。",
   "settings.browser.agent.refuse.wildcard":
@@ -342,7 +339,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "新しいVaultフォルダ",
   "settings.obsidian.noVault": "Vaultが選択されていません",
   "settings.obsidian.vaultHint":
-    "Psycheは共有フォルダ（設定 → 権限 → アクセス）を通じてVaultを読み取ります。共有してから使用してください。",
+    "Psycheは共有フォルダ（設定 → プライバシーとセキュリティ → ファイルアクセス）を通じてVaultを読み取ります。共有してから使用してください。",
   "settings.obsidian.share": "このフォルダを共有",
   "settings.obsidian.shared": "共有済み",
   "settings.obsidian.useVault": "このVaultを使用",
@@ -667,14 +664,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, other {#件の学び}}と{events, plural, other {#件のフィードバック}}を忘れました。",
   "settings.data.reasoningRetentionHint":
     "各ステップの思考全文を保持する期間です。オフにすると1行の要約のみ残ります。",
-  "settings.data.recallModeHint":
-    "Markdownのメモリファイルが引き続き正となります。埋め込みにより、各ターンで意味からメモリを探せます。",
-  "settings.data.recallMode.markdown": "Markdownのみ",
-  "settings.data.recallMode.markdownHint":
-    "ファイルを読み、言葉で照合します。追加で動かすものはありません。",
-  "settings.data.recallMode.embeddings": "Markdownと埋め込み",
-  "settings.data.recallMode.embeddingsHint":
-    "検索と同じ埋め込みの設定を使います。モデルは必要なときに読み込まれ、使われなければ解放されます。",
   "settings.data.recallState.off": "Markdownのみ。",
   "settings.data.encryptMemory": "ディスク上のメモリを暗号化",
   "settings.data.encryptMemoryHint":
@@ -793,7 +782,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "名前（任意）",
   "settings.gateways.addHint":
-    "Psycheを実行しているMacのペアリングリンクを貼り付けてください（設定 → デバイスとサーバ → 別のコンピュータをペアリング）。リンクがない場合は、そのTailscaleアドレス（https://<host>.<tailnet>.ts.net）を入力します。このコンピュータがペアリングを要求し、所有者がそちらで承認します。",
+    "Psycheを実行しているMacのペアリングリンクを貼り付けてください（設定 → デバイス → ネットワークとリモートアクセス → 別のコンピュータをペアリング）。リンクがない場合は、そのTailscaleアドレス（https://<host>.<tailnet>.ts.net）を入力します。このコンピュータがペアリングを要求し、所有者がそちらで承認します。",
   "settings.gateways.newLink": "新しいペアリングリンクが届きました。使用しますか？",
   "settings.gateways.useNewLink": "使用する",
   "settings.gateways.ignoreNewLink": "無視",
@@ -1159,7 +1148,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "このキーで署名されたスキルは読み込まれなくなり、このキーで署名された新しいファイルは拒否されます。あとでもう一度信頼できます。",
   "settings.skills.author.revokeConfirm": "取り消す",
-  "settings.usage.unavailable": "このGatewayでは使用状況をまだ確認できません。",
+  "settings.usage.unavailable": "使用状況はまだ確認できません。",
   "settings.usage.thisMonth": "今月",
   "settings.usage.monthLine":
     "{turns, plural, other {#ターン}}で{cost}、{tokens}トークン。今日これまでの分: {today}。",
@@ -1223,7 +1212,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.openOwnCard": "あなたのカードを開く",
   "settings.people.ownCardHint":
     "プロフィール、チャット、接続済みアプリから得たあなたに関する事実。",
-  "settings.people.editUserMd": "USER.mdを編集",
+  "settings.people.editUserMd": "プロフィールを編集",
   "settings.people.blocked": "人物からブロック済み",
   "settings.people.blockedHint":
     "今後は学習されません。ドメインをブロックすると、そのすべてのアドレスが対象になります。",
@@ -1275,7 +1264,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrent": "同時に動くスペシャリスト数",
   "settings.specialists.concurrentHint": "多いほど並行して実行され、残りは順番を待ちます。",
   "settings.specialists.monthlyCapNone": "上限なし",
-  "settings.specialists.showInFeed": "結果をフィードに表示",
+  "settings.specialists.showInFeed": "結果をホームに表示",
   "settings.specialists.showInFeedHint": "どちらの場合も、結果はすべて受信トレイに届きます。",
   "settings.specialists.roles": "役割",
   "settings.specialists.rolesHint":

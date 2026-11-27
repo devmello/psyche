@@ -191,9 +191,9 @@ export const es: Partial<Catalogue> = {
   "errors.reason.needs_helper":
     "Esto necesita Psyche Helper, que no se está ejecutando. Reinícialo en Ajustes → Dispositivos.",
   "errors.reason.apple_not_connected":
-    "Las apps de Apple aún no están conectadas. Conéctalas en Ajustes → Conectores.",
+    "Las apps de Apple aún no están conectadas. Conéctalas en Ajustes → Conectores y fuentes.",
   "errors.reason.no_folder_shared":
-    "Aún no se comparte ninguna carpeta. Comparte una en Ajustes → Acceso a archivos.",
+    "Aún no se comparte ninguna carpeta. Comparte una en Ajustes → Privacidad y seguridad → Acceso a archivos.",
   "errors.reason.memory_opening":
     "La memoria aún se está abriendo. Inténtalo de nuevo en un momento.",
   "errors.reason.outlook_object_model_guard":
@@ -996,7 +996,7 @@ export const es: Partial<Catalogue> = {
   "shell.palette.inbox": "Abrir las notificaciones",
   "shell.palette.settings": "Ajustes",
   "shell.palette.appearance": "Ajustes → Aspecto",
-  "shell.palette.permissions": "Ajustes → Permisos",
+  "shell.palette.permissions": "Ajustes → Privacidad y seguridad",
   "shell.palette.goTo": "Ir a {label}",
   "shell.palette.title": "Paleta de comandos",
   "shell.palette.description": "Busca en Psyche o ejecuta un comando",
@@ -1102,7 +1102,7 @@ export const es: Partial<Catalogue> = {
   "settings.page.memory": "Memoria",
   "settings.page.daily": "Rutinas y habilidades",
   "settings.page.permissions": "Privacidad y seguridad",
-  "settings.page.devices": "Dispositivos y servidor",
+  "settings.page.devices": "Dispositivos",
   "settings.nav.general": "General",
   "settings.nav.search": "Búsqueda",
   "settings.search.title": "Búsqueda",
@@ -1121,7 +1121,7 @@ export const es: Partial<Catalogue> = {
   "settings.nav.appearance": "Aspecto",
   "settings.nav.voice": "Voz y dictado",
   "settings.nav.data": "Privacidad y datos",
-  "settings.nav.server": "Dispositivos y servidor",
+  "settings.nav.server": "Dispositivos",
   "settings.nav.usage": "Uso",
   "settings.nav.about": "Acerca de",
 
@@ -1132,8 +1132,7 @@ export const es: Partial<Catalogue> = {
   "settings.macHelper.paired.text":
     "Se encarga del uso del ordenador, Mensajes, el dictado, el llavero y las notificaciones en este Mac.",
   "settings.macHelper.starting.chip": "Iniciando…",
-  "settings.macHelper.starting.text":
-    "Psyche Helper se está iniciando y conectando con el Gateway.",
+  "settings.macHelper.starting.text": "Psyche Helper se está iniciando y conectando con Psyche.",
   "settings.macHelper.offline.chip": "No conectado",
   "settings.macHelper.offline.text": "Psyche funciona sin él; se vuelve a iniciar por sí solo.",
   "settings.macHelper.unbundled.chip": "No instalado",
@@ -1156,7 +1155,7 @@ export const es: Partial<Catalogue> = {
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Permitir el uso del ordenador",
   "settings.key.computerUse.apps": "Acceso a apps",
-  "settings.key.feed.sources": "Fuentes del feed",
+  "settings.key.feed.sources": "Fuentes del resumen",
   "settings.key.computerUse.linuxRevoke": "Olvidar el equipo Linux",
   "settings.key.context.maxTokens": "Límite de contexto",
   "settings.key.search.web.provider": "Proveedor de búsqueda web",
@@ -1610,7 +1609,7 @@ export const es: Partial<Catalogue> = {
   "settings.about.revealHome": "Mostrar en el Finder",
   "settings.about.unknown": "desconocido",
   "settings.about.doctorDescription":
-    "Comprueba el Gateway, el entorno aislado, los permisos y la bóveda.",
+    "Comprueba Psyche, el entorno aislado, los permisos y la bóveda.",
   "settings.about.running": "Ejecutando",
   "settings.about.runChecks": "Ejecutar comprobaciones",
   "settings.about.openLogs": "Abrir los registros",
@@ -2001,7 +2000,7 @@ export const es: Partial<Catalogue> = {
   "settings.data.days": "{n, plural, one {# día} other {# días}}",
   "settings.data.export": "Exportar",
   "settings.data.exportHint":
-    "Un zip del espacio de trabajo (SOUL.md, memoria, notas) y todas las afirmaciones.",
+    "Un zip del espacio de trabajo (la personalidad de tu agente, la memoria, las notas) y cada afirmación.",
   "settings.data.git.title": "Copia de seguridad en git",
   "settings.data.git.description":
     "Copia tu memoria en un repositorio git privado que es tuyo. Al subirla, sale de este dispositivo, así que cada archivo se revisa antes en busca de credenciales y números de tarjeta. Psyche usa tus propias credenciales de git y no guarda ninguna.",
@@ -2299,10 +2298,8 @@ export const es: Partial<Catalogue> = {
     "Aún no hay conectores, así que no hay acciones que configurar.",
   "settings.permissions.scopeMode": "({mode})",
   "settings.permissions.grantsRevoked": "Permisos revocados",
-  "settings.permissions.hashOk": "hash de tools/list correcto",
   "settings.permissions.toolsChanged":
     "{name} cambió su lista de herramientas desde que lo aprobaste, así que Psyche revocó sus permisos. Cada acción vuelve a preguntar hasta que lo revises.",
-  "settings.permissions.hash": "tools/list {hash}…",
   "settings.permissions.sendsTitle": "Destinatarios siempre permitidos",
   "settings.permissions.sendsHint":
     "Los correos a estos destinatarios se envían sin preguntar. Quita uno para volver a preguntar.",
@@ -2373,7 +2370,6 @@ export const es: Partial<Catalogue> = {
   "settings.server.remote.none": "Sin configurar",
   "settings.server.remote.tailscale": "Tailscale Serve",
   "settings.server.remote.proxy": "Proxy inverso",
-  "settings.server.title": "Dispositivos y servidor",
   "settings.server.description":
     "Dónde escucha el Gateway y cómo llegan a él tus otros dispositivos.",
   "settings.server.loadLabel": "el estado del servidor",
@@ -2516,13 +2512,12 @@ export const es: Partial<Catalogue> = {
   "settings.skills.version": " · v{version}",
   "settings.skills.reviewUpdate": "Revisar la actualización",
   "settings.skills.removeDescription":
-    "Sus archivos se eliminan de este Gateway. Volver a instalarla pasa por la tarjeta de confianza.",
+    "Sus archivos se eliminan de este ordenador. Volver a instalarla pasa por la tarjeta de confianza.",
   "settings.skills.switchOn": "{name} activada",
   "settings.plugins.title": "Plugins",
   "settings.plugins.description":
     "Código que añade contexto, revisa llamadas a herramientas o ejecuta evaluaciones. Cada plugin se ejecuta en su propio proceso. Los plugins nunca conceden permisos.",
-  "settings.plugins.off":
-    "Los plugins están desactivados en este Gateway, así que ninguno se ejecuta.",
+  "settings.plugins.off": "Los plugins están desactivados, así que ninguno se ejecuta.",
   "settings.plugins.loading": "Cargando plugins…",
   "settings.plugins.error": "No se pudieron cargar los plugins. {reason}",
   "settings.plugins.empty": "No hay plugins instalados.",
@@ -2557,7 +2552,7 @@ export const es: Partial<Catalogue> = {
   "settings.plugins.capability.evaluate": "evaluaciones",
   "settings.plugins.removeTitle": "¿Quitar {name}?",
   "settings.plugins.removeDescription":
-    "Sus archivos se borran de este Gateway. Volver a instalarlo pasa por la tarjeta de confianza.",
+    "Sus archivos se borran de este ordenador. Volver a instalarlo pasa por la tarjeta de confianza.",
   "settings.skills.asksFor": "Pide:",
   "settings.skills.toolsLabel": "Herramientas:",
   "settings.skills.title": "Habilidades",
@@ -2577,7 +2572,7 @@ export const es: Partial<Catalogue> = {
   "settings.skills.installed": "Instaladas",
   "settings.skills.noInstalled":
     "Aún no hay habilidades instaladas. Las habilidades incluidas están abajo.",
-  "settings.skills.noBundled": "No hay habilidades incluidas en este Gateway.",
+  "settings.skills.noBundled": "No hay habilidades incluidas.",
   "settings.skills.search.label": "Buscar habilidades",
   "settings.skills.search.placeholder": "Buscar por nombre o descripción",
   "settings.skills.search.loading": "Buscando…",
@@ -2587,7 +2582,7 @@ export const es: Partial<Catalogue> = {
   "settings.skills.detail.workspace": "Este espacio de trabajo",
   "settings.skills.detail.home": "Tu carpeta de habilidades",
   "settings.skills.detail.path": "Archivo",
-  "settings.skills.detail.text": "SKILL.md",
+  "settings.skills.detail.text": "Instrucciones",
   "settings.skills.detail.noText": "No se puede leer el archivo de esta habilidad.",
   "settings.skills.detail.loading": "Cargando la habilidad…",
   "settings.skills.detail.failed": "Psyche no pudo abrir esta habilidad ({reason}).",
@@ -2766,7 +2761,7 @@ export const es: Partial<Catalogue> = {
   "settings.connect.path.privacy":
     "Ajustes del Sistema → Privacidad y seguridad → {pane} → Psyche (Helper)",
   "settings.connect.path.shortcuts": "la app Atajos",
-  "settings.connect.path.files": "Ajustes → Acceso a archivos en Psyche",
+  "settings.connect.path.files": "Ajustes → Privacidad y seguridad → Acceso a archivos en Psyche",
   "settings.connect.checkAgain": "Volver a comprobar",
   "settings.connectors.status.needsPermission": "Necesita permiso",
   "settings.connectors.catalog.connected": "{name} (conectado)",
@@ -2930,7 +2925,7 @@ export const es: Partial<Catalogue> = {
   "screens.search.scope.memory": "Memoria",
   "screens.search.scope.library": "Biblioteca",
   "screens.search.scope.feed": "Inicio",
-  "screens.search.scope.ideas": "Ideas",
+  "screens.search.scope.ideas": "Sugerencias",
   "screens.search.scope.goals": "Objetivos",
   "screens.search.scope.connectors": "Conectores",
   "screens.search.type.pdf": "PDF",
@@ -3019,10 +3014,12 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesCount": "Fuentes ({n, number})",
   "screens.feed.sources": "Fuentes",
   "screens.feed.sourcesEditor.button": "Fuentes",
-  "screens.feed.sourcesEditor.title": "Fuentes del Feed",
-  "screens.feed.sourcesEditor.description": "Lo que lee el Feed. Cada cambio se guarda al hacerlo.",
+  "screens.feed.sourcesEditor.title": "Fuentes del resumen",
+  "screens.feed.sourcesEditor.description":
+    "Lo que lee el resumen. Cada cambio se guarda al hacerlo.",
   "screens.feed.sourcesEditor.builtIn": "Integradas",
-  "screens.feed.sourcesEditor.builtInHint": "El Feed lee estas fuentes salvo que las desactives.",
+  "screens.feed.sourcesEditor.builtInHint":
+    "El resumen lee estas fuentes salvo que las desactives.",
   "screens.feed.sourcesEditor.hackerNews": "Hacker News",
   "screens.feed.sourcesEditor.hackerNewsHint": "Historias destacadas de Hacker News",
   "screens.feed.sourcesEditor.arxiv": "arXiv",
@@ -3031,7 +3028,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.feedsHint":
     "Cada feed es una dirección web que empieza por https:// o http://.",
   "screens.feed.sourcesEditor.fetchNote":
-    "El Feed todavía no muestra cuándo se leyó por última vez un feed ni si falló.",
+    "El resumen todavía no muestra cuándo se leyó por última vez un feed ni si falló.",
   "screens.feed.sourcesEditor.empty": "Todavía no hay feeds.",
   "screens.feed.sourcesEditor.notRead": "no se lee",
   "screens.feed.sourcesEditor.kind": "RSS o Atom",
@@ -3043,7 +3040,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.removeLabel": "Quitar {host}",
   "screens.feed.sourcesEditor.removeTitle": "¿Quitar {host} del Feed?",
   "screens.feed.sourcesEditor.removeBody":
-    "El Feed deja de leer esta dirección. Las publicaciones ya escritas se quedan. Puedes volver a añadir la dirección más adelante.",
+    "El resumen deja de leer esta dirección. Las publicaciones ya escritas se quedan. Puedes volver a añadir la dirección más adelante.",
   "screens.feed.sourcesEditor.confirmRemove": "Quitar feed",
   "screens.feed.sourcesEditor.openLabel": "Abrir {host} en el navegador",
   "screens.feed.sourcesEditor.openFailed": "No se pudo abrir {host}: {reason}",
@@ -3052,7 +3049,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sourcesEditor.errScheme":
     "Solo las direcciones http:// y https:// pueden ser feeds.",
   "screens.feed.sourcesEditor.errDuplicate": "Este feed ya está en la lista.",
-  "screens.feed.sourcesEditor.saved": "Fuentes del Feed guardadas",
+  "screens.feed.sourcesEditor.saved": "Fuentes del resumen guardadas",
   "screens.feed.sourcesEditor.added": "Feed añadido",
   "screens.feed.sourcesEditor.removed": "Feed quitado",
   "screens.feed.sourcesEditor.saveFailed": "No se pudieron guardar las fuentes del Feed: {reason}",
@@ -3067,7 +3064,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.hide": "Ocultar {source}",
   "screens.feed.loading": "Cargando las novedades",
   "screens.feed.loadFailed": "Psyche no pudo cargar las novedades",
-  "screens.feed.safe": "Tus publicaciones y opiniones están a salvo en el Gateway.",
+  "screens.feed.safe": "Tus publicaciones y opiniones están a salvo en este ordenador.",
   "screens.feed.writingFirst": "Escribiendo tu primer resumen. Aparecerá aquí cuando esté listo.",
   "screens.feed.generating": "Generando el resumen",
   "screens.feed.generateFirst": "Generar el primer resumen",
@@ -3085,8 +3082,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.editor.instructions": "¿Sobre qué deben tratar las novedades?",
   "screens.feed.editor.placeholder":
     "Más artículos sobre robótica, menos noticias de famosos. Prefiere las fuentes primarias. Publicaciones cortas.",
-  "screens.feed.editor.hint":
-    "Intereses, fuentes que preferir o evitar, tono y longitud. Se guarda en feed/INSTRUCTIONS.md en el espacio de trabajo.",
+  "screens.feed.editor.hint": "Intereses, fuentes que favorecer o evitar, tono y extensión.",
   "screens.feed.editor.count": "{n, number} / {max, number}",
   "screens.feed.editor.interests": "Intereses",
   "screens.feed.editor.interestsHint":
@@ -3110,7 +3106,7 @@ export const es: Partial<Catalogue> = {
   "screens.feed.editor.scheduleLine": "Resumen matutino {when}",
   "screens.feed.editor.changeSchedule": "Cambiar",
   "screens.feed.editor.saved":
-    "Instrucciones de las novedades guardadas. El siguiente resumen las usará.",
+    "Instrucciones del resumen guardadas. El siguiente resumen las usará.",
   "screens.feed.editor.conflict":
     "El archivo cambió mientras lo editabas. Cierra y vuelve a abrir para cargar la nueva versión.",
   "screens.feed.editor.saveFailed": "Psyche no pudo guardar las instrucciones.",
@@ -3191,7 +3187,8 @@ export const es: Partial<Catalogue> = {
   "screens.files.loadingShared": "Cargando las carpetas compartidas",
   "screens.files.noneShared": "No hay carpetas compartidas con {name}.",
   "screens.files.share": "Compartir una carpeta",
-  "screens.files.shareInSettings": "Comparte una en Ajustes → Acceso a archivos.",
+  "screens.files.shareInSettings":
+    "Comparte una en Ajustes → Privacidad y seguridad → Acceso a archivos.",
   "screens.files.previewOf": "Previsualización de {name}",
   "screens.files.preview": "Previsualización",
   "screens.files.needsApp": "Las previsualizaciones necesitan la app de escritorio.",
@@ -3475,7 +3472,7 @@ export const es: Partial<Catalogue> = {
 
   "web.backups.title": "Copias de seguridad",
   "web.backups.description":
-    "Un archivo cifrado de todo lo que es {persona}: estado, espacio de trabajo, bóveda, biblioteca y sesiones de canales. La bóveda permanece cifrada dentro.",
+    "Un archivo cifrado de todo lo que es {persona}: estado, espacio de trabajo, bóveda y biblioteca. La bóveda permanece cifrada dentro.",
   "web.backups.needsGateway":
     "Las copias de seguridad necesitan un Gateway más reciente. Mientras tanto, usa `{command}`.",
   "web.backups.needsGatewayMeanwhile":

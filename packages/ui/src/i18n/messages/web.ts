@@ -39,7 +39,7 @@ export const web = {
 
   "web.backups.title": "Backups",
   "web.backups.description":
-    "An encrypted archive of everything {persona} is: state, workspace, vault, Library and channel sessions. The vault stays encrypted inside it.",
+    "An encrypted archive of everything {persona} is: state, workspace, vault and Library. The vault stays encrypted inside it.",
   "web.backups.needsGateway": "Backups need a newer Gateway. Use `{command}` meanwhile.",
   "web.backups.needsGatewayMeanwhile": "Backups need a newer Gateway. Meanwhile:",
   "web.backups.failed":
@@ -482,7 +482,7 @@ export const web = {
   "web.splash.remote.identityInvalid":
     "Its identity proof did not check out, so Psyche will not connect.",
   "web.splash.remote.identityOrigin":
-    "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices & server.",
+    "It answered for a different address than the one this computer dialed. On {host}, set the public address in Settings → Devices → Network & remote access.",
   "web.splash.remote.certChanged":
     "Its network certificate is not the one this computer pinned. Another machine on this network may be answering in its place, or its certificate was replaced.",
   "web.splash.remote.certMissing":

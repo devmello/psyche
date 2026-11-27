@@ -42,7 +42,7 @@ export const nudgesRest: Partial<Catalogue> = {
     "जिन लोगों से संपर्क छूट गया है, जन्मदिनों और आपके किए वादों के बारे में हल्के-फुल्के रिमाइंडर।",
   "nudges.settings.enabled": "संपर्क में रहने की याद दिलाएँ",
   "nudges.settings.enabledHint":
-    "सुबह की ब्रीफ़ में अधिकतम तीन, और फ़ीड में शांत कार्ड। आपकी ओर से कभी कुछ नहीं भेजा जाता।",
+    "सुबह की ब्रीफ़ में अधिकतम तीन, और होम पर शांत कार्ड। आपकी ओर से कभी कुछ नहीं भेजा जाता।",
   "nudges.settings.sensitivity": "कितनी बार",
   "nudges.settings.sensitivityHint": "किसी संदेश के बाद Psyche कुछ कहने से पहले कितना इंतज़ार करता है।",
   "nudges.settings.low": "हल्का",

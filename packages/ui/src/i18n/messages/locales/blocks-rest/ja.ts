@@ -26,7 +26,7 @@ export const blocksRest: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "フォルダのパス",
   "blocks.folder.mustPick": "許可する前に、共有するフォルダを選択してください。",
   "blocks.folder.scope":
-    "「このチャットのみ」は会話が終わるまで有効です。「常時」は、設定 → 権限 → アクセスで削除するまでフォルダを保持します。",
+    "「このチャットのみ」は会話が終わるまで有効です。「常時」は、設定 → プライバシーとセキュリティ → ファイルアクセスで削除するまでフォルダを保持します。",
   "blocks.folder.scope.once": "このチャットのみ",
   "blocks.folder.scope.always": "常時（このフォルダとその配下）",
   "blocks.folder.scope.space": "このスペースで許可",

@@ -95,7 +95,7 @@ describe("onboarding folders step", () => {
     await user.click(await screen.findByRole("checkbox", { name: /documents/i }));
     await toTheEnd(user, /^next/i);
     expect((await screen.findByRole("alert")).textContent).toMatch(
-      /later in Settings → File access/i,
+      /later in Settings → Privacy & security → Access/i,
     );
     expect(onComplete).not.toHaveBeenCalled();
     // The card cannot be answered here: no retry is offered.

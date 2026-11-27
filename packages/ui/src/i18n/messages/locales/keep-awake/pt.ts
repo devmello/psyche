@@ -15,10 +15,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "Não foi possível cancelar a nova tentativa ({reason}).",
   "settings.updates.group": "Atualizações",
   "settings.updates.hint": "O Psyche procura atualizações assinadas e as instala quando você sai.",
-  "settings.updates.channel": "Canal de versões",
-  "settings.updates.channel.stable": "Estável",
-  "settings.updates.channel.note":
-    "Estável é o único canal por enquanto. O Beta aparecerá aqui quando houver builds beta publicados. Toda atualização é verificada com a chave de versões do Psyche de qualquer forma.",
   "settings.storage.title": "Armazenamento",
   "settings.storage.hint":
     "Espaço em disco que o Psyche usa na sua pasta de dados neste computador.",

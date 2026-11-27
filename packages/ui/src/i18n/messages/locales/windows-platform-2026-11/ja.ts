@@ -15,14 +15,15 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Psycheを終了して、もう一度開いてください。",
   "settings.sandbox.pc.title": "サンドボックスPCをオンにする",
   "settings.sandbox.pc.body":
-    "コマンド用の軽量サンドボックスであるsrtは、Windowsでは動きません。代わりに、Psycheが作成するスクリプト、コマンドサーバー、コネクターはサンドボックスPCで実行されます。サンドボックスPCは専用の小さなLinuxコンピュータで、あなたのファイルにはアクセスできません。設定 → サンドボックスPCでオンにしてから、もう一度確認してください。",
+    "コマンド用の軽量サンドボックスであるsrtは、Windowsでは動きません。代わりに、Psycheが作成するスクリプト、コマンドサーバー、コネクターはプライバシーとセキュリティ → コンピュータ操作 → VMモードで実行されます。サンドボックスPCは専用の小さなLinuxコンピュータで、あなたのファイルにはアクセスできません。設定 → サンドボックスPCでオンにしてから、もう一度確認してください。",
   "settings.sandbox.pc.notReady.title": "サンドボックスPCはまだ準備できていません",
   "settings.sandbox.pc.notReady.body":
-    "オンにはなっていますが、まだ動いていないか、中のPsycheが古くなっています。設定 → サンドボックスPCで起動または更新してから、もう一度確認してください。",
+    "オンにはなっていますが、まだ動いていないか、中のPsycheが古くなっています。設定 → プライバシーとセキュリティ → コンピュータ操作 → VMモードで起動または更新してから、もう一度確認してください。",
   "settings.sandbox.pc.ready":
     "サンドボックスPCはオンです。Psycheが作成するスクリプト、コマンドサーバー、コネクターはこの中で実行されます。",
   "settings.sandbox.pc.open": "サンドボックスPCの設定を開く",
-  "settings.sandbox.pc.where": "設定 → サンドボックスPC にあります。",
+  "settings.sandbox.pc.where":
+    "設定 → プライバシーとセキュリティ → コンピュータ操作 → VMモード にあります。",
   "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.winHelper": "Windowsヘルパー",
   "settings.devices.thisPcAdmin":

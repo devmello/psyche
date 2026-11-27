@@ -11,7 +11,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "Google, Microsoft 또는 이메일 계정 추가",
   "onboarding.step.memory": "메모리와 일상 습관",
   "onboarding.about.lead":
-    "Psyche가 처음부터 사용자를 알 수 있도록 몇 가지 정보를 입력합니다. 모두 선택 사항이며 USER.md에 저장되고 언제든 편집할 수 있습니다.",
+    "Psyche가 처음부터 나를 알 수 있도록 몇 가지를 알려 주세요. 모두 선택 사항이며 내 프로필에 저장되고, 언제든 편집할 수 있습니다.",
   "onboarding.about.name": "이름",
   "onboarding.about.nameHint": "Psyche가 어떻게 불러 드리면 좋을까요?",
   "onboarding.about.timeZone": "시간대",
@@ -62,7 +62,8 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.desktop": "데스크탑",
   "onboarding.folders.downloads": "다운로드",
   "onboarding.folders.hint": "설정의 파일 접근에서 언제든 바꿀 수 있습니다.",
-  "onboarding.folders.shareLater": "나중에 설정 → 파일 접근에서 이 폴더를 공유할 수 있습니다.",
+  "onboarding.folders.shareLater":
+    "나중에 설정 → 개인정보 및 보안 → 파일 접근에서 이 폴더를 공유할 수 있습니다.",
   "onboarding.folders.openFileAccess": "파일 접근 열기",
   "onboarding.folders.retry": "다시 시도",
   "onboarding.folders.continueWithout": "공유하지 않고 계속",

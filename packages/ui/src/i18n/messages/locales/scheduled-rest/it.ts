@@ -172,13 +172,13 @@ export const scheduledRest: Partial<Catalogue> = {
   "scheduled.routine.notesFolder.name": "Cartella delle registrazioni",
   "scheduled.routine.notesFolder.does":
     "Cerca nuove registrazioni di riunioni e le trasforma in note.",
-  "scheduled.routine.feedBrief.name": "Riepilogo del Feed",
+  "scheduled.routine.feedBrief.name": "Riepilogo del mattino",
   "scheduled.routine.feedBrief.does": "Scrive il riepilogo del giorno in Home.",
   "scheduled.routine.feedBriefing.does": "Scrive il tuo riepilogo personalizzato in Home.",
-  "scheduled.routine.ideasMine.name": "Idee: ricerca notturna",
+  "scheduled.routine.ideasMine.name": "Suggerimenti (di notte)",
   "scheduled.routine.ideasMine.does":
     "Passa in rassegna la giornata in cerca di idee da conservare.",
-  "scheduled.routine.ideasDeliver.name": "Idee: finestra di consegna",
+  "scheduled.routine.ideasDeliver.name": "Suggerimenti (consegna)",
   "scheduled.routine.ideasDeliver.does": "Ti invia le idee trovate, al momento giusto.",
   "scheduled.routine.goalCheckin.does": "Controlla come sta andando questo obiettivo.",
   "scheduled.routine.goalWatch.does": "Tiene d’occhio le notizie su questo obiettivo.",

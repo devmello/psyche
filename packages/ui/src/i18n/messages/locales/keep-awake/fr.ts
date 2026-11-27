@@ -16,10 +16,6 @@ export const keepAwake: Partial<Catalogue> = {
   "settings.updates.group": "Mises à jour",
   "settings.updates.hint":
     "Psyche recherche les mises à jour signées et les installe quand vous quittez.",
-  "settings.updates.channel": "Canal de versions",
-  "settings.updates.channel.stable": "Stable",
-  "settings.updates.channel.note":
-    "Stable est le seul canal pour l'instant. Bêta apparaîtra ici quand des versions bêta seront publiées. Chaque mise à jour est vérifiée avec la clé de publication de Psyche dans tous les cas.",
   "settings.storage.title": "Stockage",
   "settings.storage.hint":
     "Espace disque utilisé par Psyche dans son dossier de données sur cet ordinateur.",

@@ -16,7 +16,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "Ein Programm auf diesem Mac hat {count, plural, one {1 Sicherheitseintrag} other {# Sicherheitseinträge}} an Psyche vorbei geändert. Psyche hat {count, plural, one {ihn} other {sie}} wiederhergestellt. Wenn du das nicht warst, prüfe den Mac auf unerwünschte Software.",
   "web.security.alert.untrusted":
-    "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Neue Geräte, Sicherheitseinstellungen und Touch-ID-Freigaben sind gesperrt. Prüfe deine Geräte und führe dann auf dem Mac psyched security reseal aus; das gilt nach 24 Stunden.",
+    "Die Prüfung der Sicherheitsdaten von Psyche ist fehlgeschlagen. Neue Geräte, Sicherheitseinstellungen und Touch-ID-Freigaben sind gesperrt. Prüfe deine Geräte unter Einstellungen → Geräte und tippe dann auf „Als geprüft markieren“. Wenn Psyche darum bittet, die aktuellen Daten zu akzeptieren, tippe auf „Jetzt freigeben“; das gilt nach 24 Stunden.",
   "web.security.alert.firstSeal":
     "Psyche prüft jetzt seine Sicherheitsdaten ({devices, plural, one {1 gekoppeltes Gerät} other {# gekoppelte Geräte}}). Eine Änderung außerhalb von Psyche wird rückgängig gemacht und hier gezeigt. Prüfe deine Geräte einmal.",
   "web.security.alert.resealed": "Psyche hat seine Sicherheitsdaten neu versiegelt.",

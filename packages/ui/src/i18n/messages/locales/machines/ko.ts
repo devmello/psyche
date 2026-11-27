@@ -18,7 +18,7 @@ export const machines: Partial<Catalogue> = {
   "machines.add.account.dedicatedHint":
     "Psyche는 그 계정의 파일과 앱만 볼 수 있습니다. sudo도 비밀번호도 없습니다.",
   "machines.add.needsNetwork":
-    "다른 컴퓨터가 아직 이 컴퓨터에 연결할 수 없습니다. 먼저 설정 → 서버 및 원격 접속에서 원격 접속 또는 로컬 네트워크 접속을 켜세요.",
+    "다른 컴퓨터가 아직 이 컴퓨터에 연결할 수 없습니다. 먼저 설정 → 기기 → 네트워크 및 원격 접속에서 원격 접속 또는 로컬 네트워크 접속을 켜세요.",
   "machines.add.make": "명령 보기",
   "machines.add.again": "새 명령 만들기",
   "machines.add.commands": "Linux 컴퓨터용 명령",

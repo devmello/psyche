@@ -18,7 +18,7 @@ export const machines: Partial<Catalogue> = {
   "machines.add.account.dedicatedHint":
     "Psyche ne voit que les fichiers et les apps de ce compte. Il n'a ni sudo ni mot de passe.",
   "machines.add.needsNetwork":
-    "Les autres ordinateurs ne peuvent pas encore joindre celui-ci. Active d'abord l'accès à distance ou l'accès par le réseau local dans Réglages → Appareils et serveur.",
+    "Les autres ordinateurs ne peuvent pas encore joindre celui-ci. Active d'abord l'accès à distance ou l'accès par le réseau local dans Réglages → Appareils → Réseau et accès à distance.",
   "machines.add.make": "Afficher les commandes",
   "machines.add.again": "Créer de nouvelles commandes",
   "machines.add.commands": "Commandes pour l'ordinateur Linux",

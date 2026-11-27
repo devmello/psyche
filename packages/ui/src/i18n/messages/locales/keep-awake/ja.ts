@@ -14,10 +14,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "再試行をキャンセルできませんでした（{reason}）。",
   "settings.updates.group": "アップデート",
   "settings.updates.hint": "Psyche は署名付きアップデートを確認し、終了時にインストールします。",
-  "settings.updates.channel": "リリースチャンネル",
-  "settings.updates.channel.stable": "安定版",
-  "settings.updates.channel.note":
-    "現在、チャンネルは安定版のみです。ベータ版が公開されると、ここに表示されます。どのチャンネルでも、アップデートは必ず Psyche のリリースキーで検証されます。",
   "settings.storage.title": "ストレージ",
   "settings.storage.hint":
     "このコンピュータ上の Psyche のデータフォルダが使用しているディスク容量です。",

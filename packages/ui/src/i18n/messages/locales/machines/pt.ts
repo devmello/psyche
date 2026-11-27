@@ -18,7 +18,7 @@ export const machines: Partial<Catalogue> = {
   "machines.add.account.dedicatedHint":
     "O Psyche vê apenas os arquivos e apps dessa conta. Não tem sudo nem senha.",
   "machines.add.needsNetwork":
-    "Outros computadores ainda não conseguem chegar a este. Ative primeiro o acesso remoto ou o acesso pela rede local em Ajustes → Dispositivos e servidor.",
+    "Outros computadores ainda não conseguem chegar a este. Ative primeiro o acesso remoto ou o acesso pela rede local em Ajustes → Dispositivos → Rede e acesso remoto.",
   "machines.add.make": "Mostrar os comandos",
   "machines.add.again": "Criar novos comandos",
   "machines.add.commands": "Comandos para o computador Linux",

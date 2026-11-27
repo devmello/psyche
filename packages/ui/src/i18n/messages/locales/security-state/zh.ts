@@ -13,7 +13,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "这台 Mac 上的某个程序绕过 Psyche 更改了 {count} 条安全记录。Psyche 已将其恢复。如果不是你做的，请检查这台 Mac 上是否有不需要的软件。",
   "web.security.alert.untrusted":
-    "Psyche 的安全记录检查失败。新设备、安全设置和触控 ID 批准已被阻止。请检查你的设备，然后在 Mac 上运行 psyched security reseal；它将在 24 小时后生效。",
+    "Psyche 的安全记录检查失败。新设备、安全设置和 Touch ID 批准都已被阻止。请在“设置 → 设备”中查看你的设备，然后点按“标记为已查看”。如果 Psyche 请求接受当前记录，请点按“立即批准”；24 小时后生效。",
   "web.security.alert.firstSeal":
     "Psyche 现在会检查其安全记录（{devices} 台已配对设备）。在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。",
   "web.security.alert.resealed": "Psyche 已重新封存其安全记录。",

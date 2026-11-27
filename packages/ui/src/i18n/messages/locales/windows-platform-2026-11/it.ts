@@ -15,14 +15,15 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Chiudi Psyche e riaprilo.",
   "settings.sandbox.pc.title": "Attiva il PC sandbox",
   "settings.sandbox.pc.body":
-    "srt, la sandbox leggera di Psyche per i comandi, non funziona su Windows. Qui script, server di comandi e connettori creati da Psyche girano invece nel PC sandbox: un piccolo computer Linux dedicato, senza accesso ai tuoi file. Attivalo in Impostazioni → PC sandbox, poi controlla di nuovo.",
+    "srt, la sandbox leggera di Psyche per i comandi, non funziona su Windows. Qui script, server di comandi e connettori creati da Psyche girano invece nel Privacy e sicurezza → Uso del computer → Modalità VM: un piccolo computer Linux dedicato, senza accesso ai tuoi file. Attivalo in Impostazioni → PC sandbox, poi controlla di nuovo.",
   "settings.sandbox.pc.notReady.title": "Il PC sandbox non è ancora pronto",
   "settings.sandbox.pc.notReady.body":
-    "È attivato, ma non è ancora in esecuzione, oppure il Psyche al suo interno è obsoleto. Avvialo o aggiornalo in Impostazioni → PC sandbox, poi controlla di nuovo.",
+    "È attivato, ma non è ancora in esecuzione, oppure il Psyche al suo interno è obsoleto. Avvialo o aggiornalo in Impostazioni → Privacy e sicurezza → Uso del computer → Modalità VM, poi controlla di nuovo.",
   "settings.sandbox.pc.ready":
     "Il PC sandbox è attivo: script, server di comandi e connettori creati da Psyche girano al suo interno.",
   "settings.sandbox.pc.open": "Apri le impostazioni del PC sandbox",
-  "settings.sandbox.pc.where": "Si trova in Impostazioni → PC sandbox.",
+  "settings.sandbox.pc.where":
+    "Si trova in Impostazioni → Privacy e sicurezza → Uso del computer → Modalità VM.",
   "settings.devices.platform.windows": "PC Windows",
   "settings.devices.nodeKind.winHelper": "Helper Windows",
   "settings.devices.thisPcAdmin":

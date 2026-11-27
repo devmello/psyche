@@ -32,7 +32,6 @@ export const shellRest: Partial<Catalogue> = {
     "nouveau todo tâche devoir rendu échéance à rendre rappeler créer",
   "shell.palette.addProject": "Ajouter un projet",
   "shell.palette.keywords.addProject": "nouveau projet cours classe emploi initiative créer suivre",
-  "shell.browser.open": "Ouvrir le navigateur",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

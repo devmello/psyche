@@ -4,7 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const memoryAdvancedRest: Partial<Catalogue> = {
   "memoryAdvanced.title": "詳細設定",
   "memoryAdvanced.description": "モデル、スケジュール、呼び出し方法、暗号化、データ。",
-  "memoryAdvanced.recall": "呼び出し",
   "memoryAdvanced.data": "あなたのデータ",
   "memoryAdvanced.dataHint":
     "{persona}が覚えているすべてを書き出し、バックアップ、またはリセットします。",

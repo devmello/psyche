@@ -97,9 +97,9 @@ export const memoryReview: Partial<Catalogue> = {
   "personData.excludeOnly":
     "将不再读取其消息，也不会再了解关于他们的任何信息。已知的内容会保留，直到你让它忘记。",
   "personData.after.said": "此人、其消息以及你自己添加的内容都会保留。",
-  "personData.after.exclude": "你可以在“设置 → 记忆 → 隐私”中重新允许。",
+  "personData.after.exclude": "你可以在“设置 → 记忆 → 人物与隐私”中重新允许。",
   "personData.after.exclude_forget":
-    "你可以在“设置 → 记忆 → 隐私”中重新允许，但已删除的内容无法恢复。",
+    "你可以在“设置 → 记忆 → 人物与隐私”中重新允许，但已删除的内容无法恢复。",
   "personData.confirm.said": "忘掉他们说过的话",
   "personData.confirm.exclude": "停止了解",
   "personData.confirm.exclude_forget": "停止并忘掉",
@@ -195,7 +195,7 @@ export const memoryReview: Partial<Catalogue> = {
   "everything.perSource.ref": "{source}的模型",
   "everything.sources.title": "读取什么",
   "everything.sources.description":
-    "记忆从“搜索”读取的内容中学习，顺序与“设置 → 搜索来源”相同。在此关闭某个来源即停止从中学习；它仍可被搜索。",
+    "记忆从“搜索”读取的内容中学习，顺序与“设置 → 连接器与来源 → 搜索”相同。在此关闭某个来源即停止从中学习；它仍可被搜索。",
   "everything.sources.learning": "从中学习",
   "everything.sources.notLearning": "不从中学习",
   "everything.sources.notRead": "Psyche 不读取{source}。",
@@ -326,7 +326,6 @@ export const memoryReview: Partial<Catalogue> = {
   "memoryBasics.paused": "记忆已暂停。",
   "memoryAdvanced.title": "高级",
   "memoryAdvanced.description": "模型、计划、调用方式、加密和你的数据。",
-  "memoryAdvanced.recall": "调用",
   "memoryAdvanced.data": "你的数据",
   "memoryAdvanced.dataHint": "导出、备份或重置{persona}记住的一切。",
   "memoryAdvanced.dataOpen": "打开“隐私与数据”",

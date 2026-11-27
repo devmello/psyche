@@ -30,7 +30,6 @@ export const shellRest: Partial<Catalogue> = {
   "shell.palette.keywords.addTodo": "नया टू-डू काम होमवर्क असाइनमेंट डेडलाइन देय याद दिलाएँ बनाएँ",
   "shell.palette.addProject": "प्रोजेक्ट जोड़ें",
   "shell.palette.keywords.addProject": "नया प्रोजेक्ट कोर्स क्लास नौकरी पहल बनाएँ ट्रैक करें",
-  "shell.browser.open": "ब्राउज़र खोलें",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

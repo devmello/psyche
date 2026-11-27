@@ -122,7 +122,6 @@ export const settingsRest: Partial<Catalogue> = {
     "Ein kleines Cloud-Modell ermittelt Filter für Zeit, Person und Quelle. Es wird nur die Frage gesendet, nie deine Elemente.",
   "settings.key.search.semantic.engine": "Embedding-Engine",
   "settings.key.search.semantic.allowCloud": "Cloud-Embedding-Dienst erlauben",
-  "settings.key.memory.recall.mode": "Wie das Gedächtnis abgerufen wird",
   "settings.key.widgets.remoteImages": "Externe Bilder in Widgets",
   "settings.key.ui.map.tiles": "Kartenkacheln",
   "settings.key.ui.map.styleUrl": "URL des Kartenstils",
@@ -153,7 +152,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.key.ui.onboarding.progress": "Fortschritt der Einführung",
   "settings.key.permissions.liftedFloors": "Ohne Nachfragen erlaubte Aktionen für {id}",
   "settings.key.specialists.maxConcurrent": "Spezialisten gleichzeitig",
-  "settings.key.specialists.showInFeed": "Ergebnisse von Spezialisten im Feed zeigen",
+  "settings.key.specialists.showInFeed": "Ergebnisse von Spezialisten auf Home zeigen",
   "settings.key.specialists.enabled": "{role} an",
   "settings.key.specialists.model": "Modell für {role}",
   "settings.credentials.payments.description":
@@ -231,8 +230,6 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.browser.agent.ports.remove": "Port {port} entfernen",
   "settings.browser.agent.ports.label": "Portnummer",
   "settings.browser.agent.ports.add": "Port hinzufügen",
-  "settings.browser.agent.fromEnv":
-    "Gesetzt durch die Umgebungsvariable {variable}. Entferne sie, um dies hier zu ändern.",
   "settings.browser.agent.refuse.notUrl":
     "Das ist keine Website-Adresse. Verwende die Form https://beispiel.de.",
   "settings.browser.agent.refuse.wildcard":
@@ -349,7 +346,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.obsidian.newVault": "Neuer Vault-Ordner",
   "settings.obsidian.noVault": "Kein Vault gewählt",
   "settings.obsidian.vaultHint":
-    "Psyche liest den Vault über einen geteilten Ordner (Einstellungen → Berechtigungen → Zugriff): Teile ihn und nutze ihn dann.",
+    "Psyche liest den Vault über einen geteilten Ordner (Einstellungen → Datenschutz & Sicherheit → Dateizugriff): Teile ihn und nutze ihn dann.",
   "settings.obsidian.share": "Diesen Ordner teilen",
   "settings.obsidian.shared": "Geteilt",
   "settings.obsidian.useVault": "Diesen Vault nutzen",
@@ -687,14 +684,6 @@ export const settingsRest: Partial<Catalogue> = {
     "{lessons, plural, one {# Lektion} other {# Lektionen}} und {events, plural, one {# Feedback-Ereignis} other {# Feedback-Ereignisse}} vergessen.",
   "settings.data.reasoningRetentionHint":
     "Wie lange der vollständige Denkprozess jedes Schritts aufbewahrt wird. Aus behält eine einzeilige Zusammenfassung.",
-  "settings.data.recallModeHint":
-    "Deine Markdown-Gedächtnisdateien bleiben die maßgebliche Quelle. Embeddings lassen jeden Zug Erinnerungen nach Bedeutung finden.",
-  "settings.data.recallMode.markdown": "Nur Markdown",
-  "settings.data.recallMode.markdownHint":
-    "Liest die Dateien und gleicht Wörter ab. Nichts Zusätzliches läuft.",
-  "settings.data.recallMode.embeddings": "Markdown plus Embeddings",
-  "settings.data.recallMode.embeddingsHint":
-    "Nutzt dieselbe Embedding-Wahl wie die Suche. Das Modell wird bei Bedarf geladen und im Leerlauf freigegeben.",
   "settings.data.recallState.off": "Nur Markdown.",
   "settings.data.encryptMemory": "Gedächtnis auf dem Datenträger verschlüsseln",
   "settings.data.encryptMemoryHint":
@@ -813,7 +802,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.gateways.addressPlaceholder": "studio-mac.your-tailnet.ts.net",
   "settings.gateways.nameLabel": "Name (optional)",
   "settings.gateways.addHint":
-    "Füge den Kopplungslink von dem Mac ein, auf dem Psyche läuft (Einstellungen, Geräte & Server, Anderen Computer koppeln). Ohne Link gib seine Tailscale-Adresse ein, https://<host>.<tailnet>.ts.net; dieser Computer bittet dann um Kopplung, und der Besitzer genehmigt sie dort.",
+    "Füge den Kopplungslink von dem Mac ein, auf dem Psyche läuft (Einstellungen, Geräte → Netzwerk und Fernzugriff, Anderen Computer koppeln). Ohne Link gib seine Tailscale-Adresse ein, https://<host>.<tailnet>.ts.net; dieser Computer bittet dann um Kopplung, und der Besitzer genehmigt sie dort.",
   "settings.gateways.newLink": "Ein neuer Kopplungslink ist eingetroffen. Verwenden?",
   "settings.gateways.useNewLink": "Verwenden",
   "settings.gateways.ignoreNewLink": "Ignorieren",
@@ -1186,7 +1175,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.skills.author.revokeDescription":
     "Damit signierte Skills werden nicht mehr geladen, und neue damit signierte Dateien werden abgelehnt. Du kannst ihm später wieder vertrauen.",
   "settings.skills.author.revokeConfirm": "Widerrufen",
-  "settings.usage.unavailable": "Die Nutzung ist von diesem Gateway noch nicht verfügbar.",
+  "settings.usage.unavailable": "Die Nutzung ist noch nicht verfügbar.",
   "settings.usage.thisMonth": "Dieser Monat",
   "settings.usage.monthLine":
     "{cost} und {tokens} Tokens in {turns, plural, one {# Zug} other {# Zügen}}. Heute bisher: {today}.",
@@ -1252,7 +1241,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.people.openOwnCard": "Deine Karte öffnen",
   "settings.people.ownCardHint":
     "Fakten über dich aus deinem Profil, deinen Chats und verbundenen Apps.",
-  "settings.people.editUserMd": "USER.md bearbeiten",
+  "settings.people.editUserMd": "Dein Profil bearbeiten",
   "settings.people.blocked": "Aus „Personen“ gesperrt",
   "settings.people.blockedHint":
     "Es wird nie wieder etwas darüber gelernt. Eine gesperrte Domain gilt für jede Adresse darauf.",
@@ -1305,7 +1294,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.specialists.concurrentHint":
     "Mehr laufen nebeneinander; der Rest wartet in der Schlange.",
   "settings.specialists.monthlyCapNone": "Kein Limit",
-  "settings.specialists.showInFeed": "Ergebnisse im Feed zeigen",
+  "settings.specialists.showInFeed": "Ergebnisse auf Home zeigen",
   "settings.specialists.showInFeedHint": "Dein Eingang erhält in jedem Fall jedes Ergebnis.",
   "settings.specialists.roles": "Rollen",
   "settings.specialists.rolesHint":

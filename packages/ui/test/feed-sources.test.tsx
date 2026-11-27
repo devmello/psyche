@@ -52,7 +52,7 @@ function setup(
 async function openSources(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("button", { name: "Today options" }));
   await user.click(await screen.findByRole("menuitem", { name: "Sources" }));
-  return screen.findByRole("dialog", { name: "Feed sources" });
+  return screen.findByRole("dialog", { name: "Brief sources" });
 }
 
 describe("Feed source addresses (pure)", () => {
@@ -241,12 +241,12 @@ describe("the Feed sources sheet", () => {
     expect(within(sheet).getByText(/not read/)).toBeTruthy();
   });
 
-  it("says the Feed does not report fetch status yet", async () => {
+  it("says the brief does not report fetch status yet", async () => {
     const { user } = setup(<FeedScreen />, { rss: [FEED] });
     const sheet = await openSources(user);
     expect(
       within(sheet).getByText(
-        "The Feed doesn't show yet when a feed was last read or whether it failed.",
+        "The brief doesn't show yet when a feed was last read or whether it failed.",
       ),
     ).toBeTruthy();
   });

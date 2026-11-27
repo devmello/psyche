@@ -132,7 +132,6 @@ export const memoryB: Partial<Catalogue> = {
   "memoryAdvanced.title": "Avanzado",
   "memoryAdvanced.description":
     "Modelos, horario, cómo se recuerdan las cosas, cifrado y tus datos.",
-  "memoryAdvanced.recall": "Recuperación",
   "memoryAdvanced.data": "Tus datos",
   "memoryAdvanced.dataHint": "Exporta, copia o restablece todo lo que {persona} recuerda.",
   "memoryAdvanced.dataOpen": "Abrir Privacidad y datos",

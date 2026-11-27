@@ -14,9 +14,9 @@ export const personDataRest: Partial<Catalogue> = {
   "personData.excludeOnly":
     "I suoi messaggi non verranno letti e non si imparerà nulla su di lui/lei. Ciò che è già noto resta finché non lo dimentichi.",
   "personData.after.said": "La persona, i suoi messaggi e tutto ciò che hai aggiunto tu restano.",
-  "personData.after.exclude": "Puoi riconsentirlo in Impostazioni → Memoria → Privacy.",
+  "personData.after.exclude": "Puoi riconsentirlo in Impostazioni → Memoria → Persone e privacy.",
   "personData.after.exclude_forget":
-    "Puoi riconsentirlo in Impostazioni → Memoria → Privacy, ma ciò che è stato eliminato non torna.",
+    "Puoi riconsentirlo in Impostazioni → Memoria → Persone e privacy, ma ciò che è stato eliminato non torna.",
   "personData.confirm.said": "Dimentica ciò che ha detto",
   "personData.confirm.exclude": "Smetti di imparare",
   "personData.confirm.exclude_forget": "Smetti e dimentica",

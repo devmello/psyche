@@ -47,7 +47,7 @@ export const everythingRest: Partial<Catalogue> = {
   "everything.perSource.ref": "{source}のモデル",
   "everything.sources.title": "読み取る対象",
   "everything.sources.description":
-    "メモリは、検索が読み取る内容から、設定 → 検索の情報源と同じ順序で学習します。ここでオフにすると学習を停止しますが、検索はできます。",
+    "メモリは、検索が読み取る内容から、設定 → コネクタとソース → 検索と同じ順序で学習します。ここでオフにすると学習を停止しますが、検索はできます。",
   "everything.sources.learning": "学習中",
   "everything.sources.notLearning": "学習していません",
   "everything.sources.notRead": "Psycheは{source}を読み取りません。",

@@ -18,7 +18,7 @@ export const machines: Partial<Catalogue> = {
   "machines.add.account.dedicatedHint":
     "Psycheにはそのアカウントのファイルとアプリだけが見えます。sudoもパスワードもありません。",
   "machines.add.needsNetwork":
-    "ほかのコンピューターからこのコンピューターにまだ接続できません。まず「設定」→「サーバーとリモートアクセス」で、リモートアクセスまたはローカルネットワークアクセスをオンにしてください。",
+    "ほかのコンピューターからこのコンピューターにまだ接続できません。まず「設定」→「デバイス → ネットワークとリモートアクセス」で、リモートアクセスまたはローカルネットワークアクセスをオンにしてください。",
   "machines.add.make": "コマンドを表示",
   "machines.add.again": "新しいコマンドを作成",
   "machines.add.commands": "Linuxコンピューター用のコマンド",

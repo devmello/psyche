@@ -13,14 +13,14 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Psyche बंद करके उसे फिर से खोलें।",
   "settings.sandbox.pc.title": "सैंडबॉक्स PC चालू करें",
   "settings.sandbox.pc.body":
-    "srt, कमांड के लिए Psyche का हल्का सैंडबॉक्स, Windows पर नहीं चलता। इसके बजाय Psyche द्वारा बनाए गए स्क्रिप्ट, कमांड सर्वर और कनेक्टर सैंडबॉक्स PC में चलते हैं: एक छोटा अलग Linux कंप्यूटर, जिसकी आपकी फ़ाइलों तक पहुँच नहीं है। इसे सेटिंग्स → सैंडबॉक्स PC में चालू करें, फिर दोबारा जाँचें।",
+    "srt, कमांड के लिए Psyche का हल्का सैंडबॉक्स, Windows पर नहीं चलता। इसके बजाय Psyche द्वारा बनाए गए स्क्रिप्ट, कमांड सर्वर और कनेक्टर गोपनीयता और सुरक्षा → कंप्यूटर उपयोग → VM मोड में चलते हैं: एक छोटा अलग Linux कंप्यूटर, जिसकी आपकी फ़ाइलों तक पहुँच नहीं है। इसे सेटिंग्स → सैंडबॉक्स PC में चालू करें, फिर दोबारा जाँचें।",
   "settings.sandbox.pc.notReady.title": "सैंडबॉक्स PC अभी तैयार नहीं है",
   "settings.sandbox.pc.notReady.body":
-    "यह चालू है, पर अभी चल नहीं रहा, या इसके अंदर का Psyche पुराना है। सेटिंग्स → सैंडबॉक्स PC में इसे शुरू या अपडेट करें, फिर दोबारा जाँचें।",
+    "यह चालू है, पर अभी चल नहीं रहा, या इसके अंदर का Psyche पुराना है। सेटिंग्स → गोपनीयता और सुरक्षा → कंप्यूटर उपयोग → VM मोड में इसे शुरू या अपडेट करें, फिर दोबारा जाँचें।",
   "settings.sandbox.pc.ready":
     "सैंडबॉक्स PC चालू है: Psyche द्वारा बनाए गए स्क्रिप्ट, कमांड सर्वर और कनेक्टर इसी में चलते हैं।",
   "settings.sandbox.pc.open": "सैंडबॉक्स PC सेटिंग्स खोलें",
-  "settings.sandbox.pc.where": "यह सेटिंग्स → सैंडबॉक्स PC में है।",
+  "settings.sandbox.pc.where": "यह सेटिंग्स → गोपनीयता और सुरक्षा → कंप्यूटर उपयोग → VM मोड में है।",
   "settings.devices.platform.windows": "Windows PC",
   "settings.devices.nodeKind.winHelper": "Windows हेल्पर",
   "settings.devices.thisPcAdmin":

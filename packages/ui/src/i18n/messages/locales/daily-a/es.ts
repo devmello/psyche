@@ -150,7 +150,7 @@ export const dailyA: Partial<Catalogue> = {
     "Recordatorios amables sobre personas con las que has perdido el contacto, cumpleaños y promesas que hiciste.",
   "nudges.settings.enabled": "Recordarme mantener el contacto",
   "nudges.settings.enabledHint":
-    "Hasta tres en tu resumen de la mañana, y tarjetas discretas en el Feed. Nunca se envía nada por ti.",
+    "Hasta tres en tu resumen de la mañana, y tarjetas discretas en Inicio. Nunca se envía nada por ti.",
   "nudges.settings.sensitivity": "Con qué frecuencia",
   "nudges.settings.sensitivityHint": "Cuánto espera un mensaje antes de que Psyche diga algo.",
   "nudges.settings.low": "Suave",
@@ -195,7 +195,6 @@ export const dailyA: Partial<Catalogue> = {
     "nuevo pendiente tarea deberes entrega plazo vence recordar crear",
   "shell.palette.addProject": "Añadir proyecto",
   "shell.palette.keywords.addProject": "nuevo proyecto curso clase trabajo iniciativa crear seguir",
-  "shell.browser.open": "Abrir el navegador",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
   "settings.shared.advanced": "Avanzado",

@@ -15,14 +15,15 @@ export const windowsPlatform202611: Partial<Catalogue> = {
   "settings.sandbox.restart.reopen": "Quittez Psyche puis rouvrez-le.",
   "settings.sandbox.pc.title": "Activer le PC bac à sable",
   "settings.sandbox.pc.body":
-    "srt, le bac à sable léger de Psyche pour les commandes, ne fonctionne pas sous Windows. Ici, les scripts, les serveurs de commandes et les connecteurs créés par Psyche s’exécutent plutôt dans le PC bac à sable : un petit ordinateur Linux à part, sans accès à vos fichiers. Activez-le dans Réglages → PC bac à sable, puis vérifiez à nouveau.",
+    "srt, le bac à sable léger de Psyche pour les commandes, ne fonctionne pas sous Windows. Ici, les scripts, les serveurs de commandes et les connecteurs créés par Psyche s’exécutent plutôt dans le Confidentialité et sécurité → Utilisation de l’ordinateur → Mode VM : un petit ordinateur Linux à part, sans accès à vos fichiers. Activez-le dans Réglages → PC bac à sable, puis vérifiez à nouveau.",
   "settings.sandbox.pc.notReady.title": "Le PC bac à sable n’est pas encore prêt",
   "settings.sandbox.pc.notReady.body":
-    "Il est activé, mais il ne tourne pas encore, ou le Psyche qu’il contient est périmé. Démarrez-le ou mettez-le à jour dans Réglages → PC bac à sable, puis vérifiez à nouveau.",
+    "Il est activé, mais il ne tourne pas encore, ou le Psyche qu’il contient est périmé. Démarrez-le ou mettez-le à jour dans Réglages → Confidentialité et sécurité → Utilisation de l’ordinateur → Mode VM, puis vérifiez à nouveau.",
   "settings.sandbox.pc.ready":
     "Le PC bac à sable est activé : les scripts, serveurs de commandes et connecteurs créés par Psyche s’y exécutent.",
   "settings.sandbox.pc.open": "Ouvrir les réglages du PC bac à sable",
-  "settings.sandbox.pc.where": "Il se trouve dans Réglages → PC bac à sable.",
+  "settings.sandbox.pc.where":
+    "Il se trouve dans Réglages → Confidentialité et sécurité → Utilisation de l’ordinateur → Mode VM.",
   "settings.devices.platform.windows": "PC Windows",
   "settings.devices.nodeKind.winHelper": "Assistant Windows",
   "settings.devices.thisPcAdmin":

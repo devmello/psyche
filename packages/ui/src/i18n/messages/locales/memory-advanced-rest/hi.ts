@@ -4,7 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const memoryAdvancedRest: Partial<Catalogue> = {
   "memoryAdvanced.title": "उन्नत",
   "memoryAdvanced.description": "मॉडल, शेड्यूल, चीज़ें कैसे याद की जाती हैं, एन्क्रिप्शन और आपका डेटा।",
-  "memoryAdvanced.recall": "रिकॉल",
   "memoryAdvanced.data": "आपका डेटा",
   "memoryAdvanced.dataHint": "{persona} जो कुछ याद रखता है उसे एक्सपोर्ट करें, बैकअप लें या रीसेट करें।",
   "memoryAdvanced.dataOpen": "गोपनीयता और डेटा खोलें",

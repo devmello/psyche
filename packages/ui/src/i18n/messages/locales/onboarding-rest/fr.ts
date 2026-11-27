@@ -13,7 +13,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "Ajouter un compte Google, Microsoft ou e-mail",
   "onboarding.step.memory": "Mémoire et habitudes quotidiennes",
   "onboarding.about.lead":
-    "Quelques informations pour que Psyche vous connaisse dès le départ. Tout ici est facultatif et se trouve dans USER.md, que vous pouvez modifier à tout moment.",
+    "Quelques informations pour que Psyche vous connaisse dès le départ. Tout est facultatif et se trouve dans votre profil, que vous pouvez modifier à tout moment.",
   "onboarding.about.name": "Votre nom",
   "onboarding.about.nameHint": "Comment Psyche doit-il vous appeler ?",
   "onboarding.about.timeZone": "Fuseau horaire",
@@ -67,7 +67,7 @@ export const onboardingRest: Partial<Catalogue> = {
   "onboarding.folders.hint":
     "Tu peux le changer à tout moment dans Réglages, sous Accès aux fichiers.",
   "onboarding.folders.shareLater":
-    "Tu pourras partager ces dossiers plus tard dans Réglages → Accès aux fichiers.",
+    "Tu pourras partager ces dossiers plus tard dans Réglages → Confidentialité et sécurité → Accès aux fichiers.",
   "onboarding.folders.openFileAccess": "Ouvrir Accès aux fichiers",
   "onboarding.folders.retry": "Réessayer",
   "onboarding.folders.continueWithout": "Continuer sans partager",

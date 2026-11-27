@@ -35,7 +35,6 @@ export const shellRest: Partial<Catalogue> = {
   "shell.palette.addProject": "프로젝트 추가",
   "shell.palette.keywords.addProject":
     "새로운 프로젝트 과정 수업 직업 만들기 추적 new project course class job",
-  "shell.browser.open": "브라우저 열기",
   "shell.search.keyCmdL": "⌘L",
   "shell.search.keyCtrlL": "Ctrl L",
 };

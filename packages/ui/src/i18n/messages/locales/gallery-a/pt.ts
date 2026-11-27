@@ -113,7 +113,7 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.connectors.moreAccounts": "Adicionar uma conta Google, Microsoft ou de e-mail",
   "onboarding.step.memory": "Memória e hábitos diários",
   "onboarding.about.lead":
-    "Alguns fatos para o Psyche já começar conhecendo você. Tudo é opcional e fica em USER.md, que você pode editar quando quiser.",
+    "Alguns dados para o Psyche já começar conhecendo você. Tudo aqui é opcional e fica no seu perfil, que você pode editar quando quiser.",
   "onboarding.about.name": "Seu nome",
   "onboarding.about.nameHint": "Como o Psyche deve chamar você?",
   "onboarding.about.timeZone": "Fuso horário",
@@ -167,7 +167,7 @@ export const galleryA: Partial<Catalogue> = {
   "onboarding.folders.hint":
     "Você pode mudar isso a qualquer momento em Ajustes, em Acesso a arquivos.",
   "onboarding.folders.shareLater":
-    "Você pode compartilhar estas pastas depois em Ajustes → Acesso a arquivos.",
+    "Você pode compartilhar estas pastas depois em Ajustes → Privacidade e segurança → Acesso a arquivos.",
   "onboarding.folders.openFileAccess": "Abrir Acesso a arquivos",
   "onboarding.folders.retry": "Tentar de novo",
   "onboarding.folders.continueWithout": "Continuar sem compartilhar",

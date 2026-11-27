@@ -127,13 +127,11 @@ describe("Settings → Plugins", () => {
     expect(await screen.findByTestId("plugin-meeting-notes")).toBeTruthy();
   });
 
-  it("says plugins are off on this Gateway when the admin switch is off", async () => {
+  it("says plugins are off when the admin switch is off", async () => {
     setup((world) => {
       world.pluginsEnabled = false;
     });
-    expect(
-      await screen.findByText("Plugins are switched off on this Gateway, so none of them run."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Plugins are switched off, so none of them run.")).toBeTruthy();
   });
 
   it("shows how many skills, commands, MCP servers and hooks a plugin adds", async () => {

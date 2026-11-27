@@ -14,10 +14,6 @@ export const keepAwake: Partial<Catalogue> = {
   "scheduled.history.cancelRetry.failed": "पुनः प्रयास रद्द नहीं किया जा सका ({reason})।",
   "settings.updates.group": "अपडेट",
   "settings.updates.hint": "Psyche हस्ताक्षरित अपडेट खोजता है और आपके बाहर निकलने पर उन्हें इंस्टॉल करता है।",
-  "settings.updates.channel": "रिलीज़ चैनल",
-  "settings.updates.channel.stable": "स्टेबल",
-  "settings.updates.channel.note":
-    "फ़िलहाल स्टेबल ही एकमात्र चैनल है। बीटा बिल्ड प्रकाशित होने पर बीटा यहाँ दिखेगा। हर अपडेट की जाँच हर हाल में Psyche की रिलीज़ कुंजी से होती है।",
   "settings.storage.title": "स्टोरेज",
   "settings.storage.hint": "इस कंप्यूटर पर Psyche अपने डेटा फ़ोल्डर में जितनी डिस्क जगह इस्तेमाल करता है।",
   "settings.storage.total": "कुल",

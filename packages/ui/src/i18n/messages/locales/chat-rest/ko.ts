@@ -3,7 +3,7 @@ import type { Catalogue } from "../../index.ts";
 /** chat strings not covered elsewhere (ko); merged into `../ko.ts`. */
 export const chatRest: Partial<Catalogue> = {
   "chat.offline.waiting":
-    "지금은 Gateway에 연결할 수 없습니다. 보낸 메시지는 여기서 대기하다가 복구되면 전송됩니다.",
+    "지금은 Psyche에 연결할 수 없습니다. 보낸 메시지는 여기서 대기하다가 복구되면 전송됩니다.",
   "chat.outbox.list": "전송 대기 중인 메시지",
   "chat.outbox.waiting": "대기 중:",
   "chat.outbox.old": "(하루 이상 지남)",
@@ -145,7 +145,7 @@ export const chatRest: Partial<Catalogue> = {
   "chat.steps.fixed.model": "모델 호출",
   "chat.steps.fixed.thinking": "생각 중",
   "chat.steps.fixed.thinkingDone": "생각함",
-  "chat.system.gatewayRestart": "이 턴 중에 Gateway가 다시 시작되어 중단되었습니다.",
+  "chat.system.gatewayRestart": "이 턴 중에 Psyche가 다시 시작되어 중단되었습니다.",
   "chat.feed.runDone": "실행이 끝났습니다.",
   "chat.feed.runFailed": "실행이 끝나지 않았습니다.",
   "chat.steps.status.running": "실행 중",

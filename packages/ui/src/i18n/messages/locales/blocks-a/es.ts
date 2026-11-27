@@ -29,7 +29,7 @@ export const blocksA: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "Ruta de la carpeta",
   "blocks.folder.mustPick": "Elige la carpeta que compartir antes de permitir.",
   "blocks.folder.scope":
-    "«Solo este chat» dura hasta que termina la conversación. «Siempre» conserva la carpeta hasta que la quites en Ajustes → Permisos → Acceso.",
+    "«Solo este chat» dura hasta que termina la conversación. «Siempre» conserva la carpeta hasta que la quites en Ajustes → Privacidad y seguridad → Acceso a archivos.",
   "blocks.folder.scope.once": "Solo este chat",
   "blocks.folder.scope.always": "Siempre, esta carpeta y lo que contiene",
   "blocks.folder.scope.space": "Permitir en este espacio",

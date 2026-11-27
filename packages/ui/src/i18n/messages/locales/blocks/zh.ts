@@ -24,7 +24,7 @@ export const blocks: Partial<Catalogue> = {
   "blocks.folder.pathLabel": "文件夹路径",
   "blocks.folder.mustPick": "请先选择要共享的文件夹，再允许。",
   "blocks.folder.scope":
-    "“仅此聊天”在对话结束前有效。“始终”会一直保留该文件夹，直到你在“设置 → 权限 → 访问”中将其移除。",
+    "“仅此聊天”在对话结束前有效。“始终”会一直保留该文件夹，直到你在“设置 → 隐私与安全 → 文件访问”中将其移除。",
   "blocks.folder.scope.once": "仅此聊天",
   "blocks.folder.scope.always": "始终，此文件夹及其下所有内容",
   "blocks.folder.scope.space": "在此空间中允许",
