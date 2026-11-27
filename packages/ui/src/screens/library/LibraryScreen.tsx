@@ -853,7 +853,7 @@ export function LibraryView({
           {moreFilters || filters.taskId != null ? (
             labelled(
               ids.task,
-              t("simplifyB9.library.task"),
+              t("simplify.b9.library.task"),
               <NativeSelect
                 id={ids.task}
                 size="sm"
@@ -879,7 +879,7 @@ export function LibraryView({
               className="self-start"
               onClick={() => setMoreFilters(true)}
             >
-              {t("simplifyB9.library.more")}
+              {t("simplify.b9.library.more")}
             </Button>
           )}
           {labelled(

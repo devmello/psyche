@@ -215,5 +215,5 @@ export function applyFilters(
  * not what an artifact is.
  */
 export function sectionLabel(spec: { id: LibrarySection; label: string }, persona: string): string {
-  return spec.id === "artifacts" ? t("simplifyB9.library.madeBy", { name: persona }) : spec.label;
+  return spec.id === "artifacts" ? t("simplify.b9.library.madeBy", { name: persona }) : spec.label;
 }

@@ -768,7 +768,7 @@ export function ApprovalCard({
         </span>
         {pending ? (
           <span className="text-caption tabular-nums text-label-secondary">
-            · {t("simplifyB9.approval.expiresAt", { time: formatTime(approval.expiresAt) })}
+            · {t("simplify.b9.approval.expiresAt", { time: formatTime(approval.expiresAt) })}
           </span>
         ) : null}
         <span className="ms-auto" />
@@ -1015,10 +1015,10 @@ export function ApprovalCard({
             )}
           >
             {sandboxReady
-              ? t("simplifyB9.execHost.sandboxed")
+              ? t("simplify.b9.execHost.sandboxed")
               : noHostSandbox
-                ? t("simplifyB9.execHost.noHostSandbox")
-                : t("simplifyB9.execHost.noSandbox")}
+                ? t("simplify.b9.execHost.noHostSandbox")
+                : t("simplify.b9.execHost.noSandbox")}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {!sandboxReady && !noHostSandbox && permissionAction ? (
@@ -1045,7 +1045,7 @@ export function ApprovalCard({
               disabled={!canRunUnsandboxed}
               onClick={() => void submit("approve", false, "once", true)}
             >
-              {t("simplifyB9.execHost.runOnce")}
+              {t("simplify.b9.execHost.runOnce")}
             </Button>
           </div>
         </div>

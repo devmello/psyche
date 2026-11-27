@@ -174,7 +174,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "blocks.permission.need.sandbox": "Turn on the sandbox PC",
   "blocks.execHost.noHostSandbox":
     "Windows has no sandbox for commands on this PC, so this command can only run without one. Type {word} to run it this once.",
-  "simplifyB9.execHost.noHostSandbox":
+  "simplify.b9.execHost.noHostSandbox":
     "Windows has no sandbox for commands on this PC, so this command can only run without one. You can run it this once.",
   "blocks.details.runsNoHostSandbox":
     "on your PC, without a sandbox: Windows has none for commands on the PC itself",
