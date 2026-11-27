@@ -215,7 +215,7 @@ export const ko: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper는 아직 이 앱을 제어할 수 없습니다. 다시 시도하고 macOS가 물으면 '확인'을 선택하세요.",
   "errors.reason.full_disk_access_missing":
-    "메시지를 읽으려면 Psyche Helper에 전체 디스크 접근 권한이 필요합니다. 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한에서 켠 다음 Psyche Helper를 재시작하세요.",
+    "메시지를 읽으려면 Psyche (Helper)에 전체 디스크 접근 권한이 필요합니다. 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한에서 켠 다음 Psyche (Helper)를 재시작하세요.",
   "errors.reason.prompt_refused_by_macos":
     "macOS가 권한 요청을 표시하지 않았습니다. 대신 시스템 설정 → 개인정보 보호 및 보안에서 Psyche Helper를 허용하세요.",
   "errors.reason.app_not_running": "해당 앱이 열려 있지 않습니다. 앱을 연 다음 다시 시도하세요.",
@@ -1731,7 +1731,7 @@ export const ko: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "시스템 설정 열기",
   "settings.computerUse.fullDiskAccess.name": "전체 디스크 접근 권한",
   "settings.computerUse.fullDiskAccess.why":
-    "{persona}이(가) 메시지를 읽을 수 있게 합니다. macOS는 이에 대해 허용 창을 띄우지 않습니다. 목록에 Psyche Helper를 추가하세요.",
+    "{persona}이(가) 메시지를 읽을 수 있게 합니다. macOS는 이에 대해 허용 창을 띄우지 않습니다. 목록에 Psyche (Helper)를 추가한 다음 재시작하세요.",
   "settings.computerUse.fullDiskAccess.open": "시스템 설정에서 전체 디스크 접근 권한 열기",
   "settings.computerUse.apps": "앱",
   "settings.computerUse.enabledHint":

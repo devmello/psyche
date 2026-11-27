@@ -197,7 +197,7 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper ne peut pas encore contrôler cette app. Réessayez et choisissez OK quand macOS le demande.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper a besoin de l'accès complet au disque pour lire Messages. Activez-le dans Réglages Système → Confidentialité et sécurité → Accès complet au disque, puis redémarrez Psyche Helper.",
+    "Psyche (Helper) a besoin de l'accès complet au disque pour lire Messages. Activez-le dans Réglages Système → Confidentialité et sécurité → Accès complet au disque, puis redémarrez Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "macOS n'a pas affiché la demande d'autorisation. Autorisez Psyche Helper dans Réglages Système → Confidentialité et sécurité.",
   "errors.reason.app_not_running": "Cette app n'est pas ouverte. Ouvrez-la, puis réessayez.",
@@ -1744,7 +1744,7 @@ export const fr: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Ouvrir Réglages Système",
   "settings.computerUse.fullDiskAccess.name": "Accès complet au disque",
   "settings.computerUse.fullDiskAccess.why":
-    "permet à {persona} de lire vos messages. macOS ne le demande pas par une alerte : ajoutez Psyche Helper à la liste.",
+    "permet à {persona} de lire vos messages. macOS ne le demande pas par une alerte : ajoutez Psyche (Helper) à la liste, puis redémarrez-le.",
   "settings.computerUse.fullDiskAccess.open":
     "Ouvrir Accès complet au disque dans Réglages Système",
   "settings.computerUse.apps": "Apps",

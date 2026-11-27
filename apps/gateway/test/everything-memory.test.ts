@@ -1023,3 +1023,46 @@ describe("memory follows Search (per-source opt-out)", () => {
     tmp.cleanup();
   });
 });
+
+describe("bulk accept", () => {
+  it("one memory.review.decide with many ids decides each through the single-fact path", async () => {
+    const { e, graph, tmp } = setup();
+    graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const sam = graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    const cite = {
+      source: "mail" as const,
+      sourceRef: "<m>",
+      quote: "I live in Rome",
+      start: 0,
+      end: 14,
+      sourceHash: "h",
+    };
+    const ids: string[] = [];
+    for (const [attribute, value] of [
+      ["city", "Rome"],
+      ["employer", "Initech"],
+    ] as const) {
+      const out = e.store.proposeFact({
+        entityId: sam,
+        attribute,
+        value,
+        provenance: "untrusted",
+        subjectKind: "self_disclosure",
+        citations: [cite],
+      });
+      if (out.status === "refused") throw new Error("refused");
+      ids.push(out.fact.id);
+    }
+    const seen: string[] = [];
+    const real = e.store.decide.bind(e.store);
+    e.store.decide = (id, decision, opts) => {
+      seen.push(`${id}:${decision}`);
+      return real(id, decision, opts);
+    };
+    const done = await e.handlers["memory.review.decide"]({ factIds: ids, decision: "confirm" });
+    expect(seen).toEqual(ids.map((id) => `${id}:confirm`));
+    expect(done.facts.map((f) => f.review)).toEqual(["accepted", "accepted"]);
+    expect((await e.handlers["memory.review.list"]({})).counts.pending).toBe(0);
+    tmp.cleanup();
+  });
+});

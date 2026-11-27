@@ -177,7 +177,7 @@ export const pt: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "O Psyche Helper ainda não pode controlar este app. Tente de novo e escolha OK quando o macOS perguntar.",
   "errors.reason.full_disk_access_missing":
-    "O Psyche Helper precisa de Acesso Total ao Disco para ler o Mensagens. Ative em Ajustes do Sistema → Privacidade e Segurança → Acesso Total ao Disco e reinicie o Psyche Helper.",
+    "O Psyche (Helper) precisa de Acesso Total ao Disco para ler o Mensagens. Ative em Ajustes do Sistema → Privacidade e Segurança → Acesso Total ao Disco e reinicie o Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "O macOS não mostrou o pedido de permissão. Permita o Psyche Helper em Ajustes do Sistema → Privacidade e Segurança.",
   "errors.reason.app_not_running": "Esse app não está aberto. Abra-o e tente de novo.",
@@ -1703,7 +1703,7 @@ export const pt: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Abrir os Ajustes do Sistema",
   "settings.computerUse.fullDiskAccess.name": "Acesso Total ao Disco",
   "settings.computerUse.fullDiskAccess.why":
-    "permite que {persona} leia suas mensagens. O macOS não pede isso com um aviso: adicione o Psyche Helper à lista.",
+    "permite que {persona} leia suas mensagens. O macOS não pede isso com um aviso: adicione o Psyche (Helper) à lista e reinicie-o depois.",
   "settings.computerUse.fullDiskAccess.open": "Abrir Acesso Total ao Disco nos Ajustes do Sistema",
   "settings.computerUse.apps": "Apps",
   "settings.computerUse.enabledHint":
