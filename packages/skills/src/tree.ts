@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, type Stats } from "node:fs";
 import { join, posix } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
@@ -113,6 +113,47 @@ export function readSkillDir(dir: string, limits: TreeLimits = DEFAULT_LIMITS): 
   };
   walk(dir, "");
   return b.tree;
+}
+
+/**
+ * A cheap fingerprint of a skill folder from `lstat` alone (no file is opened): every entry's
+ * relative path, type, size, mtime, ctime, inode, device and mode, directories included, so an
+ * added, removed, renamed, replaced or rewritten file changes it. `undefined` when anything
+ * cannot be read or is not a plain file or folder (a symlink, a special file): the caller must
+ * then take the full path, which reads, hashes and refuses as before. It is a fast path for the
+ * periodic rescan only; it never decides trust by itself. A same-size, same-mtime, same-ctime
+ * content change needs root, or an open shared mmap of the file: the forced pass is the
+ * backstop for that. A folder with more entries than `readSkillDir` would accept (plus room for
+ * directories) gets no signature, so an oversized folder is never walked in full every pass.
+ */
+export function treeSignature(dir: string): string | undefined {
+  const parts: string[] = [];
+  const cap = DEFAULT_LIMITS.maxFiles * 2 + 50;
+  const fmt = (r: string, t: string, st: Stats) =>
+    `${r}\0${t}\0${st.size}\0${st.mtimeMs}\0${st.ctimeMs}\0${st.ino}\0${st.dev}\0${st.mode}`;
+  try {
+    const walk = (abs: string, rel: string): boolean => {
+      const names = readdirSync(abs);
+      if (names.length > cap) return false;
+      for (const entry of names.sort()) {
+        if (IGNORED.has(entry)) continue;
+        if (parts.length >= cap) return false;
+        const p = join(abs, entry);
+        const r = rel === "" ? entry : `${rel}/${entry}`;
+        const st = lstatSync(p);
+        if (st.isDirectory()) {
+          parts.push(fmt(r, "d", st));
+          if (!walk(p, r)) return false;
+        } else if (st.isFile()) parts.push(fmt(r, "f", st));
+        else return false;
+      }
+      return true;
+    };
+    parts.push(fmt("", "d", lstatSync(dir)));
+    return walk(dir, "") ? parts.join("\n") : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 const decoder = new TextDecoder("utf-8", { fatal: true });

@@ -76,6 +76,7 @@ import {
   type SkillTree,
   textOf,
   treeHash,
+  treeSignature,
 } from "./tree.ts";
 import type { VirusTotalClient } from "./virustotal.ts";
 import { type Widened, widenedBy } from "./widen.ts";
@@ -233,6 +234,22 @@ export interface FsSkillLoaderOptions {
   onChange?: (event: SkillChangeEvent) => void;
 }
 
+/**
+ * What the periodic rescan may reuse for a skill folder whose `treeSignature` is unchanged: the
+ * files as read, their hash, the SKILL.md parse and the static scan. Only ever consulted by the
+ * periodic pass; the forced pass and every other refresh read the files again.
+ */
+interface ScanCache {
+  sig: string;
+  tree: SkillTree;
+  hash: string;
+  parsed?: ReturnType<typeof parseSkill> | undefined;
+  findings?: SkillScanFinding[];
+}
+
+/** Every Nth periodic pass ignores the cache (30 s x 20 = 10 minutes). */
+const FORCE_EVERY_PASSES = 20;
+
 interface Entry {
   details: SkillDetails;
   dir: string;
@@ -278,6 +295,12 @@ export class FsSkillLoader implements SkillLoader {
   #reported = new Set<string>();
   #updates = new Map<string, SkillUpdateCheck>();
   #gatedWith = "";
+  #cache = new Map<string, ScanCache>();
+  #useCache = false;
+  #seen = new Set<string>();
+  /** True while the pending timer was set by the periodic rescan only. */
+  #pendingCached = false;
+  #passes = 0;
   #now: () => number;
   #newId: () => string;
 
@@ -317,7 +340,25 @@ export class FsSkillLoader implements SkillLoader {
   // --- Discovery -------------------------------------------------------------------------------
 
   /** Rescans every source. Returns what changed since the previous scan. */
-  refresh(): { added: string[]; removed: string[]; changed: string[] } {
+  refresh(opts: { useCache?: boolean } = {}): {
+    added: string[];
+    removed: string[];
+    changed: string[];
+  } {
+    // Only the periodic rescan may reuse a cached read; every other caller reads everything.
+    this.#useCache = opts.useCache === true;
+    const seen = new Set<string>();
+    this.#seen = seen;
+    try {
+      return this.#refresh();
+    } finally {
+      this.#useCache = false;
+      // Forget skills that are gone, so a re-added folder is read from scratch.
+      for (const k of this.#cache.keys()) if (!seen.has(k)) this.#cache.delete(k);
+    }
+  }
+
+  #refresh(): { added: string[]; removed: string[]; changed: string[] } {
     const before = new Map(this.#entries.map((e) => [key(e.details), e.details]));
     const lock = this.#readLock();
     const gate = this.#gate();
@@ -400,17 +441,34 @@ export class FsSkillLoader implements SkillLoader {
       overrides: [],
     };
     const entry: Entry = { details, dir };
-    let tree: SkillTree;
-    try {
-      tree = readSkillDir(dir);
-    } catch (err) {
-      details.reasons.push((err as Error).message);
-      return entry;
+    const ck = `${source}|${folder}`;
+    this.#seen.add(ck);
+    // Signature first: a change after this point only makes the next pass miss. A failed stat
+    // gives no signature, which never matches.
+    const sig = treeSignature(dir);
+    const prev = this.#cache.get(ck);
+    this.#cache.delete(ck);
+    const hit = this.#useCache && sig !== undefined && prev?.sig === sig ? prev : undefined;
+    let c: ScanCache;
+    if (hit !== undefined) c = hit;
+    else {
+      let read: SkillTree;
+      try {
+        read = readSkillDir(dir);
+      } catch (err) {
+        details.reasons.push((err as Error).message);
+        return entry;
+      }
+      c = { sig: sig ?? "", tree: read, hash: treeHash(read) };
     }
+    // An unreadable signature is never stored, so it can never hit.
+    if (sig !== undefined) this.#cache.set(ck, c);
+    const tree = c.tree;
     entry.tree = tree;
-    details.hash = treeHash(tree);
+    details.hash = c.hash;
     const text = textOf(tree.get("SKILL.md") ?? { bytes: new Uint8Array(), executable: false });
-    const parsed = text === undefined ? undefined : parseSkill(text, folder);
+    if (text !== undefined && c.parsed === undefined) c.parsed = parseSkill(text, folder);
+    const parsed = text === undefined ? undefined : c.parsed;
     if (parsed === undefined || !parsed.ok) {
       details.reasons.push(...(parsed?.ok === false ? parsed.errors : ["SKILL.md is not UTF-8"]));
       return entry;
@@ -485,7 +543,8 @@ export class FsSkillLoader implements SkillLoader {
         details.reasons.push("files changed since the owner approved this skill");
         return entry;
       }
-      details.findings = scanSkillTree(tree, folder);
+      c.findings ??= scanSkillTree(tree, folder);
+      details.findings = structuredClone(c.findings);
     }
     // The owner may have tightened the policy since the install: such a skill stops loading.
     const violations =
@@ -1934,16 +1993,22 @@ export class FsSkillLoader implements SkillLoader {
 
   /**
    * Watches the skill folders; changes reload after `debounceMs` and emit `reloaded`. A full
-   * rescan (re-hashing every tree) also runs every `rescanMs` (default 30 s), so a missed or
+   * rescan also runs every `rescanMs` (default 30 s). It re-reads only folders whose stat
+   * signature changed, and every `forceEvery`th pass (default 20) re-reads and re-hashes all, so a missed or
    * failed watcher event cannot leave changed files looking approved for long; a watcher that
    * errors is re-created.
    */
-  watch(debounceMs = 150, rescanMs = 30_000): () => void {
+  watch(debounceMs = 150, rescanMs = 30_000, forceEvery = FORCE_EVERY_PASSES): () => void {
     if (this.#watching) return () => this.close();
     this.#watching = true;
     this.#debounceMs = debounceMs;
     this.#arm();
-    this.#rescan = setInterval(() => this.#schedule(0), rescanMs);
+    this.#passes = 0;
+    this.#rescan = setInterval(() => {
+      this.#passes += 1;
+      // The backstop: every Nth pass reads and hashes everything, whatever the signatures say.
+      this.#schedule(0, this.#passes % forceEvery !== 0);
+    }, rescanMs);
     this.#rescan.unref?.();
     this.refresh();
     return () => this.close();
@@ -1967,16 +2032,20 @@ export class FsSkillLoader implements SkillLoader {
     }
   }
 
-  #schedule(ms: number): void {
+  #schedule(ms: number, cached = false): void {
+    // A watcher event or retry that is already pending keeps its full read.
+    this.#pendingCached = this.#timer !== undefined ? this.#pendingCached && cached : cached;
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {
       this.#timer = undefined;
+      const useCache = this.#pendingCached;
+      this.#pendingCached = false;
       if (this.#busy) {
-        this.#schedule(this.#debounceMs);
+        this.#schedule(this.#debounceMs, useCache);
         return;
       }
       try {
-        const diff = this.refresh();
+        const diff = this.refresh({ useCache });
         if (diff.added.length + diff.removed.length + diff.changed.length > 0)
           this.#o.onChange?.({ type: "reloaded", ...diff });
       } catch {
