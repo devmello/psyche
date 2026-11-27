@@ -36,42 +36,6 @@ final class LibraryUITests: PsycheUITestCase {
     }
 }
 
-extension PsycheUITestCase {
-    /// The agent sheet's running-task row, scrolled into view (the sheet opens at a medium detent): Cancel is behind
-    /// its trailing swipe.
-    var runningTaskRow: XCUIElement {
-        let title = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Drafting the Q3 review summary")).firstMatch
-        _ = title.waitForExistence(timeout: 10)
-        for _ in 0..<4 where !title.isHittable { app.swipeUp() }
-        return title
-    }
-}
-
-final class AgentSheetUITests: PsycheUITestCase {
-    private var avatar: XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch }
-
-    func testSegmentsAndCancelRunningTask() {
-        launch()
-        waitFor(avatar)
-        avatar.tap()
-        let segments = app.segmentedControls.firstMatch
-        waitFor(segments)
-        for name in ["Approvals", "Upcoming", "Soul", "Activity"] {
-            segments.buttons[name].tap()
-        }
-        waitFor(match("Drafting the Q3 review summary"), 5)
-        // Cancel is a swipe action on the running task's row (and in its context menu).
-        runningTaskRow.swipeLeft()
-        app.buttons["Cancel"].firstMatch.tap()
-        // "Keep running" is the dialog's cancel role, which iPhone draws as a tap-outside; "Cancel task" is the action.
-        let confirm = app.buttons["Cancel task"]
-        waitFor(confirm, 5)
-        confirm.tap()
-        // The dialog closes once the Gateway took the cancel.
-        waitGone(confirm, 8)
-    }
-}
-
 final class SettingsUITests: PsycheUITestCase {
     func testToggleKeepsStateAndRemoveConfirmationCancels() {
         launch()
@@ -127,17 +91,6 @@ final class StatesUITests: PsycheUITestCase {
         // Home rows say why they can't be opened and are not buttons.
         waitFor(match("reconnect to answer"))
         XCTAssertFalse(needsYouRow("Pay the electricity bill").exists)
-        // The agent sheet's Cancel is gone too.
-        let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
-        avatar.tap()
-        waitFor(app.staticTexts["Drafting the Q3 review summary"].firstMatch)
-        let row = runningTaskRow
-        let rowFrame = row.frame
-        row.swipeLeft()
-        // Away from home Cancel is not offered on the sheet's row (the live test above is the positive control; the
-        // Home card behind the sheet has its own Cancel, so look only where the row is).
-        let cancels = app.buttons.matching(identifier: "Cancel").allElementsBoundByIndex
-        XCTAssertFalse(cancels.contains { $0.frame.intersects(rowFrame) })
     }
 
     func testUnpairedShowsPairingAndTryItEntersTheApp() {
@@ -161,7 +114,7 @@ final class PadUITests: PsycheUITestCase {
         launch()
         waitFor(needsYouRow("Pay the electricity bill"))
         // iPad shows the tabs as a top bar or sidebar; either way every tab is reachable.
-        for name in ["Home", "Chat", "Library", "Memory"] {
+        for name in ["Home", "Chat", "Library", "People"] {
             XCTAssertTrue(tab(name).waitForExistence(timeout: 5), "\(name) missing")
         }
     }

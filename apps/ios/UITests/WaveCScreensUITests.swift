@@ -24,20 +24,16 @@ final class WaveCScreensUITests: PsycheUITestCase {
 
     // MARK: Navigation
 
-    func testMemoryMenuItemsOpenAndBackReturns() {
+    func testPeopleMenuHoldsOnlyTheEverydayItems() {
         launch()
-        openTab("Memory")
+        openTab("People")
         waitFor(match("Pay rent"))
         let more = app.buttons["More"]
-        for item in ["What Psyche learned", "To confirm", "Recent changes", "Held back", "Memory files"] {
-            waitFor(more, 5)
-            more.tap()
-            let entry = app.buttons[item].firstMatch
-            waitFor(entry, 5)
-            entry.tap()
-            waitGone(app.buttons["More"], 5)
-            app.navigationBars.buttons.firstMatch.tap()
-            waitFor(app.buttons["More"], 5)
+        waitFor(more, 5)
+        more.tap()
+        waitFor(app.buttons["Remember this"].firstMatch, 5)
+        for gone in ["What Psyche learned", "Recent changes", "Held back", "Memory files"] {
+            XCTAssertFalse(app.buttons[gone].firstMatch.exists, "\(gone) should be Mac-only now")
         }
     }
 
@@ -64,7 +60,7 @@ final class WaveCScreensUITests: PsycheUITestCase {
             XCUIDevice.shared.appearance = appearance
             // Memory
             launch("live", extra: extra)
-            openTab("Memory")
+            openTab("People")
             waitFor(match("Pay rent"))
             shot("memory", mode)
             app.terminate()
@@ -79,14 +75,6 @@ final class WaveCScreensUITests: PsycheUITestCase {
                 waitFor(app.staticTexts["Security code"].firstMatch, 5)
                 shot("connection", mode)
             }
-            app.terminate()
-            // Agent sheet
-            launch("live", extra: extra)
-            let avatar = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open Psyche's activity")).firstMatch
-            waitFor(avatar)
-            avatar.tap()
-            waitFor(match("Drafting the Q3 review summary"), 5)
-            shot("agent", mode)
             app.terminate()
             // Approval sheet (never answered) and question sheet
             launch("live", extra: extra)

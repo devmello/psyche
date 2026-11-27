@@ -9,13 +9,13 @@ struct HomeFlowTests {
 
     @Test func mapsDesktopRoutes() {
         #expect(Route(appPath: "/chat/thr_q3") == .thread(id: "thr_q3"))
-        #expect(Route(appPath: "/goals/p1") == .goal(id: "p1"))
+        #expect(Route(appPath: "/goals/p1") == nil)  // Goals are not on the phone
         #expect(Route(appPath: "/people/pe2") == .person(id: "pe2"))
         #expect(Route(appPath: "/library/lib_77c1") == .file(id: "lib_77c1"))
         #expect(Route(appPath: "/inbox") == .inbox)
         #expect(Route(appPath: "/scheduled") == .scheduled)
-        #expect(Route(appPath: "/overview") == .overview)
-        #expect(Route(appPath: "/overview/run/run_9") == .overview)
+        #expect(Route(appPath: "/overview") == .scheduled)
+        #expect(Route(appPath: "/overview/run/run_9") == .scheduled)
         #expect(Route(appPath: "/chat/thr_q3?focus=composer#top") == .thread(id: "thr_q3"))
     }
 

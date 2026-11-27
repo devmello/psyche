@@ -48,7 +48,7 @@ struct AnswerSheetLayoutTests {
 
     /// Positive control: the scan really finds a construct when it is there.
     @Test func theScanSeesAConfirmationDialogWhereOneExists() throws {
-        let agent = try Self.source("AgentSheet.swift")
-        #expect(agent.contains(".confirmationDialog("))
+        let run = try Self.source("TaskRunView.swift")
+        #expect(run.contains(".confirmationDialog("))
     }
 }
