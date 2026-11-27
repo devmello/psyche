@@ -876,6 +876,38 @@ export class StateSeal {
   }
 
   /**
+   * The row as the Gateway itself last committed it, if the database holds exactly that now; else
+   * undefined. Unlike {@link genuine} this never vouches for a row just because the state is
+   * sealed: a row another connection wrote after the last check (between `ensure()` and the
+   * caller's read) is not in the in-memory copy, so it is refused at once, before the next check
+   * removes it. The values come from memory, not from a read the caller made earlier, so nothing a
+   * foreign write changed between that read and this check is ever acted on. A row the Gateway
+   * wrote whose commit it has not read back yet (another connection committed since) is refused
+   * until the next check: fail closed, and the next poll picks it up.
+   *
+   * It runs the seal's check first (three cached pragmas when nothing moved): a foreign commit
+   * since the last one is verified and repaired before anything is vouched for, and the Gateway's
+   * own writes from before it are confirmed against the ledger.
+   */
+  vouchedRow(table: string, pk: string): Record<string, unknown> | undefined {
+    const spec = SEALED_TABLES.find((t) => t.table === table);
+    if (spec === undefined) return undefined;
+    if (!this.#db.sqlite.inTransaction) this.ensure();
+    const k = keyOf(table, pk);
+    let known: string | undefined;
+    if (this.#untrusted !== null) {
+      known = this.#known(k);
+    } else {
+      if (!this.#shadowComplete) return undefined;
+      if (this.#dirty.has(k) && !this.#busy) this.#resolveIfQuiet();
+      if (this.#dirty.has(k)) return undefined;
+      known = this.#shadow.get(k);
+    }
+    if (known === undefined || this.#currentRow(spec, pk) !== known) return undefined;
+    return JSON.parse(known) as Record<string, unknown>;
+  }
+
+  /**
    * What a paired device may do. Sealed: its own scopes. Untrusted: a device the Gateway knows
    * (its copy, or a verified ledger entry) keeps at most the scopes known for it; a device it does
    * not know is read-only at most, which gives a same-user program nothing it could not read from

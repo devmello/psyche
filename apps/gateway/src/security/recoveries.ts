@@ -238,16 +238,22 @@ export class SecurityRecoveries {
 
   /** Applies every waiting recovery whose delay is over. */
   applyDue(): number {
+    const now = this.#iso();
     const due = this.#d.db.sqlite
       .prepare(
-        "SELECT * FROM security_recoveries WHERE status = 'waiting' AND not_before <= ? ORDER BY not_before, id",
+        "SELECT id FROM security_recoveries WHERE status = 'waiting' AND not_before <= ? ORDER BY not_before, id",
       )
-      .all(this.#iso()) as RecoveryRow[];
+      .pluck()
+      .all(now) as string[];
     let n = 0;
-    for (const r of due) {
-      // Untrusted: only a recovery the Gateway can vouch for; never one decided before (a rolled
-      // back database brings it back as waiting; the key file remembers, M-A).
-      if (!this.#d.seal.genuine("security_recoveries", r.id)) continue;
+    for (const id of due) {
+      // Only the row exactly as the Gateway committed it, sealed or not: a row another program
+      // wrote after the last seal check is not one (`#vouched`), and what applies is read from the
+      // Gateway's own copy, so a change after the SELECT is never applied either. Never one
+      // decided before (a rolled back database brings it back as waiting; the key file
+      // remembers, M-A).
+      const r = this.#vouched(id);
+      if (r === undefined || r.status !== "waiting" || !(r.not_before <= now)) continue;
       if (this.#d.seal.recoveryDecided(r.id)) continue;
       this.#decide(r, "apply", null);
       n++;
@@ -334,9 +340,9 @@ export class SecurityRecoveries {
     byDeviceId: string,
     expected: { op: string; params: unknown },
   ): SecurityRecovery {
+    // `#waiting` reads the row the Gateway itself committed: a planted or changed one is refused.
     const r = this.#waiting(id);
     if (
-      !this.#d.seal.genuine("security_recoveries", r.id) ||
       r.op !== expected.op ||
       JSON.stringify(parseJson(r.params)) !== JSON.stringify(expected.params)
     ) {
@@ -370,9 +376,28 @@ export class SecurityRecoveries {
       | undefined;
   }
 
+  /**
+   * The recovery as the Gateway itself committed it, when the database still holds exactly that
+   * (`StateSeal.vouchedRow`, which does not trust a row just because the state is sealed).
+   */
+  #vouched(id: string): RecoveryRow | undefined {
+    const v = this.#d.seal.vouchedRow("security_recoveries", id);
+    if (v === undefined || v.id !== id) return undefined;
+    if (typeof v.op !== "string" || typeof v.params !== "string") return undefined;
+    if (typeof v.status !== "string" || typeof v.not_before !== "string") return undefined;
+    return v as unknown as RecoveryRow;
+  }
+
+  /** A waiting recovery the Gateway can vouch for (apply now, cancel, the approval card). */
   #waiting(id: string): RecoveryRow {
-    const r = this.#row(id);
-    if (r === undefined) throw new PsycheError("not_found", `no recovery ${id}`);
+    if (this.#row(id) === undefined) throw new PsycheError("not_found", `no recovery ${id}`);
+    const r = this.#vouched(id);
+    if (r === undefined) {
+      throw new PsycheError(
+        "conflict",
+        `recovery ${id} was changed outside Psyche; it cannot be applied or cancelled`,
+      );
+    }
     if (r.status !== "waiting" || this.#d.seal.recoveryDecided(r.id)) {
       throw new PsycheError("conflict", `recovery ${id} was already decided`);
     }
@@ -555,13 +580,16 @@ export class SecurityRecoveries {
 
   #queue(op: SecurityRecoveryOp, params: RecoveryParams): Intake {
     const { db } = this.#d;
+    // Only rows the Gateway committed, as it committed them: a planted row is never joined (the
+    // owner's request would then wait on a row the seal removes) and never counts toward the cap.
     const waiting = (
       db.sqlite
-        .prepare(
-          "SELECT id, params, not_before FROM security_recoveries WHERE status = 'waiting' AND op = ?",
-        )
-        .all(op) as { id: string; params: string; not_before: string }[]
-    ).filter((w) => this.#d.seal.genuine("security_recoveries", w.id));
+        .prepare("SELECT id FROM security_recoveries WHERE status = 'waiting' AND op = ?")
+        .pluck()
+        .all(op) as string[]
+    )
+      .map((id) => this.#vouched(id))
+      .filter((w): w is RecoveryRow => w?.status === "waiting" && w.op === op);
     // The same request again joins the one that waits (its time does not move).
     const same = waiting.find(
       (w) =>
