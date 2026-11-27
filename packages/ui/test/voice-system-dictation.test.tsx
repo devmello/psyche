@@ -13,6 +13,47 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
   beforeEach(() => setUiPlatform("macos"));
   afterEach(() => setUiPlatform(undefined));
 
+  it("shows the dictation key, the talk key and one any-app switch at rest; the rest is folded", () => {
+    const inAdvanced = (el: HTMLElement) => el.closest("details") !== null;
+    render(
+      <VoicePanel
+        {...base}
+        values={{ "voice.conversation.enabled": true }}
+        onChange={vi.fn()}
+        system={{ helper: "online", accessibility: "granted", watching: true }}
+      />,
+    );
+    const key = (k: string) => document.querySelector(`[data-setting-key="${k}"]`) as HTMLElement;
+    const rest = screen.getAllByRole("switch").filter((el) => !inAdvanced(el));
+    expect(
+      rest.map((el) => el.closest("[data-setting-key]")?.getAttribute("data-setting-key")),
+    ).toEqual(["voice.conversation.enabled", "voice.systemWide"]);
+    expect(inAdvanced(key("voice.pushToTalk"))).toBe(false);
+    expect(inAdvanced(key("voice.conversation.key"))).toBe(false);
+    for (const k of [
+      "voice.mode",
+      "screenAsk.enabled",
+      "voice.conversation.reviewBeforeSend",
+    ]) {
+      expect(key(k), k).toBeTruthy();
+      expect(inAdvanced(key(k)), k).toBe(true);
+    }
+    expect(inAdvanced(screen.getByText("System-wide hotkey"))).toBe(true);
+    // Accessibility is fine, so its row is folded; it comes back to rest when it is missing.
+    expect(inAdvanced(screen.getByText("Granted"))).toBe(true);
+  });
+
+  it("pulls the Accessibility row out of Advanced while the grant is missing", () => {
+    render(
+      <VoicePanel
+        {...base}
+        onChange={vi.fn()}
+        system={{ helper: "online", accessibility: "missing", watching: false }}
+      />,
+    );
+    expect(screen.getByText("Needed").closest("details")).toBeNull();
+  });
+
   it("is hidden where there is no system-wide dictation (the web)", () => {
     render(<VoicePanel {...base} onChange={vi.fn()} />);
     expect(screen.queryByText("Dictate into any app")).toBeNull();

@@ -7,7 +7,7 @@ export const mailMeetings = {
   "settings.nav.mail": "Mail & meetings",
   "settings.mail.title": "Mail & meetings",
   "settings.mail.description":
-    "What Wren does with your mail and calendar. It saves drafts and proposes actions; nothing is sent, shared, accepted or declined without your approval.",
+    "What {persona} does with your mail and calendar. It saves drafts and proposes actions; nothing is sent, shared, accepted or declined without your approval.",
   "settings.mail.quietHours": "Quiet hours are in Notifications.",
   "settings.mail.loadFailed": "Couldn't load the mail and meeting settings.",
 
@@ -25,7 +25,7 @@ export const mailMeetings = {
   // Master switches
   "settings.mail.paused.hint": "Stops every mail and meeting job until you turn it back on.",
   "settings.mail.readOnly.hint":
-    "Digests and prep keep coming. Wren proposes no actions and drafts nothing.",
+    "Digests and prep keep coming. {persona} proposes no actions and drafts nothing.",
 
   // Accounts
   "settings.mail.accounts.none": "No mail account is connected. Connect one in Connectors.",
@@ -50,7 +50,7 @@ export const mailMeetings = {
 
   // Writing style
   "settings.mail.voice.learn.hint":
-    "Wren reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this Mac in mail/VOICE.md.",
+    "{persona} reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this Mac in mail/VOICE.md.",
   "settings.mail.voice.profile": "Voice profile",
   "settings.mail.voice.view": "View",
   "settings.mail.voice.edit": "Edit",
@@ -89,7 +89,7 @@ export const mailMeetings = {
     "Does nothing until you add audio: a Voice Memo, a file or a recording you start.",
   "settings.mail.notes.folder": "Recordings folder",
   "settings.mail.notes.folder.hint":
-    "A folder Wren may read. Grant it in Settings → Permissions → Access.",
+    "A folder {persona} may read. Grant it in Settings → Permissions → Access.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "Transcription endpoint",
   "settings.mail.transcribe.endpoint.hint":
@@ -110,7 +110,7 @@ export const mailMeetings = {
   // Polling
   "settings.mail.poll.active": "While you’re active",
   "settings.mail.poll.idle": "Otherwise",
-  "settings.mail.poll.hint": "How often Wren looks for new mail. Quicker costs more battery.",
+  "settings.mail.poll.hint": "How often {persona} looks for new mail. Quicker costs more battery.",
 
   // Setting-key labels (docs/ui-audit.md: a raw key never shows at level 1)
   "settings.key.workflows.paused": "Pause all mail and meeting workflows",

@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "البريد والاجتماعات",
   "settings.mail.title": "البريد والاجتماعات",
   "settings.mail.description":
-    "ما تفعله Wren ببريدك وتقويمك. تحفظ المسودات وتقترح الإجراءات؛ ولا يُرسَل شيء ولا يُشارَك ولا يُقبَل ولا يُرفَض دون موافقتك.",
+    "ما تفعله {persona} ببريدك وتقويمك. تحفظ المسودات وتقترح الإجراءات؛ ولا يُرسَل شيء ولا يُشارَك ولا يُقبَل ولا يُرفَض دون موافقتك.",
   "settings.mail.quietHours": "ساعات الهدوء في الإشعارات.",
   "settings.mail.loadFailed": "تعذّر تحميل إعدادات البريد والاجتماعات.",
 
@@ -28,7 +28,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   "settings.mail.paused.hint": "يوقف كل مهام البريد والاجتماعات إلى أن تعيد تشغيلها.",
   "settings.mail.readOnly.hint":
-    "تستمر الملخصات والتحضيرات بالوصول. لا تقترح Wren إجراءات ولا تكتب مسودات.",
+    "تستمر الملخصات والتحضيرات بالوصول. لا تقترح {persona} إجراءات ولا تكتب مسودات.",
 
   "settings.mail.accounts.none": "لا يوجد حساب بريد متصل. اربط حسابًا من الموصِّلات.",
   "settings.mail.accounts.use": "استخدام {account} في الملخص والمتابعات",
@@ -50,7 +50,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.followups.showTwice.hint": "بعد ملخصين تصمت.",
 
   "settings.mail.voice.learn.hint":
-    "تقرأ Wren ما كتبتَه فقط في البريد المُرسَل، دون النص المقتبس أو التوقيعات. يبقى الملف الشخصي على هذا الـ Mac في mail/VOICE.md.",
+    "تقرأ {persona} ما كتبتَه فقط في البريد المُرسَل، دون النص المقتبس أو التوقيعات. يبقى الملف الشخصي على هذا الـ Mac في mail/VOICE.md.",
   "settings.mail.voice.profile": "ملف الأسلوب",
   "settings.mail.voice.view": "عرض",
   "settings.mail.voice.edit": "تعديل",
@@ -84,7 +84,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "لا يفعل شيئًا حتى تضيف صوتًا: مذكرة صوتية أو ملفًا أو تسجيلًا تبدؤه.",
   "settings.mail.notes.folder": "مجلد التسجيلات",
-  "settings.mail.notes.folder.hint": "مجلد يمكن لـ Wren قراءته. امنحه الإذن من الوصول إلى الملفات.",
+  "settings.mail.notes.folder.hint": "مجلد يمكن لـ {persona} قراءته. امنحه الإذن من الوصول إلى الملفات.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "نقطة نهاية النسخ النصي",
   "settings.mail.transcribe.endpoint.hint":
@@ -105,7 +105,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   "settings.mail.poll.active": "أثناء نشاطك",
   "settings.mail.poll.idle": "في غير ذلك",
-  "settings.mail.poll.hint": "عدد مرات بحث Wren عن بريد جديد. الأسرع يستهلك بطارية أكثر.",
+  "settings.mail.poll.hint": "عدد مرات بحث {persona} عن بريد جديد. الأسرع يستهلك بطارية أكثر.",
 
   "settings.key.workflows.paused": "إيقاف كل مهام البريد والاجتماعات مؤقتًا",
   "settings.key.workflows.readOnly": "للقراءة فقط (الملخصات والتحضير فقط)",

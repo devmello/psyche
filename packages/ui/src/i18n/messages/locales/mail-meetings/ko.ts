@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "메일 및 회의",
   "settings.mail.title": "메일 및 회의",
   "settings.mail.description":
-    "Wren이 메일과 캘린더로 하는 일을 설정합니다. 임시 저장과 작업 제안만 하며, 사용자의 승인 없이는 아무것도 보내거나 공유하거나 수락하거나 거절하지 않습니다.",
+    "{persona}이 메일과 캘린더로 하는 일을 설정합니다. 임시 저장과 작업 제안만 하며, 사용자의 승인 없이는 아무것도 보내거나 공유하거나 수락하거나 거절하지 않습니다.",
   "settings.mail.quietHours": "방해 금지 시간은 알림에서 설정합니다.",
   "settings.mail.loadFailed": "메일 및 회의 설정을 불러오지 못했습니다.",
 
@@ -30,7 +30,7 @@ export const mailMeetings: Partial<Catalogue> = {
   // Master switches
   "settings.mail.paused.hint": "다시 켤 때까지 모든 메일 및 회의 작업을 중지합니다.",
   "settings.mail.readOnly.hint":
-    "요약과 준비는 계속 제공됩니다. Wren은 작업을 제안하지 않으며 초안도 작성하지 않습니다.",
+    "요약과 준비는 계속 제공됩니다. {persona}은 작업을 제안하지 않으며 초안도 작성하지 않습니다.",
 
   // Accounts
   "settings.mail.accounts.none": "연결된 메일 계정이 없습니다. 커넥터에서 연결하십시오.",
@@ -57,7 +57,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   // Writing style
   "settings.mail.voice.learn.hint":
-    "Wren은 보낸 메일에서 인용문과 서명을 제외하고 직접 쓴 내용만 읽습니다. 프로필은 이 Mac의 mail/VOICE.md에 저장됩니다.",
+    "{persona}은 보낸 메일에서 인용문과 서명을 제외하고 직접 쓴 내용만 읽습니다. 프로필은 이 Mac의 mail/VOICE.md에 저장됩니다.",
   "settings.mail.voice.profile": "문체 프로필",
   "settings.mail.voice.view": "보기",
   "settings.mail.voice.edit": "편집",
@@ -94,7 +94,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "오디오를 추가하기 전에는 아무 일도 하지 않습니다. 음성 메모, 파일 또는 직접 시작한 녹음이 대상입니다.",
   "settings.mail.notes.folder": "녹음 폴더",
-  "settings.mail.notes.folder.hint": "Wren이 읽을 수 있는 폴더입니다. 파일 접근에서 허용하십시오.",
+  "settings.mail.notes.folder.hint": "{persona}이 읽을 수 있는 폴더입니다. 파일 접근에서 허용하십시오.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "전사 엔드포인트",
   "settings.mail.transcribe.endpoint.hint":
@@ -118,7 +118,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.poll.active": "사용 중일 때",
   "settings.mail.poll.idle": "그 외",
   "settings.mail.poll.hint":
-    "Wren이 새 메일을 확인하는 주기입니다. 짧을수록 배터리를 더 많이 사용합니다.",
+    "{persona}이 새 메일을 확인하는 주기입니다. 짧을수록 배터리를 더 많이 사용합니다.",
 
   // Setting-key labels (docs/ui-audit.md: a raw key never shows at level 1)
   "settings.key.workflows.paused": "모든 메일 및 회의 워크플로 일시 중지",

@@ -15,6 +15,7 @@ import { readVoiceSettings } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder, shortcutText } from "./ShortcutRecorder.tsx";
 import { SpeechModelGroup } from "./SpeechModel.tsx";
 import {
+  Advanced,
   bool,
   ErrorNotice,
   Group,
@@ -343,33 +344,44 @@ export function VoiceConversationGroup({
         onChange={(on) => onChange("voice.conversation.enabled", on)}
       />
       {v.enabled ? (
-        <>
-          <HoldKeyField
-            label={t("voice.settings.key")}
-            description={
-              voiceKey === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
-            }
-            value={voiceKey}
-            settingKey="voice.conversation.key"
-            onChange={(k) => onChange("voice.conversation.key", k)}
-            taken={dictationKey}
-            // A Mac names the voice keys by their glyphs (Right ⌘), as the pop-up does.
-            labelOf={(k) =>
-              !isWindows() && (k === "fn" || k === "rightOption" || k === "rightCommand")
-                ? t(`voice.key.${k}`)
-                : holdKeyLabel(k)
-            }
-            {...(altGrLayout === undefined ? {} : { altGrLayout })}
-          />
-          <SwitchField
-            label={t("voice.settings.review")}
-            description={t("voice.settings.reviewHint")}
-            checked={v.reviewBeforeSend}
-            settingKey="voice.conversation.reviewBeforeSend"
-            onChange={(on) => onChange("voice.conversation.reviewBeforeSend", on)}
-          />
-        </>
+        <HoldKeyField
+          label={t("voice.settings.key")}
+          description={
+            voiceKey === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
+          }
+          value={voiceKey}
+          settingKey="voice.conversation.key"
+          onChange={(k) => onChange("voice.conversation.key", k)}
+          taken={dictationKey}
+          // A Mac names the voice keys by their glyphs (Right ⌘), as the pop-up does.
+          labelOf={(k) =>
+            !isWindows() && (k === "fn" || k === "rightOption" || k === "rightCommand")
+              ? t(`voice.key.${k}`)
+              : holdKeyLabel(k)
+          }
+          {...(altGrLayout === undefined ? {} : { altGrLayout })}
+        />
       ) : null}
+    </Group>
+  );
+}
+
+/** Review before sending: an option of Talk with Psyche, kept under Advanced. */
+export function VoiceReviewGroup({
+  values,
+  onChange,
+}: Pick<SettingsFormProps, "values" | "onChange">): ReactElement | null {
+  const v = readVoiceSettings(values);
+  if (!v.enabled) return null;
+  return (
+    <Group title={t("voice.settings.title")}>
+      <SwitchField
+        label={t("voice.settings.review")}
+        description={t("voice.settings.reviewHint")}
+        checked={v.reviewBeforeSend}
+        settingKey="voice.conversation.reviewBeforeSend"
+        onChange={(on) => onChange("voice.conversation.reviewBeforeSend", on)}
+      />
     </Group>
   );
 }
@@ -391,6 +403,16 @@ export function VoicePanel({
   const ptt = effectiveTalkKey(values["voice.pushToTalk"]);
   const systemWide = bool(values, "voice.systemWide", true);
   const altGrLayout = system?.altGrLayout;
+  // The Accessibility row sits at rest only while something is wrong; otherwise it is folded.
+  const accessibilityNeedsYou =
+    system != null && !isWindows() && system.accessibility !== "granted";
+  const accessibilityRow = system ? (
+    <AccessibilityRow
+      status={system}
+      {...(onOpenAccessibility ? { onOpenAccessibility } : {})}
+      {...(onRecheck ? { onRecheck } : {})}
+    />
+  ) : null;
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -418,19 +440,12 @@ export function VoicePanel({
             onChange={(v) => onChange("voice.pushToTalk", v)}
             {...(altGrLayout === undefined ? {} : { altGrLayout })}
           />
-          <RadioField
-            label={t("settings.voice.mode")}
-            inline
-            value={str(values, "voice.mode", "hold")}
-            settingKey="voice.mode"
-            onChange={(v) => onChange("voice.mode", v)}
-            options={[
-              { value: "hold", label: t("settings.voice.mode.hold") },
-              { value: "toggle", label: t("settings.voice.mode.toggle") },
-            ]}
-          />
         </Group>
-        <SpeechModelGroup />
+        <VoiceConversationGroup
+          values={values}
+          onChange={onChange}
+          {...(altGrLayout === undefined ? {} : { altGrLayout })}
+        />
         {system ? (
           <Group title={t("settings.voice.anyApp")}>
             <SwitchField
@@ -445,40 +460,51 @@ export function VoicePanel({
               settingKey="voice.systemWide"
               onChange={(v) => onChange("voice.systemWide", v)}
             />
-            <AccessibilityRow
-              status={system}
-              {...(onOpenAccessibility ? { onOpenAccessibility } : {})}
-              {...(onRecheck ? { onRecheck } : {})}
-            />
-            <ShortcutRecorder
-              label={t("settings.key.voice.hotkey")}
-              description={t("settings.voice.hotkeyHint")}
-              value={str(values, "voice.hotkey", "")}
-              onChange={(v) => onChange("voice.hotkey", v)}
-              {...(onCheckShortcut ? { onCheck: onCheckShortcut } : {})}
-              {...(system.hotkeyTaken ? { takenNow: system.hotkeyTaken } : {})}
-            />
+            {accessibilityNeedsYou ? accessibilityRow : null}
           </Group>
         ) : null}
-        {system ? (
-          <QuickEntryGroup
-            values={values}
-            onChange={onChange}
-            {...(onCheckQuickEntryShortcut ? { onCheck: onCheckQuickEntryShortcut } : {})}
-          />
-        ) : null}
-        {system ? (
-          <ScreenAskGroup
-            values={values}
-            onChange={onChange}
-            {...(onCheckScreenShortcut ? { onCheck: onCheckScreenShortcut } : {})}
-          />
-        ) : null}
-        <VoiceConversationGroup
-          values={values}
-          onChange={onChange}
-          {...(altGrLayout === undefined ? {} : { altGrLayout })}
-        />
+        <Advanced>
+          <Group title={t("settings.voice.dictation")}>
+            <RadioField
+              label={t("settings.voice.mode")}
+              inline
+              value={str(values, "voice.mode", "hold")}
+              settingKey="voice.mode"
+              onChange={(v) => onChange("voice.mode", v)}
+              options={[
+                { value: "hold", label: t("settings.voice.mode.hold") },
+                { value: "toggle", label: t("settings.voice.mode.toggle") },
+              ]}
+            />
+            {system ? (
+              <ShortcutRecorder
+                label={t("settings.key.voice.hotkey")}
+                description={t("settings.voice.hotkeyHint")}
+                value={str(values, "voice.hotkey", "")}
+                onChange={(v) => onChange("voice.hotkey", v)}
+                {...(onCheckShortcut ? { onCheck: onCheckShortcut } : {})}
+                {...(system.hotkeyTaken ? { takenNow: system.hotkeyTaken } : {})}
+              />
+            ) : null}
+            {system && !accessibilityNeedsYou ? accessibilityRow : null}
+          </Group>
+          <SpeechModelGroup />
+          {system ? (
+            <QuickEntryGroup
+              values={values}
+              onChange={onChange}
+              {...(onCheckQuickEntryShortcut ? { onCheck: onCheckQuickEntryShortcut } : {})}
+            />
+          ) : null}
+          {system ? (
+            <ScreenAskGroup
+              values={values}
+              onChange={onChange}
+              {...(onCheckScreenShortcut ? { onCheck: onCheckScreenShortcut } : {})}
+            />
+          ) : null}
+          <VoiceReviewGroup values={values} onChange={onChange} />
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );
