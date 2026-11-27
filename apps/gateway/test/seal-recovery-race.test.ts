@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDevice, insertDevice, openDb, type PsycheDb } from "@psyche/db";
+import { createPairingRequest, getDevice, insertDevice, openDb, type PsycheDb } from "@psyche/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { keyFingerprint } from "../src/auth.ts";
 import { SecurityRecoveries } from "../src/security/recoveries.ts";
@@ -305,5 +305,115 @@ describe("genuine recoveries still work (positive controls)", () => {
       "applied",
     );
     expect(forgot()).toBe(1);
+  });
+});
+
+describe("devices.approve pairs only the device recorded at intake", () => {
+  const CODE = "ABCD23";
+  const FULL = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
+
+  function device(d: PsycheDb, id: string) {
+    return insertDevice(d, {
+      id,
+      name: id,
+      platform: "macos",
+      role: "client",
+      publicKey: randomBytes(32).toString("base64url"),
+      scopes: [],
+    });
+  }
+
+  /** A, the owner's new device, with its pairing request; B, the attacker's unpaired device. */
+  async function waitingApproval(expiresAt?: string) {
+    const s = await setup();
+    const a = device(s.d, "owner-a");
+    const b = device(s.d, "attacker-b");
+    const req = createPairingRequest(s.d, {
+      kind: "device",
+      code: CODE,
+      deviceId: a.id,
+      display: a.name,
+      publicKeyFingerprint: keyFingerprint(a.publicKey),
+      ...(expiresAt === undefined ? {} : { expiresAt }),
+    });
+    cliRequest("q1", "devices.approve", { code: CODE });
+    s.seal.ensure();
+    s.rec.tick();
+    expect(s.rec.waitingCount()).toBe(1);
+    const due = () => {
+      clock += DELAY + 1;
+      s.seal.ensure();
+      s.rec.tick();
+    };
+    return { ...s, a, b, req, due };
+  }
+
+  type Dev = { id: string; publicKey: string };
+  const swaps: [string, (b: Dev) => Record<string, string>][] = [
+    [
+      "device and key",
+      (b) => ({ device_id: b.id, public_key_fingerprint: keyFingerprint(b.publicKey) }),
+    ],
+    ["device only", (b) => ({ device_id: b.id })],
+    ["key only", (b) => ({ public_key_fingerprint: keyFingerprint(b.publicKey) })],
+  ];
+
+  it.each(swaps)(
+    "a request rewritten outside (%s) pairs nobody and fails visibly",
+    async (_n, swap) => {
+      const { d, a, b, req, due } = await waitingApproval();
+      foreign((f) => {
+        const set: Record<string, string> = {
+          ...swap(b),
+          status: "pending",
+          expires_at: "2099-01-01T00:00:00.000Z",
+        };
+        const cols = Object.keys(set);
+        f.sqlite
+          .prepare(
+            `UPDATE pairing_requests SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`,
+          )
+          .run(...cols.map((c) => set[c]), req.id);
+      });
+      due();
+      expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+      expect(getDevice(d, b.id)?.scopes).toEqual([]);
+      expect(getDevice(d, a.id)?.pairedAt).toBeNull();
+      expect(d.sqlite.prepare("SELECT status FROM security_recoveries").pluck().get()).toBe(
+        "failed",
+      );
+      expect(alertKinds(d)).toContain("recovery_failed");
+      expect(alertKinds(d)).not.toContain("recovery_applied");
+    },
+  );
+
+  it("positive control: an untouched approval pairs A with its scopes and answers the card", async () => {
+    const { d, a, b, req, due } = await waitingApproval();
+    due();
+    expect(getDevice(d, a.id)?.pairedAt).not.toBeNull();
+    expect(getDevice(d, a.id)?.scopes).toEqual(FULL);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(
+      d.sqlite.prepare("SELECT status FROM pairing_requests WHERE id = ?").pluck().get(req.id),
+    ).toBe("approved");
+    expect(alertKinds(d)).toContain("recovery_applied");
+  });
+
+  it("a request that expired still pairs A and only A, and is marked expired", async () => {
+    const { d, a, b, req, due } = await waitingApproval(new Date(Date.now() - 1000).toISOString());
+    due();
+    expect(getDevice(d, a.id)?.scopes).toEqual(FULL);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
+    expect(
+      d.sqlite.prepare("SELECT status FROM pairing_requests WHERE id = ?").pluck().get(req.id),
+    ).toBe("expired");
+  });
+
+  it("a request another program deleted still pairs A and only A", async () => {
+    const { d, a, b, req, due } = await waitingApproval();
+    foreign((f) => f.sqlite.prepare("DELETE FROM pairing_requests WHERE id = ?").run(req.id));
+    due();
+    expect(getDevice(d, a.id)?.scopes).toEqual(FULL);
+    expect(getDevice(d, b.id)?.pairedAt).toBeNull();
   });
 });
