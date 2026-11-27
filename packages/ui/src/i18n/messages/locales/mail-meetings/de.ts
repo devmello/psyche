@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "Mail & Meetings",
   "settings.mail.title": "Mail & Meetings",
   "settings.mail.description":
-    "Was Wren mit deiner Mail und deinem Kalender macht. Wren speichert Entwürfe und schlägt Aktionen vor; ohne deine Freigabe wird nichts gesendet, geteilt, angenommen oder abgelehnt.",
+    "Was {persona} mit deiner Mail und deinem Kalender macht. {persona} speichert Entwürfe und schlägt Aktionen vor; ohne deine Freigabe wird nichts gesendet, geteilt, angenommen oder abgelehnt.",
   "settings.mail.quietHours": "Ruhezeiten findest du unter Benachrichtigungen.",
   "settings.mail.loadFailed": "Die Mail- und Meeting-Einstellungen konnten nicht geladen werden.",
 
@@ -33,7 +33,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.paused.hint":
     "Hält alle Mail- und Meeting-Aufgaben an, bis du sie wieder einschaltest.",
   "settings.mail.readOnly.hint":
-    "Übersichten und Vorbereitung kommen weiter. Wren schlägt keine Aktionen vor und entwirft nichts.",
+    "Übersichten und Vorbereitung kommen weiter. {persona} schlägt keine Aktionen vor und entwirft nichts.",
 
   // Accounts
   "settings.mail.accounts.none": "Kein Mail-Account verbunden. Verbinde einen unter Verbindungen.",
@@ -59,7 +59,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   // Writing style
   "settings.mail.voice.learn.hint":
-    "Wren liest nur, was du in gesendeter Mail selbst geschrieben hast, ohne zitierten Text oder Signaturen. Das Profil bleibt auf diesem Mac in mail/VOICE.md.",
+    "{persona} liest nur, was du in gesendeter Mail selbst geschrieben hast, ohne zitierten Text oder Signaturen. Das Profil bleibt auf diesem Mac in mail/VOICE.md.",
   "settings.mail.voice.profile": "Stilprofil",
   "settings.mail.voice.view": "Ansehen",
   "settings.mail.voice.edit": "Bearbeiten",
@@ -101,7 +101,7 @@ export const mailMeetings: Partial<Catalogue> = {
     "Tut nichts, bis du Audio hinzufügst: eine Sprachmemo, eine Datei oder eine Aufnahme, die du startest.",
   "settings.mail.notes.folder": "Aufnahmeordner",
   "settings.mail.notes.folder.hint":
-    "Ein Ordner, den Wren lesen darf. Gib ihn unter Dateizugriff frei.",
+    "Ein Ordner, den {persona} lesen darf. Gib ihn unter Dateizugriff frei.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "Transkriptions-Endpunkt",
   "settings.mail.transcribe.endpoint.hint":
@@ -125,7 +125,7 @@ export const mailMeetings: Partial<Catalogue> = {
   // Polling
   "settings.mail.poll.active": "Solange du aktiv bist",
   "settings.mail.poll.idle": "Sonst",
-  "settings.mail.poll.hint": "Wie oft Wren nach neuer Mail sieht. Häufiger kostet mehr Akku.",
+  "settings.mail.poll.hint": "Wie oft {persona} nach neuer Mail sieht. Häufiger kostet mehr Akku.",
 
   // Setting-key labels
   "settings.key.workflows.paused": "Alle Mail- und Meeting-Abläufe pausieren",

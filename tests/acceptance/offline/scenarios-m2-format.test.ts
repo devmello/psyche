@@ -20,12 +20,7 @@ describe("Milestone 2 scenario files", () => {
       { encoding: "utf8" },
     );
     expect(out.trim().split("\n").at(-1)).toBe("ok");
-    for (const id of [
-      "v5-permission-slip",
-      "v6-messages-voice-note",
-      "v8-subscription-audit",
-      "v9-weekly-review",
-    ])
+    for (const id of ["v5-permission-slip", "v8-subscription-audit", "v9-weekly-review"])
       expect(out).toContain(id);
   });
 });

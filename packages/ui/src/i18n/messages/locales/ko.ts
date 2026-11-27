@@ -21,6 +21,7 @@ import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
+import { desktopDialog } from "./desktop-dialog/ko.ts";
 import { desktopMenu } from "./desktop-menu/ko.ts";
 import { desktopSimple } from "./desktop-simple/ko.ts";
 import { desktopTray } from "./desktop-tray/ko.ts";
@@ -67,7 +68,9 @@ import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { simplifyB1 } from "./simplify-b1/ko.ts";
 import { simplifyB4 } from "./simplify-b4/ko.ts";
+import { simplifyB8 } from "./simplify-b8/ko.ts";
 import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { update } from "./update/ko.ts";
@@ -3896,6 +3899,9 @@ export const ko: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

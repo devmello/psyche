@@ -169,4 +169,28 @@ describe("Settings → Daily", () => {
     await userEvent.click(brief);
     expect(onChange).toHaveBeenCalledWith("daily.brief.enabled", true);
   });
+
+  it("shows the two habits and the Night shift switch at rest, and folds the rest", () => {
+    const inAdvanced = (el: HTMLElement) => el.closest("details") !== null;
+    render(
+      <StoryWorld>
+        <DailyPanel values={{}} onChange={() => {}} onTryNightShift={() => {}}>
+          <p>children</p>
+        </DailyPanel>
+      </StoryWorld>,
+    );
+    const rest = screen.getAllByRole("switch").filter((el) => !inAdvanced(el));
+    expect(
+      rest.map((el) => el.closest("[data-setting-key]")?.getAttribute("data-setting-key")),
+    ).toEqual(["daily.brief.enabled", "daily.wrapup.enabled", "nightShift.enabled"]);
+    // Reachable, but folded: delivery, keep awake, follow-ups, Night shift's budget and window.
+    for (const key of ["daily.notify", "scheduled.keepAwake", "daily.followups.enabled"]) {
+      const el = document.querySelector(`[data-setting-key="${key}"]`) as HTMLElement;
+      expect(el, key).toBeTruthy();
+      expect(inAdvanced(el), key).toBe(true);
+    }
+    expect(inAdvanced(screen.getByText("Budget per night (USD)"))).toBe(true);
+    expect(inAdvanced(screen.getByText("children"))).toBe(true);
+    expect(inAdvanced(screen.getByRole("button", { name: "Try it now" }))).toBe(false);
+  });
 });

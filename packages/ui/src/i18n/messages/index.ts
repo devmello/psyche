@@ -19,6 +19,7 @@ import { connectorsPage } from "./connectors-page.ts";
 import { context } from "./context.ts";
 import { daily } from "./daily.ts";
 import { design } from "./design.ts";
+import { desktopDialog } from "./desktop-dialog.ts";
 import { desktopMenu } from "./desktop-menu.ts";
 import { desktopSimple } from "./desktop-simple.ts";
 import { desktopTray } from "./desktop-tray.ts";
@@ -64,7 +65,9 @@ import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
+import { simplifyB1 } from "./simplify-b1.ts";
 import { simplifyB4 } from "./simplify-b4.ts";
+import { simplifyB8 } from "./simplify-b8.ts";
 import { skillAuthor } from "./skill-author.ts";
 import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
@@ -159,6 +162,9 @@ export const en = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

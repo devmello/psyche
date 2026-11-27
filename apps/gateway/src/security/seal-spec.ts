@@ -357,6 +357,39 @@ export const SEALED_TABLES: readonly SealedTable[] = [
 ];
 
 /**
+ * A migration that changes sealed rows. Migrations run in `openDb`, before the seal opens, so to
+ * the seal their writes look like changes made outside Psyche: it would put the old rows back and
+ * raise "changed outside". Each entry restates the migration as a function of the *sealed* row, and
+ * the seal applies that at boot through its own writes (re-sealing the result). Only tightening
+ * changes belong here (a revoke, never a grant): the seal adopts the result without an alert.
+ *
+ * Every migration after the seal's that writes a sealed table must be listed here or shown to
+ * leave the rows as they were (`seal-migrations.test.ts` checks the migration files).
+ */
+export interface SealedRowMigration {
+  /** The migration id (file name without `.sql`); applied only once `_migrations` records it. */
+  readonly id: string;
+  readonly table: string;
+  /** True for a sealed row (canonical JSON, parsed) the migration changes. */
+  readonly matches: (sealed: Readonly<Record<string, unknown>>) => boolean;
+  /** The column whose value is the time the migration ran. */
+  readonly timeColumn: string;
+  /** The columns the migration sets, given the time it ran; the rest stay as sealed. */
+  readonly set: (at: string) => Readonly<Record<string, unknown>>;
+}
+
+export const SEALED_ROW_MIGRATIONS: readonly SealedRowMigration[] = [
+  {
+    // Browser access dropped (2026-11-25): a paired browser is revoked like a removed device.
+    id: "202611251100_db_drop-web-devices",
+    table: "devices",
+    matches: (r) => r.platform === "web" && r.revoked_at === null,
+    timeColumn: "revoked_at",
+    set: (at) => ({ revoked_at: at, token_hash: null, updated_at: at }),
+  },
+];
+
+/**
  * Tables whose schema the seal checks against this build's migrations (columns, defaults, keys),
  * and whose names mark a trigger or view as security state.
  */
