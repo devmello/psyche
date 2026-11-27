@@ -415,7 +415,7 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
           setBusy(false);
           setError(
             hasCode(err, "unavailable")
-              ? t("simplifyB4.pairIphone.noNetwork")
+              ? t("simplify.b4.pairIphone.noNetwork")
               : createError(err, "lan"),
           );
           return;
@@ -427,7 +427,7 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
         }
         requestApproval({
           key: "devices.setupToken",
-          label: t("simplifyB4.pairIphone.title"),
+          label: t("simplify.b4.pairIphone.title"),
           approvalId,
           retry: (approved) =>
             call("devices.setupToken.create", { ...params, approvalId: approved }).then(
@@ -480,7 +480,7 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
     }
     if (lan === undefined) {
       setBusy(false);
-      setError(t("simplifyB4.pairIphone.noNetwork"));
+      setError(t("simplify.b4.pairIphone.noNetwork"));
       return;
     }
     writeLan(
@@ -491,7 +491,7 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
       },
       (err) => {
         setBusy(false);
-        setError(t("simplifyB4.pairIphone.enableFailed", { reason: messageOf(err) }));
+        setError(t("simplify.b4.pairIphone.enableFailed", { reason: messageOf(err) }));
       },
     );
   };
@@ -504,32 +504,32 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
         setLanNote("off");
         setMade(null);
       },
-      (err) => setError(t("simplifyB4.pairIphone.turnOffFailed", { reason: messageOf(err) })),
+      (err) => setError(t("simplify.b4.pairIphone.turnOffFailed", { reason: messageOf(err) })),
     );
   };
 
   return (
     <Group
-      title={t("simplifyB4.pairIphone.title")}
-      description={t("simplifyB4.pairIphone.description")}
+      title={t("simplify.b4.pairIphone.title")}
+      description={t("simplify.b4.pairIphone.description")}
     >
       {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
       <div>
         <Button type="button" size="sm" disabled={busy} onClick={pair}>
-          {t("simplifyB4.pairIphone.button")}
+          {t("simplify.b4.pairIphone.button")}
         </Button>
       </div>
       {lanNote === "on" && lan?.enabled === true ? (
         <p role="status" className="flex flex-wrap items-center gap-2 text-callout">
-          <span className="text-label-secondary">{t("simplifyB4.pairIphone.lanOn")}</span>
+          <span className="text-label-secondary">{t("simplify.b4.pairIphone.lanOn")}</span>
           <Button type="button" size="xs" variant="outline" onClick={turnOff}>
-            {t("simplifyB4.pairIphone.turnOff")}
+            {t("simplify.b4.pairIphone.turnOff")}
           </Button>
         </p>
       ) : null}
       {lanNote === "off" ? (
         <p role="status" className="text-callout text-label-secondary">
-          {t("simplifyB4.pairIphone.lanOff")}
+          {t("simplify.b4.pairIphone.lanOff")}
         </p>
       ) : null}
       {gone && made === null ? (
@@ -538,7 +538,7 @@ export function PairIphoneGroup({ now: fixedNow }: { now?: number }): ReactEleme
         </p>
       ) : null}
       {made ? (
-        <MadeLink made={made} now={now} scan={t("simplifyB4.pairIphone.scan")} lan={false} />
+        <MadeLink made={made} now={now} scan={t("simplify.b4.pairIphone.scan")} lan={false} />
       ) : null}
     </Group>
   );

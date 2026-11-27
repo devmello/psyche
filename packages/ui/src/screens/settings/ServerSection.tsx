@@ -55,8 +55,8 @@ export function ServerPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title={t("simplifyB4.server.title")}
-      description={t("simplifyB4.server.description")}
+      title={t("simplify.b4.server.title")}
+      description={t("simplify.b4.server.description")}
     >
       {lead}
       <LoadGate
@@ -212,7 +212,7 @@ export function ServerSection({ status, ...actions }: ServerSectionProps): React
               <>
                 <LanAccessGroup />
                 <PairComputerGroup />
-                <Advanced title={t("simplifyB4.server.away")}>
+                <Advanced title={t("simplify.b4.server.away")}>
                   <RemoteAccessGroup />
                 </Advanced>
               </>

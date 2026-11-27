@@ -145,8 +145,8 @@ export function DevicesPanel({
 
   return (
     <SectionFrame
-      title={t("simplifyB4.devices.title")}
-      description={t("simplifyB4.devices.description")}
+      title={t("simplify.b4.devices.title")}
+      description={t("simplify.b4.devices.description")}
     >
       <LoadGate
         label={t("settings.devices.loadLabel")}
@@ -226,12 +226,12 @@ export function DevicesPanel({
                     </p>
                   ) : null}
                   <details className="text-callout text-muted-foreground">
-                    <summary className="cursor-pointer">{t("simplifyB4.devices.details")}</summary>
+                    <summary className="cursor-pointer">{t("simplify.b4.devices.details")}</summary>
                     <div className="mt-1 flex flex-col gap-1">
-                      <span>{t("simplifyB4.devices.canDo")}</span>
+                      <span>{t("simplify.b4.devices.canDo")}</span>
                       <ul
                         className="flex flex-wrap gap-1"
-                        aria-label={t("simplifyB4.devices.canDoOf", { name: d.name })}
+                        aria-label={t("simplify.b4.devices.canDoOf", { name: d.name })}
                       >
                         {d.scopes.map((s) => (
                           <li key={s}>
@@ -276,11 +276,11 @@ export function DevicesPanel({
         </Group>
 
         <Group
-          title={t("simplifyB4.devices.helpers")}
-          description={t("simplifyB4.devices.helpersHint")}
+          title={t("simplify.b4.devices.helpers")}
+          description={t("simplify.b4.devices.helpersHint")}
         >
           {nodes.length === 0 ? (
-            <EmptyNotice text={t("simplifyB4.devices.noHelpers")} />
+            <EmptyNotice text={t("simplify.b4.devices.noHelpers")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {nodes.map((n) => (
@@ -411,7 +411,7 @@ function PendingDevice({
       ) : null}
       {remote && gatewayFingerprint ? (
         <p className="text-callout text-label-secondary">
-          {t("simplifyB4.devices.hostKey", {
+          {t("simplify.b4.devices.hostKey", {
             // From the local network the key is the only proof of who answered: show all of it.
             fingerprint: lan
               ? (gatewayFingerprint
@@ -424,11 +424,11 @@ function PendingDevice({
       ) : null}
       <details className="text-callout text-muted-foreground">
         <summary className="cursor-pointer">
-          {t("simplifyB4.devices.canDoOf", { name: request.display })}
+          {t("simplify.b4.devices.canDoOf", { name: request.display })}
         </summary>
         <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
           <legend className="sr-only">
-            {t("simplifyB4.devices.canDoOf", { name: request.display })}
+            {t("simplify.b4.devices.canDoOf", { name: request.display })}
           </legend>
           {PAIR_SCOPES.map((s) => (
             <div key={s} className="flex items-center gap-1.5">
