@@ -52,13 +52,13 @@ describe("OfflineBanner with the desktop supervisor's state", () => {
   });
 });
 
+function Probe({ status, desktop }: { status: GatewayStatus; desktop: boolean }) {
+  const grace = usePairingGrace(status, desktop);
+  return <OfflineBanner status={status} pairingGrace={grace} />;
+}
+
 describe("the pairing banner on the desktop (#539)", () => {
   const pending: GatewayStatus = { health: "ok", phase: "pending", pairingCode: "K7Q", attempt: 0 };
-
-  function Probe({ status, desktop }: { status: GatewayStatus; desktop: boolean }) {
-    const grace = usePairingGrace(status, desktop);
-    return <OfflineBanner status={status} pairingGrace={grace} />;
-  }
 
   it("says Connecting during the reconnect window and shows the code only if pending persists", () => {
     vi.useFakeTimers();
