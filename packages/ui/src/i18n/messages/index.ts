@@ -65,7 +65,13 @@ import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { settingsSections } from "./settings-sections.ts";
 import { shell } from "./shell.ts";
+import { simplifyB1 } from "./simplify-b1.ts";
+import { simplifyB2 } from "./simplify-b2.ts";
+import { simplifyB4 } from "./simplify-b4.ts";
 import { simplifyB6 } from "./simplify-b6.ts";
+import { simplifyB7 } from "./simplify-b7.ts";
+import { simplifyB8 } from "./simplify-b8.ts";
+import { simplifyB9 } from "./simplify-b9.ts";
 import { skillAuthor } from "./skill-author.ts";
 import { spaces } from "./spaces.ts";
 import { specialists } from "./specialists.ts";
@@ -160,6 +166,12 @@ export const en = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

@@ -52,6 +52,13 @@ export type BuiltinServices = Pick<
   "tasks" | "scheduler" | "notifier" | "memory"
 >;
 
+/**
+ * agent-core built-ins that the agent loop always registers itself. A scenario's tools.json may
+ * name them for the scripted model, but the Stack must not register a fake under the same name
+ * (the registry refuses a duplicate). No agent-core export lists them, so the list lives here.
+ */
+export const AGENT_CORE_BUILTIN_TOOLS: ReadonlySet<string> = new Set(["propose_automation"]);
+
 export interface StackOverrides {
   /** Wrap a fake connector executor (inside the broker and binding checks). */
   wrapTool?: (name: string, run: ToolRun) => ToolRun;
@@ -388,7 +395,7 @@ export class Stack {
       },
     });
     for (const t of this.world.tools(
-      [...this.toolInfo.values()],
+      [...this.toolInfo.values()].filter((t) => !AGENT_CORE_BUILTIN_TOOLS.has(t.name)),
       this.overrides.wrapTool,
       this.#extra,
     ))

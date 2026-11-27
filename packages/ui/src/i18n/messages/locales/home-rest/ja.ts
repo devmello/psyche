@@ -44,5 +44,11 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.memoryReview": "メモリの確認",
   "home.quiet":
     "今は対応が必要なものはありません。承認、毎日のブリーフ、新しいアイデアはここに表示されます。",
+  "home.helperPaused": "ヘルパーがオフラインの間、メールとメッセージは一時停止しています。",
+  "home.helperPaused.open": "デバイスを開く",
+  "home.movedFacts":
+    "{n, plural, other {他の人のメッセージから得た事実が # 件、確認を待っています。}}",
+  "home.movedFacts.review": "確認する",
+  "home.movedFacts.dismiss": "閉じる",
   "home.loadFailed": "{what}を読み込めませんでした。",
 };

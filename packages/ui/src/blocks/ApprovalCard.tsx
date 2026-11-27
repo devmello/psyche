@@ -22,7 +22,7 @@ import {
 import { useCall } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
-import { formatCountdown, formatRelative } from "../lib/format.ts";
+import { formatRelative, formatTime } from "../lib/format.ts";
 import { keysLabel } from "../lib/keys.ts";
 import { pathBasename } from "../lib/paths.ts";
 import { isMac } from "../lib/platform.ts";
@@ -393,9 +393,22 @@ export function ApprovalCard({
   // other kind): the Gateway's summary and its kind title.
   const sentence = useMemo(() => plainTitle(approval, persona), [approval, persona]);
   const machineLine = approvalMachineLine(approval);
-  // Once the card has expired the clock stops: there is nothing left to count down.
-  const [clockStopped, setClockStopped] = useState(false);
-  const now = useNow(1000, fixedNow, !clockStopped);
+  // No ticking clock (S35): the card reads the time once and re-renders a single time, when the
+  // approval expires, so it stops offering buttons the Gateway would refuse.
+  const [clockNow, setClockNow] = useState(() => fixedNow ?? Date.now());
+  const now = fixedNow ?? clockNow;
+  useEffect(() => {
+    if (fixedNow !== undefined || approval.status !== "pending") return;
+    const wait = Date.parse(approval.expiresAt) - Date.now();
+    if (!Number.isFinite(wait)) return;
+    if (wait <= 0) {
+      setClockNow(Date.now());
+      return;
+    }
+    // setTimeout cannot wait longer than 2^31 - 1 ms; a farther expiry just re-checks then.
+    const timer = setTimeout(() => setClockNow(Date.now()), Math.min(wait, 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [fixedNow, approval.status, approval.expiresAt]);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Allow sends the narrowest offered lifetime; the second choice and "More options" send theirs.
@@ -463,18 +476,14 @@ export function ApprovalCard({
     compose?.candidates.length === 1 ? (compose.candidates[0]?.id ?? "") : "",
   );
   const [messageText, setMessageText] = useState(compose?.text ?? "");
-  // exec_host (security §5.4): srt unless the owner types the word, which allows this run only.
+  // exec_host (security §5.4): srt unless the owner taps "Run once without the sandbox".
   const rawDetails = raw.details as Record<string, unknown>;
   const isExecHost = raw.kind === "exec_host";
-  const unsandboxedWord =
-    typeof rawDetails.unsandboxedWord === "string" ? rawDetails.unsandboxedWord : "UNSANDBOXED";
   // Set up from this card's "Set up sandbox": the run re-resolves srt, so the card follows.
   const [sandboxSetUp, setSandboxSetUp] = useState(false);
   const sandboxReady = rawDetails.sandbox === "srt" || sandboxSetUp;
   // Windows: no sandbox exists for commands on the PC itself, so there is nothing to set up.
   const noHostSandbox = rawDetails.hostSandbox === "none";
-  const [typed, setTyped] = useState("");
-  const unsandboxed = isExecHost && typed === unsandboxedWord;
   // permission_request (§3.13): Enable turns a setting on; the rest are fixed elsewhere, then checked.
   const isPermission = raw.kind === "permission_request";
   const need = (isPermission ? rawDetails.need : undefined) as MissingPermission | undefined;
@@ -494,7 +503,6 @@ export function ApprovalCard({
   const expiredByClock = approval.status === "pending" && remaining <= 0;
   const pending = approval.status === "pending" && !expiredByClock;
   const expired = expiredByClock || approval.status === "expired";
-  if (expired && !clockStopped) setClockStopped(true);
   const interactive = pending && canAnswer && !stale && onAnswer !== undefined;
 
   // Buttons arm 400 ms after the card becomes answerable, including when a stale card is
@@ -521,10 +529,17 @@ export function ApprovalCard({
     decision: "approve" | "deny",
     confirmed = false,
     pick: AllowScope = allowValue,
+    // The "Run once without the sandbox" button (security §5.4): one command, once, no grant.
+    viaUnsandboxed = false,
   ) => {
+    const unsandboxed = viaUnsandboxed && isExecHost;
     if (!interactive || !armed || busy || inFlight.current) return;
     if (limitedUntil !== null && Date.now() < limitedUntil && decision === "approve") return;
-    if (decision === "approve" && (!allowReady || answerOnHost !== null)) return;
+    if (
+      decision === "approve" &&
+      (!(unsandboxed ? allowBase : allowReady) || answerOnHost !== null)
+    )
+      return;
     if (decision === "approve" && floor !== null && pick === "always" && !confirmed) {
       liftConfirm.ask(
         floor,
@@ -667,7 +682,6 @@ export function ApprovalCard({
     more,
   } = cardChoices(approval, {
     site,
-    unsandboxed,
     folderWords: isFolder,
     sdShare: isSdShare,
     onceOnly: onceOnlyHere,
@@ -678,17 +692,18 @@ export function ApprovalCard({
     : allowChoice !== null && allowChoice.value !== "once"
       ? allowChoice.label
       : t("chat.approval.allow");
-  const allowReady =
+  const allowBase =
     allowChoice !== null &&
     (!isFolder || folder !== "") &&
-    (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
-    (!isExecHost || sandboxReady || unsandboxed);
+    (compose === null || (recipientId !== "" && messageText.trim() !== ""));
+  const allowReady = allowBase && (!isExecHost || sandboxReady);
   // The countdown runs only while the Gateway has the owner rate-limited.
   const limitNow = useNow(1000, undefined, limitedUntil !== null);
   const limitSecondsLeft =
     limitedUntil === null ? 0 : Math.max(0, Math.ceil((limitedUntil - limitNow) / 1000));
   const limited = limitSecondsLeft > 0;
   const canAllow = armed && !busy && allowReady && !limited && answerOnHost === null;
+  const canRunUnsandboxed = armed && !busy && allowBase && !limited && answerOnHost === null;
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -752,13 +767,8 @@ export function ApprovalCard({
           {pending ? t("blocks.approval.titlePending") : t("blocks.approval.title")}
         </span>
         {pending ? (
-          <span
-            className={cn(
-              "text-caption tabular-nums",
-              remaining < 10_000 ? "text-danger-text" : "text-label-secondary",
-            )}
-          >
-            · {t("blocks.approval.expiresIn", { countdown: formatCountdown(remaining) })}
+          <span className="text-caption tabular-nums text-label-secondary">
+            · {t("simplify.b9.approval.expiresAt", { time: formatTime(approval.expiresAt) })}
           </span>
         ) : null}
         <span className="ms-auto" />
@@ -1005,24 +1015,12 @@ export function ApprovalCard({
             )}
           >
             {sandboxReady
-              ? t("blocks.execHost.sandboxed", { word: unsandboxedWord })
+              ? t("simplify.b9.execHost.sandboxed")
               : noHostSandbox
-                ? t("blocks.execHost.noHostSandbox", { word: unsandboxedWord })
-                : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
+                ? t("simplify.b9.execHost.noHostSandbox")
+                : t("simplify.b9.execHost.noSandbox")}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={typed}
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                setTyped(v);
-              }}
-              aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
-              placeholder={unsandboxedWord}
-              autoComplete="off"
-              spellCheck={false}
-              className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
             {!sandboxReady && !noHostSandbox && permissionAction ? (
               <Button
                 variant="outline"
@@ -1041,18 +1039,19 @@ export function ApprovalCard({
                 {t("blocks.execHost.setUp")}
               </Button>
             ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canRunUnsandboxed}
+              onClick={(e) => {
+                // Like Allow: Return and Space never approve; only a pointer does.
+                if (e.detail === 0) return;
+                void submit("approve", false, "once", true);
+              }}
+            >
+              {t("simplify.b9.execHost.runOnce")}
+            </Button>
           </div>
-          {unsandboxed ? (
-            <p className="text-callout text-label-secondary">
-              {t("blocks.execHost.unsandboxedOnce")}
-            </p>
-          ) : !sandboxReady ? (
-            <p className="text-callout text-label-secondary">
-              {noHostSandbox
-                ? t("blocks.execHost.mustTypeOnly", { word: unsandboxedWord })
-                : t("blocks.execHost.mustType", { word: unsandboxedWord })}
-            </p>
-          ) : null}
         </div>
       ) : null}
 

@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "邮件与会议",
   "settings.mail.title": "邮件与会议",
   "settings.mail.description":
-    "设置 Wren 如何处理你的邮件和日历。它只会保存草稿并提出操作建议；未经你批准，不会发送、分享、接受或拒绝任何内容。",
+    "设置 {persona} 如何处理你的邮件和日历。它只会保存草稿并提出操作建议；未经你批准，不会发送、分享、接受或拒绝任何内容。",
   "settings.mail.quietHours": "免打扰时段请在“通知”中设置。",
   "settings.mail.loadFailed": "无法加载邮件与会议设置。",
 
@@ -30,7 +30,7 @@ export const mailMeetings: Partial<Catalogue> = {
   // Master switches
   "settings.mail.paused.hint": "在你重新开启之前，停止所有邮件和会议任务。",
   "settings.mail.readOnly.hint":
-    "摘要和会议准备照常送达。Wren 不会提出操作建议，也不会起草任何内容。",
+    "摘要和会议准备照常送达。{persona} 不会提出操作建议，也不会起草任何内容。",
 
   // Accounts
   "settings.mail.accounts.none": "尚未连接邮件账户。请在“连接器”中连接。",
@@ -56,7 +56,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   // Writing style
   "settings.mail.voice.learn.hint":
-    "Wren 只读取你在已发送邮件中亲自写的内容，不含引用文字和签名。档案保存在这台 Mac 上的 mail/VOICE.md 中。",
+    "{persona} 只读取你在已发送邮件中亲自写的内容，不含引用文字和签名。档案保存在这台 Mac 上的 mail/VOICE.md 中。",
   "settings.mail.voice.profile": "风格档案",
   "settings.mail.voice.view": "查看",
   "settings.mail.voice.edit": "编辑",
@@ -92,7 +92,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.enabled.hint":
     "添加音频之前不会执行任何操作：语音备忘录、文件或你开始的录音。",
   "settings.mail.notes.folder": "录音文件夹",
-  "settings.mail.notes.folder.hint": "Wren 可以读取的文件夹。请在“文件访问”中授权。",
+  "settings.mail.notes.folder.hint": "{persona} 可以读取的文件夹。请在“文件访问”中授权。",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "转写端点",
   "settings.mail.transcribe.endpoint.hint":
@@ -114,7 +114,7 @@ export const mailMeetings: Partial<Catalogue> = {
   // Polling
   "settings.mail.poll.active": "你在使用时",
   "settings.mail.poll.idle": "其他时间",
-  "settings.mail.poll.hint": "Wren 检查新邮件的频率。越频繁越耗电。",
+  "settings.mail.poll.hint": "{persona} 检查新邮件的频率。越频繁越耗电。",
 
   // Setting-key labels (docs/ui-audit.md: a raw key never shows at level 1)
   "settings.key.workflows.paused": "暂停所有邮件与会议工作流",

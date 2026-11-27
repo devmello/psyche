@@ -178,13 +178,18 @@ describe("Sidebar (redesign §5.1)", () => {
     expect(onNavigate).toHaveBeenCalledWith("/settings/model");
   });
 
-  it("opens Settings, Usage and Help from the gear in the persona footer", async () => {
+  it("offers only Settings and Help in the gear in the persona footer", async () => {
     const { onNavigate } = renderSidebar();
     const footer = screen.getByTestId("sidebar-footer");
     expect(footer.textContent).toContain("Wren");
     await userEvent.click(within(footer).getByRole("button", { name: "Settings and help" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: /^Settings/ }));
-    expect(onNavigate).toHaveBeenCalledWith("/settings/model");
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((i) => i.textContent?.replace(/(⌘|Ctrl).*$/, "").trim())).toEqual([
+      "Settings",
+      "Help",
+    ]);
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Help/ }));
+    expect(onNavigate).toHaveBeenCalledWith("/settings/about");
   });
 
   it("keeps Home current on /overview (reached from Home) and opens it from the footer avatar", async () => {
@@ -263,26 +268,10 @@ describe("the sidebar toggle (#598)", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it("offers full, compact and hidden from its menu", async () => {
-    const { onToggle, onModeChange } = renderToggle(true, "full");
-    await userEvent.click(screen.getByRole("button", { name: "Sidebar options" }));
-    expect(
-      (await screen.findByRole("menuitemradio", { name: /^Full sidebar/ })).getAttribute(
-        "aria-checked",
-      ),
-    ).toBe("true");
-    await userEvent.click(screen.getByRole("menuitemradio", { name: /^Compact sidebar/ }));
-    expect(onModeChange).toHaveBeenCalledWith("rail");
-    // Picking a state closes the menu (it used to stay open, so the next trigger click closed it
-    // and "Hidden" was found only while the menu animated out: the flake). Wait until it is gone.
-    const trigger = screen.getByRole("button", { name: "Sidebar options" });
-    await waitFor(() => {
-      expect(screen.queryByRole("menu")).toBeNull();
-      expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    });
-    await userEvent.click(trigger);
-    await userEvent.click(await screen.findByRole("menuitemradio", { name: /^Hidden/ }));
-    expect(onToggle).toHaveBeenCalledTimes(1);
+  it("has no second chevron menu at rest; ⌥-click is the mode switch", async () => {
+    renderToggle(true, "full");
+    expect(screen.queryByRole("button", { name: "Sidebar options" })).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 });
 

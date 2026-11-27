@@ -23,24 +23,15 @@ struct RouteView: View {
         case .person(let id): PersonPage(id: id, store: store)
         case .file(let id): LibraryItemView(id: id)
         case .artifact(let id): ArtifactViewerView(artifactID: id)
-        case .memoryFiles: MemoryFilesView(store: store)
-        case .learning: LessonsView(store: store)
         case .claims: ClaimsView(store: store)
-        case .recentChanges: RecentChangesView(store: store)
-        case .reviewQueue: HeldBackView(store: store)
-        case .memoryFile(let path): MemoryFileView(path: path, store: store)
         case .entity(let id): EntityRouteView(id: id, store: store)
         case .inbox: InboxView(store: store)
+        case .feedItem(let id): FeedItemView(id: id, store: store)
         case .scheduled: ScheduledView(store: store)
-        case .overview: OverviewView(store: store)
-        case .feed: FeedView(store: store)
-        case .ideas: IdeasView(store: store)
-        case .goals: GoalsView(store: store)
-        case .goal(let id): GoalsView(store: store, openGoalID: id)
-        case .feedPost(let id): FeedView(store: store, focusPostID: id)
         case .space(let id): SpaceView(id: id, store: store)
         case .nightShift(let id): NightShiftReviewView(reviewID: id, store: store)
-        case .task, .agentApprovals, .tab, .settings: EmptyView()  // the router opens these, never pushed
+        case .task(let id): TaskRunView(store: store, taskID: id)
+        case .tab, .settings: EmptyView()  // the router opens these, never pushed
         }
     }
 }

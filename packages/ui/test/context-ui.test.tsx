@@ -4,14 +4,17 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CompactionMarker } from "../src/chat/context/CompactionMarker.tsx";
 import { ContextMeter } from "../src/chat/context/ContextMeter.tsx";
-import { parseLimitDrafts, ThreadContextMeter } from "../src/chat/context/connected.tsx";
+import {
+  parseLimitDrafts,
+  ThreadContextDialog,
+  ThreadContextMeter,
+} from "../src/chat/context/connected.tsx";
 import { type ContextUsageView, contextTone, formatTokens } from "../src/chat/context/types.ts";
 import { ChatThread } from "../src/chat/Thread.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW, IDS } from "../src/fixtures/index.ts";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
 import { sampleSettings } from "../src/screens/settings/sample-data.ts";
-import { ThreadList } from "../src/shell/ThreadList.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
 const usage = (used: number, exact = true): ContextUsageView => ({
@@ -232,14 +235,19 @@ describe("Connected context UI", () => {
         <ThreadContextMeter threadId={threadId} />
       </StoryWorld>,
     );
-    expect(
-      await screen.findByRole("button", { name: "Context: 50,000 of 200,000 tokens, 25%" }),
-    ).toBeTruthy();
+    // Quiet at rest: 25% of the window shows no meter at all.
+    await waitFor(() => expect(gw).not.toBeNull());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("button", { name: /^Context:/ })).toBeNull();
+    expect(screen.queryByText(/50\.0k|50k/)).toBeNull();
     const g = gw as unknown as MockGateway;
     act(() => g.reportContextUsage(protocolUsage(threadId, 150_000)));
     const trigger = await screen.findByRole("button", {
       name: "Context: 150,000 of 200,000 tokens, 75%, near the compaction threshold",
     });
+    // Near the threshold: a small chip, not the token numbers.
+    expect(within(trigger).getByText("Chat is getting long")).toBeTruthy();
+    expect(trigger.textContent).not.toMatch(/150/);
     await userEvent.click(trigger);
     expect(await screen.findByText(/The limit is the model's context window/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Compact now" }));
@@ -248,18 +256,14 @@ describe("Connected context UI", () => {
     expect(await screen.findByText(/Can't compact while the agent is working/)).toBeTruthy();
   });
 
-  it("sets this chat's own limits from the thread menu and refuses values over the window", async () => {
+  it("sets this chat's own limits from its dialog and refuses values over the window", async () => {
     let gw: MockGateway | null = null;
+    const onOpenChange = vi.fn();
     render(
       <StoryWorld onGateway={(g) => (gw = g)}>
-        <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
+        <ThreadContextDialog threadId={IDS.threads.main} open onOpenChange={onOpenChange} />
       </StoryWorld>,
     );
-    await screen.findAllByTestId("thread-row");
-    const main = document.querySelector<HTMLElement>('li[data-thread-kind="main"]');
-    if (!main) throw new Error("no main chat row");
-    await userEvent.click(within(main).getByRole("button", { name: /More for/ }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Context limits…" }));
     const dialog = await screen.findByRole("dialog", { name: "Context limits for this chat" });
     const limit = within(dialog).getByLabelText("Context limit") as HTMLInputElement;
     await waitFor(() => expect(limit.placeholder).toBe("200000"));
@@ -280,7 +284,7 @@ describe("Connected context UI", () => {
         limits: { maxTokens: 64_000, compactAt: 0.7 },
       }),
     );
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
   it("shows a compaction message as a marker with the turns it replaced", async () => {

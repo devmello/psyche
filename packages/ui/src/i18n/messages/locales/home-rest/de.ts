@@ -47,5 +47,11 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.memoryReview": "Gedächtnisprüfung",
   "home.quiet":
     "Im Moment braucht dich nichts. Freigaben, dein Tagesbriefing und neue Ideen erscheinen hier.",
+  "home.helperPaused": "Mail und Nachrichten pausieren, solange der Helfer offline ist.",
+  "home.helperPaused.open": "Geräte öffnen",
+  "home.movedFacts":
+    "{n, plural, one {# Fakt aus Nachrichten anderer Personen wartet auf deine Prüfung.} other {# Fakten aus Nachrichten anderer Personen warten auf deine Prüfung.}}",
+  "home.movedFacts.review": "Prüfen",
+  "home.movedFacts.dismiss": "Ausblenden",
   "home.loadFailed": "{what} konnte nicht geladen werden.",
 };

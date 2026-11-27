@@ -10,38 +10,24 @@ public enum Route: Hashable, Sendable {
     case file(id: String)
     /// An artifact's viewer (`/artifacts/<id>`, an artifact card's tap): its content and versions.
     case artifact(id: String)
-    /// The Soul & Memory file list (`/agent/soul` with no query), and one workspace file in it (`/agent/soul?file=…`).
-    case memoryFiles
-    case memoryFile(path: String)
-    /// Memory's learning screens: what Psyche learned, claims to confirm, and recent changes with undo.
-    case learning
+    /// People's "To confirm" list: claims Psyche is unsure of.
     case claims
-    case recentChanges
-    case reviewQueue
     /// A person, organisation, project or other entity (`/agent/soul?entity=…`). Its kind decides the page; the
     /// phone resolves it with `memory.entities.get` when the page opens, since an id doesn't say which it is.
     case entity(id: String)
-    /// Home's "More" pages (I5).
+    /// A feed post (`/feed/<id>`, `/feed?post=<id>`: the morning brief, mail digest and meeting prep notifications), a
+    /// read-only page pushed on Home.
+    case feedItem(id: String)
+    /// Home's "More" pages: Notifications, and Scheduled tasks (with the past runs).
     case inbox
     case scheduled
-    case overview
-    /// Home's Feed, Ideas and Goals pages.
-    case feed
-    case ideas
-    case goals
-    /// One goal (`/goals/<id>`): the Goals list with that goal's sheet open. Goal notifications send this.
-    case goal(id: String)
-    /// One Feed post (`/feed/<id>`): the Feed with that card opened.
-    case feedPost(id: String)
     /// A Space page (`/spaces/<id>`), pushed from Home.
     case space(id: String)
     /// A Night shift review (`/home?review=<id>`, the "Prepared overnight" card and its notification), pushed from Home.
     case nightShift(id: String)
-    /// A running task or its run page (`psyche://task/<id>`, `/tasks/<id>`, the Live Activity's tap target): opens
-    /// the agent sheet on that task's run page.
+    /// A running task or its run page (`psyche://task/<id>`, `/tasks/<id>`, the Live Activity's tap target): the run
+    /// page, pushed on Home.
     case task(id: String)
-    /// The agent sheet on its Approvals segment (`/agent/approvals`). Never pushed; the router opens the sheet.
-    case agentApprovals
     /// A tab's root (`/home`, `/chat`, `/memory`, `/search`, `/library/<view>`, `/memory/review`, `/spaces`). Never pushed.
     case tab(AppTab)
     /// Settings (`/settings`, `/settings/<section>`). The phone's Settings has no section pages yet, so every section
@@ -49,12 +35,12 @@ public enum Route: Hashable, Sendable {
     case settings
 
     /// Maps the desktop's routes so a notification's `route` opens the same thing on the phone.
-    /// `/chat/<id>`, `/goals/<id>`, `/people/<id>`, `/library/<id>`, `/inbox`, `/scheduled` and
-    /// `/overview` (also `/overview/run/<id>`, which opens the overview), and the Gateway's search routes:
-    /// `/library/<view>?item=<id>` opens that Library item, `/agent/activity/<id>` opens the agent sheet for a
-    /// task. The query of `/chat/<id>?message=…`, `/feed?post=…` and `/ideas?idea=…` is ignored: those open the
-    /// thread, the Feed and the Ideas. `/agent/soul` opens the memory file list, `/agent/soul?file=<path>` one file
-    /// and `/agent/soul?entity=<id>` an entity. A file path that is absolute, has a `\`, `//`, an empty, `.` or `..`
+    /// `/chat/<id>`, `/people/<id>`, `/library/<id>`, `/inbox`, `/scheduled` and `/overview` (task history lives
+    /// in Scheduled now), and the Gateway's search routes: `/library/<view>?item=<id>` opens that Library item,
+    /// `/agent/activity/<id>` the task's run page. `/agent/approvals` opens Home, where Needs you lists them. The
+    /// query of `/chat/<id>?message=…` is ignored. `/agent/soul` and `/agent/soul?file=<path>` open the People tab
+    /// (the files are for the Mac) and `/agent/soul?entity=<id>` an entity. `/feed/<id>` and `/feed?post=<id>` open a feed post. Ideas and Goals are gone
+    /// from the phone, so their routes are unknown and open Home. A file path that is absolute, has a `\`, `//`, an empty, `.` or `..`
     /// segment, or a control character is refused (nil), as is a bad `%` escape. Returns nil for anything unknown
     /// (including `/home`); callers then open Home.
     public init?(appPath: String) {
@@ -70,7 +56,6 @@ public enum Route: Hashable, Sendable {
             } else {
                 self = .thread(id: parts[1])
             }
-        case ("goals", 2): self = .goal(id: parts[1])
         case ("people", 2): self = .person(id: parts[1])
         case ("library", 1): self = .tab(.library)
         case ("library", 2):
@@ -81,6 +66,10 @@ public enum Route: Hashable, Sendable {
             } else {
                 self = .file(id: parts[1])
             }
+        case ("feed", 2): self = .feedItem(id: parts[1])
+        case ("feed", 1):
+            guard let post = Self.queryValue("post", in: query) else { return nil }
+            self = .feedItem(id: post)
         case ("home", 1) where Self.queryValue("review", in: query) != nil:
             self = .nightShift(id: Self.queryValue("review", in: query) ?? "")
         case ("home", 1): self = .tab(.home)
@@ -93,24 +82,20 @@ public enum Route: Hashable, Sendable {
         case ("artifacts", 2): self = .artifact(id: parts[1])
         case ("inbox", 1): self = .inbox
         case ("scheduled", 1): self = .scheduled
-        case ("overview", _): self = .overview
-        case ("feed", 1): self = .feed
-        case ("feed", 2): self = .feedPost(id: parts[1])
-        case ("ideas", 1): self = .ideas
-        case ("goals", 1): self = .goals
+        case ("overview", _): self = .scheduled
         case ("spaces", 2): self = .space(id: parts[1])
         case ("task", 2), ("tasks", 2): self = .task(id: parts[1])
         case ("agent", 3) where parts[1] == "activity": self = .task(id: parts[2])
-        case ("agent", 2) where parts[1] == "approvals": self = .agentApprovals
+        case ("agent", 2) where parts[1] == "approvals": self = .tab(.home)
         case ("agent", 2) where parts[1] == "soul":
             // A file or an entity, never both. A query with neither key, or a bad value, is refused.
             if let file = Self.queryValue("file", in: query) {
                 guard Self.isSafeMemoryPath(file) else { return nil }
-                self = .memoryFile(path: file)
+                self = .tab(.memory)
             } else if let entity = Self.queryValue("entity", in: query) {
                 self = .entity(id: entity)
             } else if query.isEmpty {
-                self = .memoryFiles
+                self = .tab(.memory)
             } else {
                 return nil
             }

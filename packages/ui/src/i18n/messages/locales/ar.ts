@@ -66,7 +66,13 @@ import { settingsDrill } from "./settings-drill/ar.ts";
 import { settingsLanguage } from "./settings-language/ar.ts";
 import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
+import { simplifyB1 } from "./simplify-b1/ar.ts";
+import { simplifyB2 } from "./simplify-b2/ar.ts";
+import { simplifyB4 } from "./simplify-b4/ar.ts";
 import { simplifyB6 } from "./simplify-b6/ar.ts";
+import { simplifyB7 } from "./simplify-b7/ar.ts";
+import { simplifyB8 } from "./simplify-b8/ar.ts";
+import { simplifyB9 } from "./simplify-b9/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
 import { specialists } from "./specialists/ar.ts";
@@ -250,7 +256,7 @@ export const ar: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "لا يستطيع Psyche Helper التحكم في هذا التطبيق بعد. حاول مجددًا واختر «موافق» عندما يسأل macOS.",
   "errors.reason.full_disk_access_missing":
-    "يحتاج Psyche Helper إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche Helper.",
+    "يحتاج Psyche (Helper) إلى الوصول الكامل إلى القرص لقراءة الرسائل. فعّله في إعدادات النظام ← الخصوصية والأمن ← الوصول الكامل إلى القرص، ثم أعد تشغيل Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "لم يعرض macOS طلب الإذن. اسمح لـ Psyche Helper في إعدادات النظام ← الخصوصية والأمن بدلًا من ذلك.",
   "errors.reason.app_not_running": "هذا التطبيق غير مفتوح. افتحه ثم حاول مجددًا.",
@@ -1788,7 +1794,7 @@ export const ar: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "فتح إعدادات النظام",
   "settings.computerUse.fullDiskAccess.name": "الوصول الكامل إلى القرص",
   "settings.computerUse.fullDiskAccess.why":
-    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche Helper إلى القائمة.",
+    "يتيح لـ {persona} قراءة رسائلك. لا يعرض macOS طلب إذن له: أضف Psyche (Helper) إلى القائمة ثم أعد تشغيله.",
   "settings.computerUse.fullDiskAccess.open": "فتح «الوصول الكامل إلى القرص» في إعدادات النظام",
   "settings.computerUse.apps": "التطبيقات",
   "settings.computerUse.enabledHint":
@@ -3957,6 +3963,12 @@ export const ar: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

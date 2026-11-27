@@ -68,7 +68,13 @@ import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { simplifyB1 } from "./simplify-b1/hi.ts";
+import { simplifyB2 } from "./simplify-b2/hi.ts";
+import { simplifyB4 } from "./simplify-b4/hi.ts";
 import { simplifyB6 } from "./simplify-b6/hi.ts";
+import { simplifyB7 } from "./simplify-b7/hi.ts";
+import { simplifyB8 } from "./simplify-b8/hi.ts";
+import { simplifyB9 } from "./simplify-b9/hi.ts";
 import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
 import { update } from "./update/hi.ts";
@@ -211,7 +217,7 @@ export const hi: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper अभी इस ऐप को नियंत्रित नहीं कर सकता। दोबारा कोशिश करें और macOS के पूछने पर OK चुनें।",
   "errors.reason.full_disk_access_missing":
-    "संदेश पढ़ने के लिए Psyche Helper को फ़ुल डिस्क एक्सेस चाहिए। सिस्टम सेटिंग्स → गोपनीयता और सुरक्षा → फ़ुल डिस्क एक्सेस में इसे चालू करें, फिर Psyche Helper रीस्टार्ट करें।",
+    "संदेश पढ़ने के लिए Psyche (Helper) को फ़ुल डिस्क एक्सेस चाहिए। सिस्टम सेटिंग्स → गोपनीयता और सुरक्षा → फ़ुल डिस्क एक्सेस में इसे चालू करें, फिर Psyche (Helper) रीस्टार्ट करें।",
   "errors.reason.prompt_refused_by_macos":
     "macOS ने अनुमति का संकेत नहीं दिखाया। इसके बजाय सिस्टम सेटिंग्स → गोपनीयता और सुरक्षा में Psyche Helper को अनुमति दें।",
   "errors.reason.app_not_running": "वह ऐप खुला नहीं है। उसे खोलें, फिर दोबारा कोशिश करें।",
@@ -1747,7 +1753,7 @@ export const hi: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "सिस्टम सेटिंग्ज़ खोलें",
   "settings.computerUse.fullDiskAccess.name": "पूर्ण डिस्क ऐक्सेस",
   "settings.computerUse.fullDiskAccess.why":
-    "{persona} को आपके संदेश पढ़ने देता है। macOS इसके लिए अनुमति नहीं पूछता: सूची में Psyche Helper जोड़ें।",
+    "{persona} को आपके संदेश पढ़ने देता है। macOS इसके लिए अनुमति नहीं पूछता: सूची में Psyche (Helper) जोड़ें, फिर उसे रीस्टार्ट करें।",
   "settings.computerUse.fullDiskAccess.open": "सिस्टम सेटिंग्स में पूर्ण डिस्क ऐक्सेस खोलें",
   "settings.computerUse.apps": "ऐप",
   "settings.computerUse.enabledHint":
@@ -3905,6 +3911,12 @@ export const hi: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

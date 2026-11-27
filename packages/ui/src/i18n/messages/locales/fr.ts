@@ -60,7 +60,13 @@ import { separateDesktop } from "./separate-desktop/fr.ts";
 import { settingsDrill } from "./settings-drill/fr.ts";
 import { settingsRest } from "./settings-rest/fr.ts";
 import { shellRest } from "./shell-rest/fr.ts";
+import { simplifyB1 } from "./simplify-b1/fr.ts";
+import { simplifyB2 } from "./simplify-b2/fr.ts";
+import { simplifyB4 } from "./simplify-b4/fr.ts";
 import { simplifyB6 } from "./simplify-b6/fr.ts";
+import { simplifyB7 } from "./simplify-b7/fr.ts";
+import { simplifyB8 } from "./simplify-b8/fr.ts";
+import { simplifyB9 } from "./simplify-b9/fr.ts";
 import { spaces } from "./spaces/fr.ts";
 import { specialistsRest } from "./specialists-rest/fr.ts";
 import { update } from "./update/fr.ts";
@@ -198,7 +204,7 @@ export const fr: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper ne peut pas encore contrôler cette app. Réessayez et choisissez OK quand macOS le demande.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper a besoin de l'accès complet au disque pour lire Messages. Activez-le dans Réglages Système → Confidentialité et sécurité → Accès complet au disque, puis redémarrez Psyche Helper.",
+    "Psyche (Helper) a besoin de l'accès complet au disque pour lire Messages. Activez-le dans Réglages Système → Confidentialité et sécurité → Accès complet au disque, puis redémarrez Psyche (Helper).",
   "errors.reason.prompt_refused_by_macos":
     "macOS n'a pas affiché la demande d'autorisation. Autorisez Psyche Helper dans Réglages Système → Confidentialité et sécurité.",
   "errors.reason.app_not_running": "Cette app n'est pas ouverte. Ouvrez-la, puis réessayez.",
@@ -1745,7 +1751,7 @@ export const fr: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Ouvrir Réglages Système",
   "settings.computerUse.fullDiskAccess.name": "Accès complet au disque",
   "settings.computerUse.fullDiskAccess.why":
-    "permet à {persona} de lire vos messages. macOS ne le demande pas par une alerte : ajoutez Psyche Helper à la liste.",
+    "permet à {persona} de lire vos messages. macOS ne le demande pas par une alerte : ajoutez Psyche (Helper) à la liste, puis redémarrez-le.",
   "settings.computerUse.fullDiskAccess.open":
     "Ouvrir Accès complet au disque dans Réglages Système",
   "settings.computerUse.apps": "Apps",
@@ -3978,6 +3984,12 @@ export const fr: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

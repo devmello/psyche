@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Settings, one tap from the root of every tab: a gear at the leading edge of the navigation bar that opens the
-/// Settings sheet (the system's own pattern for an app's settings; pushed pages keep their Back button).
+/// Settings, in one place: a gear at the leading edge of Home's navigation bar that opens the Settings sheet (the
+/// system's own pattern for an app's settings; pushed pages keep their Back button).
 private struct SettingsToolbarButton: ViewModifier {
     @Environment(Router.self) private var router
 
@@ -18,6 +18,6 @@ private struct SettingsToolbarButton: ViewModifier {
 }
 
 extension View {
-    /// Adds the Settings gear to this screen's navigation bar. Apply it to a tab's root view.
+    /// Adds the Settings gear to this screen's navigation bar. Home is the only screen that uses it.
     func psycheSettingsButton() -> some View { modifier(SettingsToolbarButton()) }
 }

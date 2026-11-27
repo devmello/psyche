@@ -174,6 +174,20 @@ describe("Memory review", () => {
     expect(await screen.findByRole("menuitem", { name: "Review, 3 waiting" })).toBeTruthy();
   });
 
+  it("Confirm all takes every waiting fact in one tap, each decided on its own", async () => {
+    show(seed);
+    await screen.findAllByTestId("review-row");
+    fireEvent.click(await screen.findByTestId("review-confirm-everything"));
+    await waitFor(() => expect(screen.queryAllByTestId("review-row")).toHaveLength(0));
+    expect(
+      world.review?.items
+        .filter((i) => ["f1", "f2", "f3"].includes(i.fact.id))
+        .map((i) => i.fact.review),
+    ).toEqual(["accepted", "accepted", "accepted"]);
+    // The auto-accepted row was never in the queue, so it is untouched.
+    expect(world.review?.items.find((i) => i.fact.id === "f4")?.fact.review).toBe("auto_accepted");
+  });
+
   it("confirm moves a fact out of the queue", async () => {
     show(seed);
     const row = (await screen.findAllByTestId("review-row"))[0] as HTMLElement;

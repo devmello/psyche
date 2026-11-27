@@ -338,12 +338,14 @@ describe("LibraryScreen", () => {
       within(show)
         .getAllByRole("option")
         .map((o) => o.textContent),
-    ).toEqual(expect.arrayContaining(["Artifacts", "System files"]));
-    // Four rows: Show, Type, Source task, Date.
+    ).toEqual(expect.arrayContaining(["Made by Wren", "System files"]));
+    // Show, Type and Date; the task filter waits behind "More filters".
     expect(screen.getByLabelText("Type")).toBeTruthy();
-    expect(screen.getByLabelText("Source task")).toBeTruthy();
+    expect(screen.queryByLabelText("Task")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "More filters" }));
+    expect(screen.getByLabelText("Task")).toBeTruthy();
     expect(screen.getByLabelText("Date")).toBeTruthy();
-    await user.selectOptions(show, "Artifacts");
+    await user.selectOptions(show, "Made by Wren");
     expect(await screen.findByText("half-marathon-plan.pdf")).toBeTruthy();
   });
 
@@ -352,7 +354,8 @@ describe("LibraryScreen", () => {
     await screen.findByText("half-marathon-plan.pdf");
     const before = screen.getAllByRole("article").length;
     await user.click(screen.getByRole("button", { name: "Filter" }));
-    const task = (await screen.findByLabelText("Source task")) as HTMLSelectElement;
+    await user.click(await screen.findByRole("button", { name: "More filters" }));
+    const task = (await screen.findByLabelText("Task")) as HTMLSelectElement;
     const options = within(task).getAllByRole("option");
     expect(options[0]?.textContent).toBe("Any task");
     expect(options.length).toBeGreaterThan(1);

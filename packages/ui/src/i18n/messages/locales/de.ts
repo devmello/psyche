@@ -60,7 +60,13 @@ import { separateDesktop } from "./separate-desktop/de.ts";
 import { settingsDrill } from "./settings-drill/de.ts";
 import { settingsRest } from "./settings-rest/de.ts";
 import { shellRest } from "./shell-rest/de.ts";
+import { simplifyB1 } from "./simplify-b1/de.ts";
+import { simplifyB2 } from "./simplify-b2/de.ts";
+import { simplifyB4 } from "./simplify-b4/de.ts";
 import { simplifyB6 } from "./simplify-b6/de.ts";
+import { simplifyB7 } from "./simplify-b7/de.ts";
+import { simplifyB8 } from "./simplify-b8/de.ts";
+import { simplifyB9 } from "./simplify-b9/de.ts";
 import { spaces } from "./spaces/de.ts";
 import { specialistsRest } from "./specialists-rest/de.ts";
 import { update } from "./update/de.ts";
@@ -201,7 +207,7 @@ export const de: Partial<Catalogue> = {
   "errors.reason.automation_not_granted":
     "Psyche Helper darf diese App noch nicht steuern. Versuche es erneut und wähle „OK“, wenn macOS fragt.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper braucht Festplattenvollzugriff, um Nachrichten zu lesen. Schalte ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff ein und starte Psyche Helper dann neu.",
+    "Psyche (Helper) braucht Festplattenvollzugriff, um Nachrichten zu lesen. Schalte ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff ein und starte Psyche (Helper) dann neu.",
   "errors.reason.prompt_refused_by_macos":
     "macOS hat die Berechtigungsabfrage nicht gezeigt. Erlaube Psyche Helper stattdessen unter Systemeinstellungen → Datenschutz & Sicherheit.",
   "errors.reason.app_not_running":
@@ -1787,7 +1793,7 @@ export const de: Partial<Catalogue> = {
   "settings.computerUse.openSystemSettings": "Systemeinstellungen öffnen",
   "settings.computerUse.fullDiskAccess.name": "Festplattenvollzugriff",
   "settings.computerUse.fullDiskAccess.why":
-    "lässt {persona} deine Nachrichten lesen. macOS fragt dafür nicht nach: Füge Psyche Helper in der Liste hinzu.",
+    "lässt {persona} deine Nachrichten lesen. macOS fragt dafür nicht nach: Füge Psyche (Helper) in der Liste hinzu und starte es danach neu.",
   "settings.computerUse.fullDiskAccess.open":
     "Festplattenvollzugriff in den Systemeinstellungen öffnen",
   "settings.computerUse.apps": "Apps",
@@ -4052,6 +4058,12 @@ export const de: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...simplifyB9,
+  ...simplifyB2,
+  ...simplifyB7,
+  ...simplifyB4,
+  ...simplifyB8,
+  ...simplifyB1,
   ...desktopDialog,
   ...friction,
   ...update,

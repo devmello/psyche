@@ -79,15 +79,6 @@ export const LIVE_ANSWERS: Record<string, LiveAnswerRule[]> = {
     },
     { question: /permission|can (she|riley) go|attend|sign|signature/i, answer: ["Yes", "grant"] },
   ],
-  "v6-messages-voice-note": [
-    {
-      question: /handle|phone|number|e-?mail|imessage|address|contact/i,
-      answer: "lena@studio.example.net",
-      literal: true,
-    },
-    { question: /time|when|day/i, answer: "Thursday at 3 PM", literal: true },
-    { question: /voice/i, answer: "Yes" },
-  ],
   // What the owner keeps and cancels (the scenario's s2 message says the same).
   "v8-subscription-audit": [
     { question: /cancel/i, answer: ["StreamFlix", "PhotoLab"] },

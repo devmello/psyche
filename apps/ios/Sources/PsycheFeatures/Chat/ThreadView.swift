@@ -311,9 +311,6 @@ struct ThreadView: View {
     /// fork from; compact and clear wait while Psyche runs (the Gateway refuses them then anyway).
     private var chatMenu: some View {
         Menu {
-            Button { router.sheet = .agent } label: {
-                Label(String(localized: "Psyche's activity", bundle: .module), systemImage: "sparkles")
-            }
             Button {
                 renameText = model.phase.value?.title ?? ""
                 renaming = true

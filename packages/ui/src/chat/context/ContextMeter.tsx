@@ -36,6 +36,8 @@ export interface ContextMeterProps {
   /** Opens this chat's own context limits. */
   onEditLimits?: () => void;
   compacting?: boolean;
+  /** At rest the header shows only a small "Chat is getting long" chip; the popover is the same. */
+  chip?: boolean;
 }
 
 /**
@@ -48,6 +50,7 @@ export function ContextMeter({
   onCompact,
   onEditLimits,
   compacting = false,
+  chip = false,
 }: ContextMeterProps): ReactElement {
   const tone = contextTone(usage);
   const pct = percent(usage.used, usage.limit);
@@ -69,25 +72,33 @@ export function ContextMeter({
           />
         }
       >
-        <span className={cn("tabular-nums", TONE[tone].text)} aria-hidden="true">
-          {formatTokens(usage.used)} / {formatTokens(usage.limit)}
-        </span>
-        <span
-          className="relative h-1.5 w-10 overflow-hidden rounded-full bg-gray-4"
-          aria-hidden="true"
-        >
-          <span
-            className={cn("absolute inset-y-0 start-0 rounded-full", TONE[tone].bar)}
-            style={{ width: `${pct}%` }}
-          />
-        </span>
-        {usage.exact ? null : (
-          <span
-            className="rounded-xs bg-gray-3 px-1 text-caption text-muted-foreground"
-            aria-hidden="true"
-          >
-            {t("context.meter.estimateBadge")}
+        {chip ? (
+          <span className={TONE[tone].text} aria-hidden="true">
+            {t("simplify.b1.contextLong")}
           </span>
+        ) : (
+          <>
+            <span className={cn("tabular-nums", TONE[tone].text)} aria-hidden="true">
+              {formatTokens(usage.used)} / {formatTokens(usage.limit)}
+            </span>
+            <span
+              className="relative h-1.5 w-10 overflow-hidden rounded-full bg-gray-4"
+              aria-hidden="true"
+            >
+              <span
+                className={cn("absolute inset-y-0 start-0 rounded-full", TONE[tone].bar)}
+                style={{ width: `${pct}%` }}
+              />
+            </span>
+            {usage.exact ? null : (
+              <span
+                className="rounded-xs bg-gray-3 px-1 text-caption text-muted-foreground"
+                aria-hidden="true"
+              >
+                {t("context.meter.estimateBadge")}
+              </span>
+            )}
+          </>
         )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">

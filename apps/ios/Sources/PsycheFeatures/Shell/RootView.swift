@@ -102,21 +102,21 @@ struct MainTabs: View {
             }
             Tab(value: AppTab.library) {
                 NavigationStack(path: $router.libraryPath) {
-                    LibraryView().routeDestinations().psycheSettingsButton()
+                    LibraryView().routeDestinations()
                 }
             } label: {
                 tabLabel(String(localized: "Library", bundle: .module), symbol: "books.vertical", tab: .library)
             }
             Tab(value: AppTab.memory) {
                 NavigationStack(path: $router.memoryPath) {
-                    MemoryView(store: store).routeDestinations().psycheSettingsButton()
+                    MemoryView(store: store).routeDestinations()
                 }
             } label: {
-                tabLabel(String(localized: "Memory", bundle: .module), symbol: "bookmark", tab: .memory)
+                tabLabel(String(localized: "People", bundle: .module), symbol: "person.2", tab: .memory)
             }
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $router.searchPath) {
-                    SearchView(store: store).routeDestinations().psycheSettingsButton()
+                    SearchView(store: store).routeDestinations()
                 }
             }
         }
@@ -158,11 +158,6 @@ struct MainTabs: View {
                 if let detail = item.question {
                     QuestionSheet(item: item, detail: detail).tint(PsycheColor.inkText)
                 }
-            case .agent:
-                // The sheet grows out of the avatar that opened it (a zoom from the toolbar button).
-                AgentSheet(store: store)
-                    .tint(PsycheColor.inkText)
-                    .psycheZoomDestination(id: AgentButton.zoomID, in: zoom)
             case .settings:
                 SettingsSheet(store: store).tint(PsycheColor.inkText)
             }

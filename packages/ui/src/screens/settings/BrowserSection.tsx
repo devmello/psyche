@@ -1,10 +1,7 @@
 import type { BotAuthStatus, BrowserAgentSettings } from "@psyche/protocol";
 import {
-  BROWSER_DEV_PREVIEW_PORTS_ENV,
   BROWSER_DEV_PREVIEW_PORTS_KEY,
-  BROWSER_PARTITION_ENV,
   BROWSER_PARTITION_KEY,
-  BROWSER_SIGNED_IN_ORIGINS_ENV,
   BROWSER_SIGNED_IN_ORIGINS_KEY,
   type BrowserPartitionMode,
   DEFAULT_BROWSER_PARTITION,
@@ -172,17 +169,10 @@ function refusalText(reason: OriginRefusal): string {
   }
 }
 
-const ENV_NAME: Record<string, string> = {
-  partition: BROWSER_PARTITION_ENV,
-  signedInOrigins: BROWSER_SIGNED_IN_ORIGINS_ENV,
-  devPreviewPorts: BROWSER_DEV_PREVIEW_PORTS_ENV,
-};
-
 /**
- * Settings → Browser "Agent sign-ins": the sign-in mode, the sites the agent may use signed in,
- * and the loopback dev-preview ports. Each is an admin setting, so a change that widens what the
+ * Settings → Browser "Agent sign-ins": the sign-in mode and the sites the agent may use signed in. Each is an admin setting, so a change that widens what the
  * agent can do asks for presence (the Gateway's `needsPresence`); narrowing applies at once. When
- * an environment variable sets one (a development override), it shows read-only.
+ * the setup fixes one (a development override), it shows read-only in plain words.
  */
 export function AgentBrowserGroup({
   agent,
@@ -201,10 +191,8 @@ export function AgentBrowserGroup({
 }): ReactElement {
   const partition = agent?.partition;
   const origins = agent?.signedInOrigins;
-  const ports = agent?.devPreviewPorts;
   const modeEnv = partition?.source === "env";
   const originsEnv = origins?.source === "env";
-  const portsEnv = ports?.source === "env";
   const mode: BrowserPartitionMode = modeEnv
     ? partition.value
     : (parseBrowserPartition(values[BROWSER_PARTITION_KEY]) ?? DEFAULT_BROWSER_PARTITION);
@@ -212,11 +200,6 @@ export function AgentBrowserGroup({
     ? origins.value
     : Array.isArray(values[BROWSER_SIGNED_IN_ORIGINS_KEY])
       ? (values[BROWSER_SIGNED_IN_ORIGINS_KEY] as string[])
-      : [];
-  const portList: number[] = portsEnv
-    ? ports.value
-    : Array.isArray(values[BROWSER_DEV_PREVIEW_PORTS_KEY])
-      ? (values[BROWSER_DEV_PREVIEW_PORTS_KEY] as number[])
       : [];
   const useSignedIn = useSignedInOf(values);
   // The one list: sites chosen here (live from the form) plus the ones the browser is signed in to.
@@ -236,8 +219,6 @@ export function AgentBrowserGroup({
   };
   const [siteDraft, setSiteDraft] = useState("");
   const [siteError, setSiteError] = useState<string | null>(null);
-  const [portDraft, setPortDraft] = useState("");
-  const [portError, setPortError] = useState<string | null>(null);
 
   const addSite = (): void => {
     const r = normalizeBrowserOrigin(siteDraft);
@@ -251,23 +232,6 @@ export function AgentBrowserGroup({
       onChange(BROWSER_SIGNED_IN_ORIGINS_KEY, [...siteList, r.origin]);
     }
   };
-  const addPort = (): void => {
-    const n = portDraft.trim() === "" ? Number.NaN : Number(portDraft);
-    const r = normalizeDevPreviewPort(n);
-    if (!r.ok) {
-      setPortError(t("settings.browser.agent.refuse.port"));
-      return;
-    }
-    setPortError(null);
-    setPortDraft("");
-    if (!portList.includes(r.port)) {
-      onChange(
-        BROWSER_DEV_PREVIEW_PORTS_KEY,
-        [...portList, r.port].sort((a, b) => a - b),
-      );
-    }
-  };
-
   const modeOptions: { value: BrowserPartitionMode; label: string }[] = [
     { value: "clean", label: t("settings.browser.agent.mode.clean") },
     { value: "auto", label: t("settings.browser.agent.mode.auto") },
@@ -284,7 +248,7 @@ export function AgentBrowserGroup({
           <p className="text-callout" data-testid="agent-browser-mode-env">
             {t("settings.browser.agent.mode.label")}: {t(`settings.browser.agent.mode.${mode}`)}
             <span className="block text-muted-foreground">
-              {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.partition ?? "" })}
+              {t("simplify.b7.browser.fromSetup")}
             </span>
           </p>
         ) : (
@@ -310,7 +274,7 @@ export function AgentBrowserGroup({
         </p>
         {originsEnv ? (
           <p className="text-callout text-muted-foreground" data-testid="agent-browser-sites-env">
-            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.signedInOrigins ?? "" })}
+            {t("simplify.b7.browser.fromSetup")}
           </p>
         ) : null}
         {siteList.length === 0 && otherSites.length === 0 ? (
@@ -413,15 +377,58 @@ export function AgentBrowserGroup({
           </p>
         ) : null}
       </div>
+    </Group>
+  );
+}
 
+/**
+ * Settings → Browser → Advanced "Dev preview ports": the loopback ports the agent may open to
+ * preview an app it is building. An admin setting like the sites list: widening asks for presence.
+ */
+export function DevPreviewPortsGroup({
+  agent,
+  values,
+  onChange,
+}: {
+  agent: BrowserAgentSettings | null | undefined;
+  values: Readonly<Record<string, unknown>>;
+  onChange: (key: string, value: unknown) => void;
+}): ReactElement {
+  const ports = agent?.devPreviewPorts;
+  const portsEnv = ports?.source === "env";
+  const portList: number[] = portsEnv
+    ? ports.value
+    : Array.isArray(values[BROWSER_DEV_PREVIEW_PORTS_KEY])
+      ? (values[BROWSER_DEV_PREVIEW_PORTS_KEY] as number[])
+      : [];
+  const [portDraft, setPortDraft] = useState("");
+  const [portError, setPortError] = useState<string | null>(null);
+  const addPort = (): void => {
+    const n = portDraft.trim() === "" ? Number.NaN : Number(portDraft);
+    const r = normalizeDevPreviewPort(n);
+    if (!r.ok) {
+      setPortError(t("settings.browser.agent.refuse.port"));
+      return;
+    }
+    setPortError(null);
+    setPortDraft("");
+    if (!portList.includes(r.port)) {
+      onChange(
+        BROWSER_DEV_PREVIEW_PORTS_KEY,
+        [...portList, r.port].sort((a, b) => a - b),
+      );
+    }
+  };
+
+  return (
+    <Group
+      title={t("settings.browser.agent.ports.title")}
+      description={t("settings.browser.agent.ports.description")}
+    >
       <div className="flex flex-col gap-2" data-testid="agent-browser-ports">
-        <p className="font-medium">{t("settings.browser.agent.ports.title")}</p>
-        <p className="text-callout text-muted-foreground">
-          {t("settings.browser.agent.ports.description")}
-        </p>
         {portsEnv ? (
           <p className="text-callout text-muted-foreground" data-testid="agent-browser-ports-env">
-            {t("settings.browser.agent.fromEnv", { variable: ENV_NAME.devPreviewPorts ?? "" })}
+            {t("simplify.b7.browser.fromSetup")}
           </p>
         ) : null}
         {portList.length === 0 ? (
@@ -543,69 +550,6 @@ export function BrowserPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group
-          title={t("settings.key.browser.realChrome")}
-          description={t("settings.browser.realChromeDescription")}
-        >
-          <SwitchField
-            label={t("settings.browser.letTasksUse", { profile: profileLabel })}
-            description={t("settings.browser.letTasksUseHint")}
-            checked={setting.enabled}
-            settingKey={REAL_CHROME_KEY}
-            onChange={(enabled) => onChange(REAL_CHROME_KEY, { ...setting, enabled })}
-          />
-        </Group>
-        <Group
-          title={profileLabel[0]?.toUpperCase() + profileLabel.slice(1)}
-          description={t("settings.browser.profileDescription", { persona })}
-        >
-          <details className="text-callout text-muted-foreground">
-            <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
-            <p className="mt-1">{t("settings.browser.detailsText", { persona })}</p>
-            <p className="mt-1">
-              {t("settings.browser.profilePath.profile")}{" "}
-              <code className="font-mono">{profile}</code> {t("settings.browser.profilePath.in")}{" "}
-              <code className="font-mono">$PSYCHE_HOME/browser/real-chrome/{profile}</code>
-            </p>
-          </details>
-          {onOpenProfile ? (
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setOpened(null);
-                  onOpenProfile(profile).then(
-                    (r) =>
-                      setOpened({
-                        kind: "ok",
-                        text: t("settings.browser.opened", { path: r.path }),
-                      }),
-                    (err: unknown) =>
-                      setOpened({
-                        kind: "error",
-                        text: t("settings.browser.openFailed", { reason: messageOf(err) }),
-                      }),
-                  );
-                }}
-              >
-                <ExternalLink aria-hidden="true" /> {t("settings.browser.openProfile")}
-              </Button>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">{t("settings.browser.openFromMac")}</p>
-          )}
-          {opened ? (
-            opened.kind === "error" ? (
-              <ErrorNotice what={opened.text} did={t("settings.shared.nothingChanged")} />
-            ) : (
-              <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
-                {opened.text}
-              </p>
-            )
-          ) : null}
-        </Group>
         <AgentBrowserGroup
           agent={agentSettings}
           values={values}
@@ -613,21 +557,85 @@ export function BrowserPanel({
           {...(signedInSites ? { signedInSites } : {})}
           {...(onForgotten ? { onForgotten } : {})}
         />
-        <Group
-          title={t("settings.browser.useSignedIn.title")}
-          description={t("settings.browser.useSignedIn.description", { persona })}
-        >
-          <SwitchField
-            label={t("settings.browser.useSignedIn.label")}
-            description={t("settings.browser.useSignedIn.hint")}
-            checked={useSignedIn}
-            settingKey={USE_SIGNED_IN_KEY}
-            onChange={(on) => onChange(USE_SIGNED_IN_KEY, on)}
-          />
-        </Group>
-        {cookieImport ? <CookieImportGroup api={cookieImport} /> : null}
-        {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
-        <Advanced description={t("settings.browser.advancedHint")}>
+        <Advanced description={t("simplify.b7.browser.advancedHint")}>
+          <Group
+            title={t("settings.key.browser.realChrome")}
+            description={t("settings.browser.realChromeDescription")}
+          >
+            <SwitchField
+              label={t("settings.browser.letTasksUse", { profile: profileLabel })}
+              description={t("settings.browser.letTasksUseHint")}
+              checked={setting.enabled}
+              settingKey={REAL_CHROME_KEY}
+              onChange={(enabled) => onChange(REAL_CHROME_KEY, { ...setting, enabled })}
+            />
+          </Group>
+          <Group
+            title={profileLabel[0]?.toUpperCase() + profileLabel.slice(1)}
+            description={t("settings.browser.profileDescription", { persona })}
+          >
+            <details className="text-callout text-muted-foreground">
+              <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
+              <p className="mt-1">{t("settings.browser.detailsText", { persona })}</p>
+              <p className="mt-1">
+                {t("settings.browser.profilePath.profile")}{" "}
+                <code className="font-mono">{profile}</code> {t("settings.browser.profilePath.in")}{" "}
+                <code className="font-mono">$PSYCHE_HOME/browser/real-chrome/{profile}</code>
+              </p>
+            </details>
+            {onOpenProfile ? (
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setOpened(null);
+                    onOpenProfile(profile).then(
+                      (r) =>
+                        setOpened({
+                          kind: "ok",
+                          text: t("settings.browser.opened", { path: r.path }),
+                        }),
+                      (err: unknown) =>
+                        setOpened({
+                          kind: "error",
+                          text: t("settings.browser.openFailed", { reason: messageOf(err) }),
+                        }),
+                    );
+                  }}
+                >
+                  <ExternalLink aria-hidden="true" /> {t("settings.browser.openProfile")}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">{t("settings.browser.openFromMac")}</p>
+            )}
+            {opened ? (
+              opened.kind === "error" ? (
+                <ErrorNotice what={opened.text} did={t("settings.shared.nothingChanged")} />
+              ) : (
+                <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
+                  {opened.text}
+                </p>
+              )
+            ) : null}
+          </Group>
+          <Group
+            title={t("settings.browser.useSignedIn.title")}
+            description={t("settings.browser.useSignedIn.description", { persona })}
+          >
+            <SwitchField
+              label={t("settings.browser.useSignedIn.label")}
+              description={t("settings.browser.useSignedIn.hint")}
+              checked={useSignedIn}
+              settingKey={USE_SIGNED_IN_KEY}
+              onChange={(on) => onChange(USE_SIGNED_IN_KEY, on)}
+            />
+          </Group>
+          {cookieImport ? <CookieImportGroup api={cookieImport} /> : null}
+          {teachStorage ? <TeachStorageGroup status={teachStorage} /> : null}
+          <DevPreviewPortsGroup agent={agentSettings} values={values} onChange={onChange} />
           <Group
             title={t("settings.key.browser.botAuth")}
             description={t("settings.browser.botAuthDescription", { persona })}

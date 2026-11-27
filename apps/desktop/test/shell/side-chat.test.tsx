@@ -128,6 +128,34 @@ function slotsFor(current: () => SearchHit): ShellSlots {
 const openPalette = () =>
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
 
+describe("toolbar and palette wording", () => {
+  it("has no Globe button, but ⌘K still offers the browser and 'Change model'", async () => {
+    window.history.replaceState(null, "", `/chat/${MAIN.thread.id}`);
+    const { platform } = setup();
+    const withBrowser = { ...platform, browser: {} } as unknown as ShellPlatform;
+    const labels: string[] = [];
+    render(
+      <ShellApp
+        platform={withBrowser}
+        slots={{
+          palette: ({ open, actions }) => {
+            if (open) for (const a of actions) labels.push(a.label);
+            return null;
+          },
+        }}
+      />,
+    );
+    await screen.findByTestId("shell");
+    expect(screen.queryByTestId("browser-toggle")).toBeNull();
+    act(() => openPalette());
+    await waitFor(() => expect(labels.length).toBeGreaterThan(0));
+    expect(labels).toContain("Open browser");
+    expect(labels).toContain("Change model");
+    expect(labels).toContain("Open terminal");
+    expect(labels).not.toContain("/model");
+  });
+});
+
 describe("⌘L: open a search result in a side chat", () => {
   it("opens a chat about the chat result beside the current view, without cloning it", async () => {
     window.history.replaceState(null, "", `/chat/${MAIN.thread.id}`);

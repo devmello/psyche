@@ -5,7 +5,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.nav.mail": "E-mail e reuniões",
   "settings.mail.title": "E-mail e reuniões",
   "settings.mail.description":
-    "O que a Wren faz com seu e-mail e sua agenda. Ela salva rascunhos e propõe ações; nada é enviado, compartilhado, aceito ou recusado sem a sua aprovação.",
+    "O que a {persona} faz com seu e-mail e sua agenda. Ela salva rascunhos e propõe ações; nada é enviado, compartilhado, aceito ou recusado sem a sua aprovação.",
   "settings.mail.quietHours": "O horário de silêncio fica em Notificações.",
   "settings.mail.loadFailed": "Não foi possível carregar os ajustes de e-mail e reuniões.",
 
@@ -29,7 +29,7 @@ export const mailMeetings: Partial<Catalogue> = {
 
   "settings.mail.paused.hint": "Pausa todas as tarefas de e-mail e reuniões até você reativar.",
   "settings.mail.readOnly.hint":
-    "Resumos e preparações continuam chegando. A Wren não propõe ações nem cria rascunhos.",
+    "Resumos e preparações continuam chegando. A {persona} não propõe ações nem cria rascunhos.",
 
   "settings.mail.accounts.none": "Nenhuma conta de e-mail conectada. Conecte uma em Conectores.",
   "settings.mail.accounts.use": "Usar {account} no resumo e nas pendências",
@@ -52,7 +52,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.followups.showTwice.hint": "Depois de dois resumos, ela fica em silêncio.",
 
   "settings.mail.voice.learn.hint":
-    "A Wren lê apenas o que você escreveu nos e-mails enviados, sem texto citado nem assinaturas. O perfil fica neste Mac, em mail/VOICE.md.",
+    "A {persona} lê apenas o que você escreveu nos e-mails enviados, sem texto citado nem assinaturas. O perfil fica neste Mac, em mail/VOICE.md.",
   "settings.mail.voice.profile": "Perfil de escrita",
   "settings.mail.voice.view": "Ver",
   "settings.mail.voice.edit": "Editar",
@@ -88,7 +88,7 @@ export const mailMeetings: Partial<Catalogue> = {
     "Não faz nada até você adicionar áudio: um Memorando de Voz, um arquivo ou uma gravação que você iniciar.",
   "settings.mail.notes.folder": "Pasta de gravações",
   "settings.mail.notes.folder.hint":
-    "Uma pasta que a Wren pode ler. Conceda acesso em Acesso a arquivos.",
+    "Uma pasta que a {persona} pode ler. Conceda acesso em Acesso a arquivos.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "Endpoint de transcrição",
   "settings.mail.transcribe.endpoint.hint":
@@ -111,7 +111,7 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.poll.active": "Enquanto você está ativo",
   "settings.mail.poll.idle": "Nos demais momentos",
   "settings.mail.poll.hint":
-    "Com que frequência a Wren procura novos e-mails. Mais rápido gasta mais bateria.",
+    "Com que frequência a {persona} procura novos e-mails. Mais rápido gasta mais bateria.",
 
   "settings.key.workflows.paused": "Pausar todos os fluxos de e-mail e reuniões",
   "settings.key.workflows.readOnly": "Somente leitura (apenas resumos e preparação)",
