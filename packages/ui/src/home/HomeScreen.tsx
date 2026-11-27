@@ -9,6 +9,7 @@ import { useSlots } from "../slots.tsx";
 import { HomeSpacesSection } from "../spaces/HomeSpacesSection.tsx";
 import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { CatchUp } from "./CatchUp.tsx";
+import { HelperPausedLine, MovedFactsNote } from "./HomeNotes.tsx";
 import { useRouteRepeat } from "./route-repeat.ts";
 import {
   AskSection,
@@ -109,6 +110,8 @@ export function HomeScreen({
           {...clock}
         />
         <SuggestionsSection accent={false} limit={2} onNavigate={navigate} />
+        <HelperPausedLine />
+        <MovedFactsNote onNavigate={navigate} />
         <HomeQuietLine />
         <MoreSection
           onNavigate={navigate}

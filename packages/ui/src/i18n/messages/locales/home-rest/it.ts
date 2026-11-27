@@ -46,5 +46,11 @@ export const homeRest: Partial<Catalogue> = {
   "home.more.memoryReview": "Revisione della memoria",
   "home.quiet":
     "Per ora nulla ha bisogno di te. Le approvazioni, il tuo riepilogo giornaliero e le nuove idee compariranno qui.",
+  "home.helperPaused": "Mail e Messaggi sono in pausa finché l'assistente è offline.",
+  "home.helperPaused.open": "Apri Dispositivi",
+  "home.movedFacts":
+    "{n, plural, one {# dato appreso dai messaggi di altre persone attende la tua revisione.} other {# dati appresi dai messaggi di altre persone attendono la tua revisione.}}",
+  "home.movedFacts.review": "Rivedi",
+  "home.movedFacts.dismiss": "Nascondi",
   "home.loadFailed": "Impossibile caricare {what}.",
 };

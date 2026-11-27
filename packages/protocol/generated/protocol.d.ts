@@ -8182,8 +8182,13 @@ export interface MemoryReviewListResult {
 
 export interface MemoryReviewListResultCounts {
     autoAccepted: number;
-    pending:      number;
-    quarantined:  number;
+    /**
+     * Facts the 2026-11 trust migration moved to review that still wait (absent on an older
+     * Gateway)
+     */
+    movedPending?: number;
+    pending:       number;
+    quarantined:   number;
 }
 
 export interface ReviewItem {

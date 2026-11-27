@@ -2,32 +2,32 @@ import Testing
 
 @testable import PsycheFeatures
 
-/// Every `route:` path the Gateway emits (`/goals/<id>`, `/feed/<id>`, `/tasks/<id>`, `/agent/approvals`, …) and what
+/// Every `route:` path the Gateway emits (`/tasks/<id>`, `/agent/approvals`, `/goals/<id>`, …) and what
 /// the phone opens for it. A nil is a route the phone refuses, and the caller opens Home.
 @Suite struct EmittedRouteTests {
     @Test(arguments: [
-        // Goal notifications (checkin, service, ideas) send /goals/<goalId>: the goal's sheet, not Memory's project.
-        ("/goals/goal_1", Route.goal(id: "goal_1")),
-        ("/goals/halfMarathon", Route.goal(id: "halfMarathon")),
-        ("/goals", Route.goals),
-        ("/goals?add=1", Route.goals),
-        // Feed posts: daily brief, mail digest, meeting prep and notes.
-        ("/feed/post_1", Route.feedPost(id: "post_1")),
-        ("/feed", Route.feed),
-        ("/feed?post=p1", Route.feed),
+        // Goals and Ideas are not on the phone any more: nil, so the caller opens Home. A feed post opens its page.
+        ("/goals/goal_1", nil),
+        ("/goals", nil),
+        ("/goals?add=1", nil),
+        ("/feed/post_1", Route.feedItem(id: "post_1")),
+        ("/feed", nil),
+        ("/feed?post=p1", Route.feedItem(id: "p1")),
+        ("/ideas", nil),
         // Tasks: compose, computer use and the Live Activity tap.
         ("/tasks/task_9", Route.task(id: "task_9")),
         ("/tasks/1", Route.task(id: "1")),
         ("/task/task_9", Route.task(id: "task_9")),
         ("/agent/activity/task_9", Route.task(id: "task_9")),
-        ("/agent/approvals", Route.agentApprovals),
+        // Approvals wait in Home's Needs you.
+        ("/agent/approvals", Route.tab(.home)),
         // Home pages the Gateway also names.
         ("/inbox", Route.inbox),
         ("/scheduled", Route.scheduled),
-        ("/overview", Route.overview),
-        ("/overview#now", Route.overview),
-        ("/ideas", Route.ideas),
-        ("/agent/soul", Route.memoryFiles),
+        // Task history is the Past section of Scheduled tasks.
+        ("/overview", Route.scheduled),
+        ("/overview#now", Route.scheduled),
+        ("/agent/soul", Route.tab(.memory)),
         ("/chat/thr_1", Route.thread(id: "thr_1")),
         // Tab roots the Gateway names.
         ("/home", Route.tab(.home)),

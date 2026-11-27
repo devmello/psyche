@@ -92,13 +92,14 @@ export function useMemoryReview(): MemoryReviewState {
           ...(action.never === undefined ? {} : { never: action.never }),
         });
       }),
+    // Per id on the Gateway (`memory.review.decide` decides each fact through the same path as a
+    // single tap); more than 200 go in batches, never silently cut.
     actGroup: (items, decision) =>
-      write(() =>
-        call("memory.review.decide", {
-          factIds: items.map((i) => i.fact.id).slice(0, 200),
-          decision,
-        }),
-      ),
+      write(async () => {
+        const ids = items.map((i) => i.fact.id);
+        for (let at = 0; at < ids.length; at += 200)
+          await call("memory.review.decide", { factIds: ids.slice(at, at + 200), decision });
+      }),
     actQuarantine: (item, action) =>
       write(() => call("memory.quarantine.decide", { id: item.id, action })),
   };

@@ -467,6 +467,30 @@ struct GatewayBackendTests {
         #expect(marked.all == ["n1,n2"])
     }
 
+    @Test func approvalNoticeKeepsItsApprovalIDSoATapOpensTheSheet() async throws {
+        let (backend, _) = try await live { g in
+            g.on("notifications.list") { _ in .success(.object(["notifications": .array([
+                .object(["id": "n1", "kind": "approval", "title": "Approve", "body": "", "route": "/agent/approvals",
+                         "approvalId": "ap9", "createdAt": "2030-01-01T09:12:00Z", "readAt": .null, "resolvedAt": .null]),
+                .object(["id": "n2", "kind": "briefing", "title": "Your day", "body": "", "route": "/feed/post_1",
+                         "approvalId": .null, "createdAt": "2030-01-01T09:12:00Z", "readAt": .null, "resolvedAt": .null]),
+            ])])) }
+        }
+        let inbox = try await backend.inbox()
+        #expect(inbox.first { $0.id == "n1" }?.needsYouID == "ap9")
+        // Control: a notice that is not an approval never carries one.
+        #expect(inbox.first { $0.id == "n2" }?.needsYouID == nil)
+    }
+
+    @Test func homeDoesNotAskForNudges() async throws {
+        let (backend, h) = try await live { g in
+            g.on("approvals.list") { _ in .success(.object(["approvals": .array([])])) }
+            g.on("questions.list") { _ in .success(.object(["inputRequests": .array([])])) }
+        }
+        _ = try await backend.home()
+        #expect(h.gateway.received.contains { $0.method == "nudges.list" } == false)
+    }
+
     @Test func noticeKeysAndButtonsMapButApprovalsKeepTheirOwn() async throws {
         let resolved = OutboxTests.Sent()
         let (backend, _) = try await live { g in

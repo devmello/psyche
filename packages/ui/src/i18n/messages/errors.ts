@@ -80,7 +80,7 @@ export const errors = {
   "errors.reason.automation_not_granted":
     "Psyche Helper isn't allowed to control this app yet. Try again and choose OK when macOS asks.",
   "errors.reason.full_disk_access_missing":
-    "Psyche Helper needs Full Disk Access to read Messages. Turn it on in System Settings → Privacy & Security → Full Disk Access, then restart Psyche Helper.",
+    "Psyche (Helper) needs Full Disk Access to read Messages. Add it in System Settings → Privacy & Security → Full Disk Access, then restart it.",
   "errors.reason.prompt_refused_by_macos":
     "macOS didn't show the permission prompt. Allow Psyche Helper in System Settings → Privacy & Security instead.",
   "errors.reason.app_not_running": "That app isn't open. Open it, then try again.",

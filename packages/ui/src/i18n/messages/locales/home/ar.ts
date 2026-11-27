@@ -46,6 +46,12 @@ export const home: Partial<Catalogue> = {
   "home.more.brief": "إعدادات الموجز",
   "home.more.memoryReview": "مراجعة الذاكرة",
   "home.quiet": "لا شيء يحتاج إليك الآن. ستظهر هنا الموافقات وموجزك اليومي والأفكار الجديدة.",
+  "home.helperPaused": "البريد والرسائل متوقفان مؤقتًا ما دام المساعد غير متصل.",
+  "home.helperPaused.open": "فتح الأجهزة",
+  "home.movedFacts":
+    "{n, plural, one {# معلومة مأخوذة من رسائل أشخاص آخرين بانتظار مراجعتك.} other {# معلومات مأخوذة من رسائل أشخاص آخرين بانتظار مراجعتك.}}",
+  "home.movedFacts.review": "مراجعة",
+  "home.movedFacts.dismiss": "إخفاء",
   "home.loadFailed": "تعذّر تحميل {what}.",
   "people.page.title": "الأشخاص",
   "people.page.count":

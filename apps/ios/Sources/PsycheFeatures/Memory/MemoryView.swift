@@ -3,14 +3,32 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Memory (docs/design/ios-app-2026.md §4.5): To-do, Work and People. A native `List` with a large title and
-/// `.searchable`; the owner's own content comes first. Pause, the Learning pages and the memory files are in the
-/// toolbar menu.
+/// The People tab (docs/design/ios-app-2026.md §4.5; the code still says Memory): To-do, Work and People. A native
+/// `List` with a large title and `.searchable`; the owner's own content comes first. Pause and Remember this are in
+/// the toolbar menu; what Psyche learned, recent changes, held-back items and the memory files are for the Mac.
 struct MemoryView: View {
     private let motion = MotionContext()
     enum Segment: String, CaseIterable, Identifiable {
         case todo = "To-do", work = "Work", people = "People"
         var id: String { rawValue }
+
+        /// The segment's name as the owner reads it. The raw value is a stable English key, never shown.
+        var title: String {
+            switch self {
+            case .todo: String(localized: "To-do", bundle: .module)
+            case .work: String(localized: "Work", bundle: .module)
+            case .people: String(localized: "People", bundle: .module)
+            }
+        }
+
+        /// The search field's prompt, one whole localized string per segment.
+        var searchPrompt: String {
+            switch self {
+            case .todo: String(localized: "Search to-dos", bundle: .module)
+            case .work: String(localized: "Search projects", bundle: .module)
+            case .people: String(localized: "Search people", bundle: .module)
+            }
+        }
     }
 
     @State private var model: MemoryModel
@@ -43,11 +61,11 @@ struct MemoryView: View {
                 header
                 content
             }
-            .navigationTitle(String(localized: "Memory", bundle: .module))
+            .navigationTitle(String(localized: "People", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
             #endif
-            .searchable(text: $model.query, prompt: String(localized: "Search \(segment.rawValue.lowercased())", bundle: .module))
+            .searchable(text: $model.query, prompt: segment.searchPrompt)
             .autocorrectionDisabled()
             .toolbar { ToolbarItem(placement: .primaryAction) { moreMenu } }
             .refreshable { await model.load() }
@@ -85,7 +103,7 @@ struct MemoryView: View {
     // MARK: Header
 
     /// The owner's own content comes first: the segment picker, then (only when they matter) a paused note and the
-    /// claims waiting to be confirmed. Pause, Learning and Memory files live in the toolbar menu.
+    /// claims waiting to be confirmed. Pause and Remember this live in the toolbar menu.
     @ViewBuilder
     private var header: some View {
         if session.state.showsBanner {
@@ -95,8 +113,8 @@ struct MemoryView: View {
         // The picker and each note get their own section, so "To confirm" is a full rounded row with space
         // above it instead of a clipped row glued under the picker.
         Section {
-            Picker(String(localized: "Memory", bundle: .module), selection: $segment) {
-                ForEach(Segment.allCases) { Text(LocalizedStringKey($0.rawValue), bundle: .module).tag($0) }
+            Picker(String(localized: "People", bundle: .module), selection: $segment) {
+                ForEach(Segment.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .listRowBackground(Color.clear)
@@ -142,7 +160,7 @@ struct MemoryView: View {
         .padding(.vertical, 4)
     }
 
-    /// Everything that used to sit above the content: pause, the Learning pages, Remember this and the memory files.
+    /// Pause memory (when capture is on) and Remember this. "To confirm" is the row under the picker, only when there's something to confirm.
     private var moreMenu: some View {
         Menu {
             if let paused = pauseModel.paused, !paused {
@@ -152,25 +170,8 @@ struct MemoryView: View {
                     Label(String(localized: "Pause memory", bundle: .module), systemImage: "pause.circle")
                 }
             }
-            Section(String(localized: "Learning", bundle: .module)) {
-                Button { router.memoryPath.append(.learning) } label: {
-                    Label(String(localized: "What Psyche learned", bundle: .module), systemImage: "graduationcap")
-                }
-                Button { router.memoryPath.append(.claims) } label: {
-                    Label(String(localized: "To confirm", bundle: .module), systemImage: "questionmark.circle")
-                }
-                Button { router.memoryPath.append(.recentChanges) } label: {
-                    Label(String(localized: "Recent changes", bundle: .module), systemImage: "clock.arrow.circlepath")
-                }
-                Button { router.memoryPath.append(.reviewQueue) } label: {
-                    Label(String(localized: "Held back", bundle: .module), systemImage: "tray")
-                }
-                Button { remembering = true } label: {
-                    Label(String(localized: "Remember this", bundle: .module), systemImage: "plus.bubble")
-                }
-            }
-            Button { router.memoryPath.append(.memoryFiles) } label: {
-                Label(String(localized: "Memory files", bundle: .module), systemImage: "doc.text")
+            Button { remembering = true } label: {
+                Label(String(localized: "Remember this", bundle: .module), systemImage: "plus.bubble")
             }
         } label: {
             Image(systemName: "ellipsis.circle")

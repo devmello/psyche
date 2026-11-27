@@ -859,6 +859,13 @@ export const MemoryMethods = {
         pending: Type.Integer({ minimum: 0 }),
         autoAccepted: Type.Integer({ minimum: 0 }),
         quarantined: Type.Integer({ minimum: 0 }),
+        movedPending: Type.Optional(
+          Type.Integer({
+            minimum: 0,
+            description:
+              "Facts the 2026-11 trust migration moved to review that still wait (absent on an older Gateway)",
+          }),
+        ),
       }),
       ...nextCursor,
     }),

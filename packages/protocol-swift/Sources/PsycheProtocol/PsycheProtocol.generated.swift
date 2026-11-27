@@ -24269,17 +24269,22 @@ public struct MemoryReviewListResult: Codable, Sendable {
 // MARK: - MemoryReviewListResultCounts
 public struct MemoryReviewListResultCounts: Codable, Sendable {
     public let autoAccepted: Int
+    /// Facts the 2026-11 trust migration moved to review that still wait (absent on an older
+    /// Gateway)
+    public let movedPending: Int?
     public let pending: Int
     public let quarantined: Int
 
     public enum CodingKeys: String, CodingKey {
         case autoAccepted = "autoAccepted"
+        case movedPending = "movedPending"
         case pending = "pending"
         case quarantined = "quarantined"
     }
 
-    public init(autoAccepted: Int, pending: Int, quarantined: Int) {
+    public init(autoAccepted: Int, movedPending: Int? = nil, pending: Int, quarantined: Int) {
         self.autoAccepted = autoAccepted
+        self.movedPending = movedPending
         self.pending = pending
         self.quarantined = quarantined
     }

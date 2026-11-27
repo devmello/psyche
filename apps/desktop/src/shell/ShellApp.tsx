@@ -3,7 +3,6 @@ import {
   AGENT_PANEL_MIN_CONTENT,
   AGENT_PANEL_WIDTH,
   applyPlatformAttribute,
-  BrowserToggle,
   CompactTopBar,
   chatFocusFromRoute,
   clampSidebarWidth,
@@ -1093,8 +1092,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       label: t("web.palette.openFiles"),
       run: () => dispatch({ type: "open", pane: "files" }),
     },
-    // i18n-ignore: the composer command, typed as is in every language
-    { id: "model", label: "/model", run: () => setOverlay("model") },
+    { id: "model", label: t("desktop.palette.changeModel"), run: () => setOverlay("model") },
     { id: "mode", label: t("web.palette.switchMode"), run: cycleMode },
     { id: "settings", label: t("web.rail.settings"), run: () => navigate("/settings/model") },
     { id: "shortcuts", label: t("web.shortcuts.title"), run: () => setOverlay("shortcuts") },
@@ -1172,17 +1170,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       className="shell-sidebar-toggle"
     />
   );
-  // Next to the sidebar toggle: the built-in browser's always-there entry (desktop only).
-  const browserToggle =
-    platform.browser && onChat && threadId ? (
-      <BrowserToggle onOpen={() => void openBrowser()} className="ms-1" />
-    ) : null;
-  const chromeToggles = (
-    <>
-      {sidebarToggle}
-      {browserToggle}
-    </>
-  );
+  const chromeToggles = <>{sidebarToggle}</>;
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
@@ -1228,7 +1216,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     sidebarOpen,
     mode: sidebarMode,
     sidebarWidth,
-    browser: browserToggle !== null,
   });
   const content =
     onChat && slots.chat && threadId ? (

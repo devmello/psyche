@@ -220,8 +220,13 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }): ReactElemen
   );
 }
 
+interface ListedModel {
+  ref: string;
+  label?: string;
+  capabilities?: { embeddings?: boolean };
+}
 interface ListedModels {
-  providers?: { models?: { ref: string; capabilities?: { embeddings?: boolean } }[] }[];
+  providers?: { id?: string; label?: string; models?: ListedModel[] }[];
 }
 
 /** Chat models from `models.list` (embedding models cannot chat); none from older Gateways. */
@@ -232,9 +237,34 @@ export function chatModelRefs(listed: ListedModels | undefined): string[] {
   return [...new Set(refs)];
 }
 
+export interface ModelGroup {
+  provider: string;
+  models: { ref: string; name: string }[];
+}
+
+/** The picker's list: chat models grouped by configured provider, each shown by its label. */
+export function chatModelGroups(listed: ListedModels | undefined): ModelGroup[] {
+  const seen = new Set<string>();
+  const groups: ModelGroup[] = [];
+  for (const p of listed?.providers ?? []) {
+    const models: ModelGroup["models"] = [];
+    for (const m of p.models ?? []) {
+      if (m.capabilities?.embeddings === true || seen.has(m.ref)) continue;
+      seen.add(m.ref);
+      const name = m.label !== undefined && m.label.trim() !== "" ? m.label : m.ref;
+      models.push({ ref: m.ref, name });
+    }
+    if (models.length > 0) groups.push({ provider: p.label ?? p.id ?? "", models });
+  }
+  return groups;
+}
+
+const MODEL_REF = /^[a-z0-9][a-z0-9_.-]*\/.+$/;
+
 /**
- * ⌘⇧I model picker: a free `provider/model` field, with the Gateway's known models
- * (`models.list`: role chains, config and the last endpoint probes) as suggestions.
+ * ⌘⇧I model picker: the models the configured providers offer (`models.list`), with the
+ * current one checked. "Other model…" opens a free `provider/model` field; either way
+ * `onPick` gets the same `provider/model` string, so saved threads keep working.
  */
 export function ModelPicker(props: {
   current: string | null;
@@ -242,27 +272,34 @@ export function ModelPicker(props: {
   onClose: () => void;
 }): ReactElement {
   const { store } = useShell();
+  const [groups, setGroups] = useState<ModelGroup[] | null>(null);
+  const [other, setOther] = useState(false);
   const [v, setV] = useState(props.current ?? "");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   useEffect(() => {
     let live = true;
     void store
       .call<ListedModels>("models.list", {})
       .then((r) => {
-        if (live) setSuggestions(chatModelRefs(r));
+        if (live) setGroups(chatModelGroups(r));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (live) setGroups([]);
+      });
     return () => {
       live = false;
     };
   }, [store]);
   const dialog = useRef<HTMLDivElement>(null);
   useDialogFocus(dialog, props.onClose);
-  const valid = /^[a-z0-9][a-z0-9_.-]*\/.+$/.test(v);
+  const valid = MODEL_REF.test(v);
+  const pick = (ref: string) => {
+    props.onPick(ref);
+    props.onClose();
+  };
+  const showField = other || (groups !== null && groups.length === 0);
   return (
-    // biome-ignore lint/a11y: backdrop click closes; Esc is handled on the input
+    // biome-ignore lint/a11y: backdrop click closes; Esc is handled in the dialog
     <div className="overlay" onClick={props.onClose} data-testid="model-picker">
-      {/* biome-ignore lint/a11y: stops the backdrop click */}
       <div
         ref={dialog}
         className="dialog"
@@ -270,28 +307,56 @@ export function ModelPicker(props: {
         aria-modal="true"
         aria-label={t("web.modelPicker.label")}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") props.onClose();
+        }}
       >
-        <input
-          // biome-ignore lint/a11y/noAutofocus: dialog's only field
-          autoFocus
-          value={v}
-          onChange={(e) => setV(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") props.onClose();
-            if (e.key === "Enter" && valid) {
-              props.onPick(v);
-              props.onClose();
-            }
-          }}
-          placeholder={t("web.modelPicker.placeholder", { example: "anthropic/claude-opus-5-5" })}
-          aria-label={t("web.modelPicker.reference")}
-          list="psyche-model-suggestions"
-        />
-        <datalist id="psyche-model-suggestions" data-testid="model-suggestions">
-          {suggestions.map((ref) => (
-            <option key={ref} value={ref} />
-          ))}
-        </datalist>
+        {groups !== null && groups.length === 0 ? (
+          <p data-testid="model-picker-empty">{t("desktop.modelPicker.empty")}</p>
+        ) : null}
+        {groups?.map((g) => (
+          <fieldset key={g.provider} style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend>{g.provider}</legend>
+            {g.models.map((m) => (
+              <button
+                key={m.ref}
+                type="button"
+                data-testid="model-option"
+                data-ref={m.ref}
+                aria-pressed={m.ref === props.current}
+                onClick={() => pick(m.ref)}
+              >
+                {m.ref === props.current ? "✓ " : ""}
+                {m.name}
+              </button>
+            ))}
+          </fieldset>
+        ))}
+        {groups !== null && groups.length > 0 && !other ? (
+          <button type="button" data-testid="model-other" onClick={() => setOther(true)}>
+            {t("desktop.modelPicker.other")}
+          </button>
+        ) : null}
+        {showField ? (
+          <div>
+            <input
+              // biome-ignore lint/a11y/noAutofocus: opened on purpose
+              autoFocus
+              value={v}
+              onChange={(e) => setV(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && valid) pick(v);
+              }}
+              placeholder={t("web.modelPicker.placeholder", {
+                example: "anthropic/claude-opus-5-5",
+              })}
+              aria-label={t("web.modelPicker.reference")}
+            />
+            <button type="button" disabled={!valid} onClick={() => pick(v)}>
+              {t("desktop.modelPicker.use")}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

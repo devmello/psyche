@@ -19,6 +19,12 @@ export const homeA: Partial<Catalogue> = {
   "home.more.memoryReview": "Revisión de la memoria",
   "home.quiet":
     "Nada te necesita ahora mismo. Las aprobaciones, tu resumen diario y las ideas nuevas aparecerán aquí.",
+  "home.helperPaused": "Correo y Mensajes están en pausa mientras el ayudante está sin conexión.",
+  "home.helperPaused.open": "Abrir Dispositivos",
+  "home.movedFacts":
+    "{n, plural, one {# dato aprendido de mensajes de otras personas espera tu revisión.} other {# datos aprendidos de mensajes de otras personas esperan tu revisión.}}",
+  "home.movedFacts.review": "Revisar",
+  "home.movedFacts.dismiss": "Descartar aviso",
   "home.loadFailed": "No se pudo cargar {what}.",
   "people.page.title": "Personas",
   "people.page.count": "{n, plural, one {# persona} other {# personas}}",

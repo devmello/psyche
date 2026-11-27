@@ -4,12 +4,11 @@ import PsycheDesign
 import PsycheStore
 import SwiftUI
 
-/// Home at a glance: an inset-grouped list under a native large title with three sections (Needs you, Running,
-/// Today) and one More row. Everything else (notifications, tasks, to-dos, nudges, pinned widgets, follow-ups, Spaces,
-/// Feed, Ideas, Goals) is behind More. Settings is the gear in the navigation bar. Chat and Search own asking, so Home has no Ask field.
+/// Home at a glance, and the one activity page: an inset-grouped list under a native large title with the sections
+/// Needs you, Running and Today, and one More row (Notifications, Scheduled tasks). Approvals open from Needs you.
+/// Settings is the gear in the navigation bar. Chat and Search own asking, so Home has no Ask field.
 struct HomeView: View {
     @State private var model: HomeModel
-    @State private var proactive: ProactiveHomeModel
     @State private var nightShift: NightShiftCardModel
     @Environment(Session.self) private var session
     @Environment(Router.self) private var router
@@ -21,7 +20,6 @@ struct HomeView: View {
     init(store: any PsycheBackend) {
         self.store = store
         _model = State(initialValue: HomeModel(store: store))
-        _proactive = State(initialValue: ProactiveHomeModel(store: store))
         _nightShift = State(initialValue: NightShiftCardModel(store: store))
     }
 
@@ -41,11 +39,6 @@ struct HomeView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                AgentButton(needsYou: !(model.phase.value?.needsYou.isEmpty ?? true))
-            }
-        }
         .psycheSettingsButton()
         .overlay(alignment: .bottom) { notice }
         .psycheAnimation(.smooth, value: model.notice)
@@ -59,11 +52,7 @@ struct HomeView: View {
             await nightShift.load()
             await nightShift.observe()
         }
-        .refreshable {
-            async let sections: Void = proactive.load()
-            await model.load()
-            await sections
-        }
+        .refreshable { await model.load() }
     }
 
     // MARK: Sections
@@ -93,7 +82,7 @@ struct HomeView: View {
         }
         Section {
             NavigationLink {
-                HomeMorePage(store: store, model: model, proactive: proactive)
+                HomeMorePage(store: store, model: model)
             } label: {
                 HStack {
                     Label(String(localized: "More", bundle: .module), systemImage: "ellipsis.circle")

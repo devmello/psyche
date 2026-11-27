@@ -43,6 +43,12 @@ export const home = {
   "home.more.memoryReview": "Memory review",
   "home.quiet":
     "Nothing needs you right now. Approvals, your daily brief and new ideas will show up here.",
+  "home.helperPaused": "Mail and Messages are paused while the helper is offline.",
+  "home.helperPaused.open": "Open Devices",
+  "home.movedFacts":
+    "{n, plural, one {# fact learned from other people's messages is waiting for your review.} other {# facts learned from other people's messages are waiting for your review.}}",
+  "home.movedFacts.review": "Review",
+  "home.movedFacts.dismiss": "Dismiss",
   "home.loadFailed": "Couldn't load {what}.",
   "people.page.title": "People",
   "people.page.count": "{n, plural, one {# person} other {# people}}",

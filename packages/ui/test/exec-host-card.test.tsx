@@ -102,19 +102,36 @@ describe("exec_host card", () => {
     expect(screen.queryByText("Reviewer's note")).toBeNull();
   });
 
-  it("typing UNSANDBOXED leaves Allow once only and sends the word with the answer", async () => {
+  it("has no typing field; the button sends the same once-only confirmation the word did", async () => {
     const onAnswer = show(execHost("srt"));
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "Type UNSANDBOXED to run without the sandbox" }),
-      "UNSANDBOXED",
-    );
-    expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
-    expect(screen.getByText("Without the sandbox, only Allow once is offered.")).toBeTruthy();
-    await userEvent.click(allow());
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByText(/UNSANDBOXED/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Run once without the sandbox" }));
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
     );
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+  });
+
+  it("Return and Space on the run-once button never run it; only a pointer does", async () => {
+    const onAnswer = show(execHost("srt"));
+    const button = screen.getByRole("button", { name: "Run once without the sandbox" });
+    await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+    button.focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onAnswer).not.toHaveBeenCalled();
+    await userEvent.click(button);
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
+    );
+  });
+
+  it("the button never turns an ordinary Allow into an unsandboxed one (positive control)", async () => {
+    const onAnswer = show(execHost("srt"));
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
 
   it("an approval without the word sends no unsandboxed flag", async () => {
@@ -123,22 +140,23 @@ describe("exec_host card", () => {
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
 
-  it("without srt: says so, offers Set up sandbox, and Allow waits for the typed word", async () => {
+  it("without srt: says so, offers Set up sandbox, and only the once-only button can run it", async () => {
     const permissionAction = vi.fn();
-    show(execHost("missing"), { permissionAction });
+    const onAnswer = show(execHost("missing"), { permissionAction });
     expect(screen.getByText(/the sandbox is not set up \(srt is not installed\)/)).toBeTruthy();
     expect(allow().hasAttribute("disabled")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Set up sandbox" }));
     expect(permissionAction).toHaveBeenCalledWith({ need: "sandbox" }, "open");
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "Type UNSANDBOXED to run without the sandbox" }),
-      "unsandboxed",
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Run once without the sandbox" }));
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
     );
-    // Exactly the word, in capitals.
-    expect(allow().hasAttribute("disabled")).toBe(true);
-    await userEvent.clear(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }));
-    await userEvent.type(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }), "UNSANDBOXED");
-    expect(allow().hasAttribute("disabled")).toBe(false);
+  });
+
+  it("a card for another kind of action has no unsandboxed button (positive control above)", () => {
+    show(permission({ need: "capability", capability: "exec_host" }));
+    expect(screen.queryByRole("button", { name: "Run once without the sandbox" })).toBeNull();
   });
 });
 
@@ -167,15 +185,9 @@ describe("exec_host card on Windows (no host sandbox)", () => {
       expect(screen.getByText(/Windows has no sandbox for commands on this PC/)).toBeTruthy();
       expect(screen.getByText(/without a sandbox: Windows has none/)).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Set up sandbox" })).toBeNull();
-      expect(screen.getByText("Type UNSANDBOXED to allow it.")).toBeTruthy();
+      expect(screen.queryByRole("textbox")).toBeNull();
       expect(allow().hasAttribute("disabled")).toBe(true);
-      await userEvent.type(
-        screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }),
-        "UNSANDBOXED",
-      );
-      expect(screen.queryByRole("button", { name: /Always/ })).toBeNull();
-      expect(screen.queryByRole("button", { name: "More options…" })).toBeNull();
-      await userEvent.click(allow());
+      await userEvent.click(screen.getByRole("button", { name: "Run once without the sandbox" }));
       await waitFor(() =>
         expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
       );

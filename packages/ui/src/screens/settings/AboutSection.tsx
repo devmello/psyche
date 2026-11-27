@@ -1,13 +1,13 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { CircleAlert, CircleCheck, CircleX, Loader } from "lucide-react";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useUpdateStatus } from "../../shell/UpdateBanner.tsx";
 import { useSlots } from "../../slots.tsx";
-import { Facts, Group, SectionFrame } from "./shared.tsx";
+import { Advanced, Facts, Group, SectionFrame } from "./shared.tsx";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -81,30 +81,46 @@ export function UpdateStatusValue({
 }
 
 /**
- * Settings > About > Updates: the release channel. Stable is the only channel until the release
- * pipeline publishes a beta manifest, so this shows it and says so; there is nothing to save. With
- * a port (macOS) it also shows the app's own update state.
+ * Settings > About > Updates: the app's own update state (macOS only). There is no channel to
+ * choose, so there is no channel row until a beta channel exists.
  */
-export function UpdateChannelGroup({ update }: { update?: UpdatePort }): ReactElement {
+export function UpdateChannelGroup({ update }: { update: UpdatePort }): ReactElement {
   const status = useUpdateStatus(update);
+  // The desktop reports "idle" once its check has run and the updater gate is closed (an unsigned
+  // or self-built app, no release key pinned). Wait for the first answer so the line doesn't flash.
+  const [asked, setAsked] = useState(false);
+  useEffect(() => {
+    let live = true;
+    update.status().then(
+      () => live && setAsked(true),
+      () => live && setAsked(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [update]);
+  const off = status.state === "idle";
   return (
-    <Group title={t("settings.updates.group")} description={t("settings.updates.hint")}>
-      <div className="flex flex-col gap-2">
+    <Group
+      title={t("settings.updates.group")}
+      description={off ? undefined : t("settings.updates.hint")}
+    >
+      {off ? (
+        asked ? (
+          <p className="text-callout text-label-secondary" data-testid="updates-off">
+            {t("simplify.b7.updates.off")}
+          </p>
+        ) : null
+      ) : (
         <Facts
           items={[
-            { term: t("settings.updates.channel"), value: t("settings.updates.channel.stable") },
-            ...(update
-              ? [
-                  {
-                    term: t("settings.updates.status"),
-                    value: <UpdateStatusValue status={status} port={update} />,
-                  },
-                ]
-              : []),
+            {
+              term: t("settings.updates.status"),
+              value: <UpdateStatusValue status={status} port={update} />,
+            },
           ]}
         />
-        <p className="text-callout text-label-secondary">{t("settings.updates.channel.note")}</p>
-      </div>
+      )}
     </Group>
   );
 }
@@ -130,18 +146,6 @@ export function AboutPanel({
               term: t("settings.about.app"),
               value: info?.appVersion ?? t("settings.about.unknown"),
             },
-            {
-              term: t("settings.about.gateway"),
-              value: info?.gatewayVersion ?? t("settings.about.unknown"),
-            },
-            {
-              term: t("settings.about.protocol"),
-              value: t("settings.about.protocolVersion", {
-                version: info?.protocolVersion ?? PROTOCOL_VERSION,
-              }),
-            },
-            ...(info ? [{ term: t("settings.about.platform"), value: info.platform }] : []),
-            ...(info?.runtime ? [{ term: t("settings.about.runtime"), value: info.runtime }] : []),
             ...(info?.home
               ? [
                   {
@@ -161,8 +165,28 @@ export function AboutPanel({
               : []),
           ]}
         />
+        <Advanced>
+          <Facts
+            items={[
+              {
+                term: t("settings.about.gateway"),
+                value: info?.gatewayVersion ?? t("settings.about.unknown"),
+              },
+              {
+                term: t("settings.about.protocol"),
+                value: t("settings.about.protocolVersion", {
+                  version: info?.protocolVersion ?? PROTOCOL_VERSION,
+                }),
+              },
+              ...(info ? [{ term: t("settings.about.platform"), value: info.platform }] : []),
+              ...(info?.runtime
+                ? [{ term: t("settings.about.runtime"), value: info.runtime }]
+                : []),
+            ]}
+          />
+        </Advanced>
       </Group>
-      {showUpdates ? <UpdateChannelGroup update={update} /> : null}
+      {showUpdates && update ? <UpdateChannelGroup update={update} /> : null}
       {navigate ? (
         <Group
           title={t("onboarding.rerun.title")}
@@ -184,7 +208,7 @@ export function AboutPanel({
       <Group
         // i18n-ignore: the CLI command's name
         title="psyche doctor"
-        description={t("settings.about.doctorDescription")}
+        description={t("simplify.b7.about.doctorDescription")}
         actions={
           <div className="flex gap-2">
             {onRunDoctor ? (
@@ -265,7 +289,7 @@ export function useDoctor(): {
       }
     };
     void Promise.all([
-      check("gateway", t("settings.doctor.gateway"), async () => {
+      check("gateway", t("simplify.b7.doctor.psyche"), async () => {
         await call("settings.get", {});
         return { status: "ok", detail: t("settings.doctor.gatewayOk") };
       }),
