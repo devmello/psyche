@@ -50,8 +50,9 @@ import { settingsC } from "./settings-c/es.ts";
 import { settingsD } from "./settings-d/es.ts";
 import { settingsDrill } from "./settings-drill/es.ts";
 import { settingsE } from "./settings-e/es.ts";
-import { simplifyB8 } from "./simplify-b8/es.ts";
 import { simplifyB1 } from "./simplify-b1/es.ts";
+import { simplifyB4 } from "./simplify-b4/es.ts";
+import { simplifyB8 } from "./simplify-b8/es.ts";
 import { spaces } from "./spaces/es.ts";
 import { specialistsA } from "./specialists-a/es.ts";
 import { teachA } from "./teach-a/es.ts";
@@ -4004,6 +4005,7 @@ export const es: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB4,
   ...simplifyB8,
   ...simplifyB1,
   ...desktopDialog,

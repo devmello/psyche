@@ -62,7 +62,7 @@ describe("a pairing request from another computer (remote-gateway design §3.4, 
       </StoryWorld>,
     );
     expect(screen.getByText("From 100.64.0.9")).toBeTruthy();
-    expect(screen.getByText("This Gateway's key cd34 cd34 cd34 cd34 cd34 cd34")).toBeTruthy();
+    expect(screen.getByText("This computer's key cd34 cd34 cd34 cd34 cd34 cd34")).toBeTruthy();
     expect(
       (screen.getByRole("checkbox", { name: "Admin" }) as HTMLInputElement).getAttribute(
         "aria-checked",
@@ -88,7 +88,7 @@ describe("a pairing request from another computer (remote-gateway design §3.4, 
       </StoryWorld>,
     );
     expect(screen.getByText("From 127.0.0.1")).toBeTruthy();
-    expect(screen.getByText(/This Gateway's key/)).toBeTruthy();
+    expect(screen.getByText(/This computer's key/)).toBeTruthy();
     rerender(
       <StoryWorld>
         <DevicesPanel
@@ -100,7 +100,7 @@ describe("a pairing request from another computer (remote-gateway design §3.4, 
       </StoryWorld>,
     );
     expect(screen.queryByText(/^From /)).toBeNull();
-    expect(screen.queryByText(/This Gateway's key/)).toBeNull();
+    expect(screen.queryByText(/This computer's key/)).toBeNull();
   });
 });
 
