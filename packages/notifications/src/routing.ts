@@ -21,24 +21,24 @@ export interface RoutingConfig {
 }
 
 /**
- * The in-app inbox (`desktop`, `web`) always gets the row. The OS gets everything that needs the
+ * The in-app inbox (`desktop`, `offMac`) always gets the row. The OS gets everything that needs the
  * owner or reports a finished task; proactive output and briefings stay in the app (calm by
  * default, UI §2 principle 2; ADR-012), and the owner can opt them into the OS in settings.
  */
 export const DEFAULT_SURFACES: Readonly<Record<NotificationKind, readonly Surface[]>> = {
-  approval: ["desktop", "web", "notification"],
-  input_needed: ["desktop", "web", "notification"],
-  task_done: ["desktop", "web", "notification"],
-  task_failed: ["desktop", "web", "notification"],
-  proactive: ["desktop", "web"],
-  briefing: ["desktop", "web"],
-  reminder: ["desktop", "web", "notification"],
-  system: ["desktop", "web"],
+  approval: ["desktop", "offMac", "notification"],
+  input_needed: ["desktop", "offMac", "notification"],
+  task_done: ["desktop", "offMac", "notification"],
+  task_failed: ["desktop", "offMac", "notification"],
+  proactive: ["desktop", "offMac"],
+  briefing: ["desktop", "offMac"],
+  reminder: ["desktop", "offMac", "notification"],
+  system: ["desktop", "offMac"],
   // A specialist's one result card (docs/agent/specialists-2026.md §6.2): like a finished task.
-  specialist_result: ["desktop", "web", "notification"],
+  specialist_result: ["desktop", "offMac", "notification"],
   // A warning before the owner breaks their own promise (docs/design/promise-ledger-2026.md
   // §5.1). The OS gets it.
-  promise_due: ["desktop", "web", "notification"],
+  promise_due: ["desktop", "offMac", "notification"],
 };
 
 /** UI §3.20: approvals are time-sensitive; proactive, briefing and reminder are passive. */
@@ -103,7 +103,7 @@ export function planDelivery(
   const until = quiet ? quietEndsAt(qh, now) : undefined;
   return surfaces.map((surface): DeliveryPlan => {
     const c = surfaceClass(surface);
-    if (c === "desktop" || c === "web") return { surface, action: "in_app" };
+    if (c === "desktop" || c === "offMac") return { surface, action: "in_app" };
     if (quiet && isInterruptive(surface)) {
       // An every-day window never ends; park the delivery a day out and re-check then.
       return { surface, action: "defer", until: until ?? now + 24 * 60 * 60_000 };

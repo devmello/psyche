@@ -143,7 +143,7 @@ for (const [label, makeStore] of STORES) {
         );
         expect(byStatus).toEqual({
           desktop: "delivered",
-          web: "delivered",
+          offMac: "delivered",
           notification: "failed",
           "device:dev_a": "failed",
         });

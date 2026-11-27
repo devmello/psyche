@@ -38,7 +38,7 @@ describe("routing matrix", () => {
   for (const kind of NOTIFICATION_KINDS) {
     const row = MATRIX[kind];
     it(`${kind}: default surfaces`, () => {
-      const expected = ["desktop", "web"];
+      const expected = ["desktop", "offMac"];
       if (row.os) expected.push("notification");
       expect(resolveSurfaces(config, kind)).toEqual(expected);
     });
@@ -55,14 +55,14 @@ describe("routing matrix", () => {
         Date.UTC(2026, 9, 18, 20),
       );
       for (const p of plan) {
-        expect(p.action).toBe(p.surface === "desktop" || p.surface === "web" ? "in_app" : "now");
+        expect(p.action).toBe(p.surface === "desktop" || p.surface === "offMac" ? "in_app" : "now");
       }
     });
 
     it(`${kind}: inside quiet hours only breakthrough kinds interrupt`, () => {
       const plan = planDelivery(quietConfig, kind, resolveSurfaces(config, kind), QUIET_NOW);
       for (const p of plan) {
-        if (p.surface === "desktop" || p.surface === "web") expect(p.action).toBe("in_app");
+        if (p.surface === "desktop" || p.surface === "offMac") expect(p.action).toBe("in_app");
         else if (kind === "approval") expect(p.action).toBe("now");
         else
           expect(p).toEqual({
@@ -84,14 +84,28 @@ describe("routing matrix", () => {
 
   it("explicit surfaces replace the defaults, normalized and de-duplicated", () => {
     expect(
-      resolveSurfaces(config, "proactive", ["os", "notification", "desktop", " web "]),
-    ).toEqual(["notification", "desktop", "web"]);
+      resolveSurfaces(config, "proactive", ["os", "notification", "desktop", " offMac "]),
+    ).toEqual(["notification", "desktop", "offMac"]);
+  });
+
+  it("a stored legacy web still routes, as offMac (in-app, never an unknown surface)", () => {
+    expect(normalizeSurface("web")).toBe("offMac");
+    expect(surfaceClass("web")).toBe("offMac");
+    expect(resolveSurfaces(config, "proactive", ["desktop", "web"])).toEqual(["desktop", "offMac"]);
+    // Settings stored before the rename name it too.
+    const stored: RoutingConfig = { surfaces: { briefing: ["desktop", "web", "notification"] } };
+    expect(resolveSurfaces(stored, "briefing")).toEqual(["desktop", "offMac", "notification"]);
+    expect(planDelivery(config, "briefing", ["web"], Date.UTC(2026, 9, 18, 20))).toEqual([
+      { surface: "web", action: "in_app" },
+    ]);
+    // Control: a removed chat channel is still dropped.
+    expect(resolveSurfaces(config, "briefing", ["desktop", "telegram:1"])).toEqual(["desktop"]);
   });
 
   it("per-kind overrides come from settings", () => {
     const custom: RoutingConfig = { surfaces: { briefing: ["desktop", "notification"] } };
     expect(resolveSurfaces(custom, "briefing")).toEqual(["desktop", "notification"]);
-    expect(resolveSurfaces(custom, "task_done")).toEqual(["desktop", "web", "notification"]);
+    expect(resolveSurfaces(custom, "task_done")).toEqual(["desktop", "offMac", "notification"]);
   });
 
   it("parses surfaces", () => {

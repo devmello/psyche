@@ -204,7 +204,7 @@ let cardN = 0;
 async function paymentCard(
   c: ComposedGateway,
   admin: TestClient,
-  surfaces: ("desktop" | "web" | "notification")[] = ["desktop", "web"],
+  surfaces: ("desktop" | "offMac" | "notification")[] = ["desktop", "offMac"],
 ) {
   const hash = `${(++cardN).toString(16).padStart(2, "0")}${"b".repeat(62)}`;
   const issued = await c.gateway.context.broker.requestApproval({

@@ -1027,7 +1027,7 @@ const skillApproval: ApprovalRequest = {
   grantKey: skillProposal.grantKey,
   requestedBy: { runId: null, taskId: null, threadId: null },
   sideEffect: "destructive",
-  surfaces: ["desktop", "web"],
+  surfaces: ["desktop", "offMac"],
   scopesOffered: ["once"],
   deviceOnly: true,
   requiresAuthentication: false,

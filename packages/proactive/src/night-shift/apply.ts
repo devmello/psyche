@@ -653,7 +653,7 @@ export class NightShiftApply {
         },
         requestedBy: { runId, taskId: null, threadId },
         // The review lives in the Mac and iOS apps; never a chat surface.
-        surfaces: this.#d.surfaces ?? ["desktop", "web", "notification"],
+        surfaces: this.#d.surfaces ?? ["desktop", "offMac", "notification"],
         details: sourceDetails(op, source),
         ...(taintSources.length === 0 ? {} : { taintSources }),
       });

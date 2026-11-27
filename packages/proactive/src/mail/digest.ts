@@ -549,7 +549,7 @@ export class DigestService {
                 .join(", "),
         route: `/feed/${postId}`,
         dedupeKey: `mail:digest:${local.date}`,
-        ...(need === 0 ? { surfaces: ["desktop", "web"] } : {}),
+        ...(need === 0 ? { surfaces: ["desktop", "offMac"] } : {}),
       });
       notified = true;
     }

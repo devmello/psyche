@@ -172,10 +172,31 @@ export type DeviceScope = Static<typeof DeviceScope>;
  * may still name a removed chat channel's `<channel>:<id>` surface.
  */
 export const Surface = Type.String({
-  description: '"desktop" | "notification" | "web" | "device:<deviceId>"',
+  description: '"desktop" | "notification" | "offMac" | "device:<deviceId>"',
   minLength: 1,
 });
 export type Surface = Static<typeof Surface>;
+
+/**
+ * The marker in a card's or notification's `surfaces` that offers it to the owner's paired phones.
+ * It replaced `"web"` (browser access was dropped, 2026-11-25); no device answers it, it only
+ * decides routing.
+ */
+export const OFF_MAC_SURFACE = "offMac";
+
+/**
+ * Whether a surface entry is the off-Mac marker. A stored `"web"` (sealed approval rows and
+ * pending notifications written before the rename) counts exactly like `"offMac"`: this is the
+ * only place that equivalence lives.
+ */
+export function isOffMacSurface(surface: string): boolean {
+  return surface === OFF_MAC_SURFACE || surface === "web";
+}
+
+/** Whether the caller itself offered a card off the Mac (`notification` or the off-Mac marker). */
+export function offersOffMac(surfaces: readonly string[]): boolean {
+  return surfaces.some((s) => s === "notification" || isOffMacSurface(s));
+}
 
 /** Token usage of one model call or one run (data model §2 `runs.usage`, §10 `usage`). */
 export const Usage = Type.Object(

@@ -373,7 +373,7 @@ export function composeMessagesSend(services: ComposeServices): ComposedPart {
   let unregister: (() => unknown) | undefined;
   const tool = messagesSendTool({
     broker: services.broker,
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     account: MESSAGES_SEND_ACCOUNT,
     node: () => gateway?.context.nodes.hostHelper("messages.send")?.client,
     sender: (client) => verifiedMessagesSends(services, client, MESSAGES_SEND_ACCOUNT),

@@ -169,7 +169,7 @@ describe("web passkeys (issue #79)", () => {
       grantKey: "d".repeat(64),
       requestedBy: { runId: null, taskId: null, threadId: null },
       sideEffect: "financial",
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       scopesOffered: ["once"],
       taint: false,
     });

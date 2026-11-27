@@ -1,10 +1,11 @@
 import { sanitizeBlock, sanitizeDisplay } from "@psyche/permissions/cards";
-import type {
-  Lesson,
-  SkillDetails,
-  SkillInstallSource,
-  SkillManifest,
-  SkillProposal,
+import {
+  isOffMacSurface,
+  type Lesson,
+  type SkillDetails,
+  type SkillInstallSource,
+  type SkillManifest,
+  type SkillProposal,
 } from "@psyche/protocol";
 import { FolderOpen, ShieldAlert } from "lucide-react";
 import {
@@ -1351,7 +1352,7 @@ export function TrustApproval({
       approval={approval}
       canAnswer={canAnswer}
       persona={persona.name}
-      otherSurfaces={approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
+      otherSurfaces={approval.surfaces.filter((s) => s !== "desktop" && !isOffMacSurface(s))}
       onAnswer={(decision, scope) => answerApproval(store, approval.id, decision, scope)}
       {...(now === undefined ? {} : { now })}
     />

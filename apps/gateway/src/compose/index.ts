@@ -102,6 +102,7 @@ import {
   type ModelProvider,
   type ModelRef,
   type Notification,
+  offersOffMac,
   type PermissionBroker,
   type PromiseView,
   PsycheError,
@@ -154,6 +155,7 @@ import { psycheServerKind } from "../server-install.ts";
 import { reencodeToolImage } from "../session/image-resize.ts";
 import { composeSpaceFolders, spaceFolderSource } from "../spaces/folders.ts";
 import { BusySources, UpdateGate } from "../update-gate.ts";
+import { revokeWebDeviceGrants } from "../web-device-grants.ts";
 import {
   API_KEY_IDS,
   API_KEY_LABEL,
@@ -1346,7 +1348,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   registry.register(
     requestPermissionTool({
       broker: executorBroker,
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       folderEnv: () => folderAccessEnv(config.home),
       grantedFolders: (threadId, runId) => [
         ...rawBroker.grantedFolders(),
@@ -1400,7 +1402,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       directory: machines,
       grants: machineFolders,
       broker: executorBroker,
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       library: machineLibrary(db, config.home),
       audit,
     }),
@@ -1836,7 +1838,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     redactor,
     audit,
     broker: executorBroker,
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
     onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
     // The owner's own chat updates their work (MW7); off while the People graph is off.
@@ -1895,7 +1897,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(gwOptions.retentionIntervalMs === undefined
       ? {}
       : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     askRules: teachingAskRules({
       db,
       read: () => ({
@@ -1955,7 +1957,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     registry,
     clock,
     timeZone: () => timeZone,
-    approvalSurfaces: ["desktop", "web"],
+    approvalSurfaces: ["desktop", "offMac"],
     resumeApproval: (q) => deferredResume.claim(q),
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
@@ -2937,7 +2939,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       library: libraryGate,
       share: {
         broker: executorBroker,
-        surfaces: ["desktop", "web"],
+        surfaces: ["desktop", "offMac"],
         folderEnv: () => folderAccessEnv(config.home),
         grantedFolders: (threadId) => [
           ...rawBroker.grantedFolders(),
@@ -3291,6 +3293,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Lesson cards that were open at shutdown are awaited again (or settled).
   await teaching.resume().catch(() => undefined);
 
+  // Standing grants a dropped browser device created end with it (sealed rows: broker path).
+  await revokeWebDeviceGrants(db, rawBroker).catch((err: unknown) =>
+    gwOptions.logger?.log("warn", "revoking a removed browser's grants failed", {
+      code: PsycheError.from(err).code,
+    }),
+  );
+
   if (background) {
     // Recorded runs that were still going when the app stopped have lost their guard (it is in
     // memory). They are cancelled before the pool can requeue an expired lease and run them on;
@@ -3515,7 +3524,7 @@ function withRelay<B extends PermissionBroker>(
           const extra = relays.flatMap((r) => r.surfaces());
           // Decided on the caller's own surfaces, before the relays add theirs: the Mac helper's
           // `notification` must not put a `["desktop"]` card on the phone (broker `offMac`).
-          const offMac = input.surfaces.some((s) => s === "notification" || s === "web");
+          const offMac = offersOffMac(input.surfaces);
           const withOffMac: PolicyApprovalInput = {
             ...input,
             offMac,

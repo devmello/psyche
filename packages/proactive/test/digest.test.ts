@@ -309,7 +309,7 @@ describe("inbox digest (§4.1)", () => {
     await r.digest.run();
     const [n] = await r.notifier.list();
     expect(n?.title).toBe("Inbox · 07:30 · nothing needs you");
-    expect(n?.surfaces).toEqual(["desktop", "web"]);
+    expect(n?.surfaces).toEqual(["desktop", "offMac"]);
   });
 
   it("a lookalike of a known domain that asks for payment is unverified, not needs-you", async () => {

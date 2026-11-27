@@ -118,7 +118,7 @@ export function proposalHandlers(ctx: ProposalMockContext): Handlers {
         requestedAt: now,
         // The card counts down on the real clock, so the mock's ten minutes start there too.
         expiresAt: new Date(Math.max(Date.parse(now), Date.now()) + 10 * 60_000).toISOString(),
-        surfaces: ["desktop", "web"],
+        surfaces: ["desktop", "offMac"],
         scopesOffered: ["once"],
         deviceOnly: false,
         requiresAuthentication: false,
