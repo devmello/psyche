@@ -44,10 +44,10 @@ function mount(over: { slot?: boolean; apps?: Record<string, McpApp> } = {}) {
   return { calls, gateway };
 }
 
-const frameOf = (): HTMLIFrameElement => {
-  const el = document.querySelector("iframe");
-  if (el === null) throw new Error("no frame");
-  return el;
+// The sandbox frame loads lazily (the viewers stay out of the startup bundle).
+const frameOf = async (): Promise<HTMLIFrameElement> => {
+  await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
+  return document.querySelector("iframe") as HTMLIFrameElement;
 };
 
 /** Red team: an MCP App is a server's page, so it gets nothing a page of the web would not. */
@@ -68,7 +68,7 @@ describe("MCP App (ui://) in the artifact sandbox", () => {
   it("runs only in an opaque-origin frame with no network, and the declared CSP and permissions are not granted", async () => {
     mount();
     fireEvent.click(await screen.findByTestId("mcp-app-run"));
-    const frame = frameOf();
+    const frame = await frameOf();
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
     const doc = frame.getAttribute("srcdoc") ?? "";
     const csp = /Content-Security-Policy" content="([^"]+)"/.exec(doc)?.[1] ?? "";
@@ -87,7 +87,7 @@ describe("MCP App (ui://) in the artifact sandbox", () => {
   it("nothing the page posts reaches the Gateway: no tool, no widget action, no chat message", async () => {
     const { calls } = mount();
     fireEvent.click(await screen.findByTestId("mcp-app-run"));
-    const frame = frameOf();
+    const frame = await frameOf();
     const before = [...calls];
     const forged = [
       { tool: "widgets.act", args: {} },

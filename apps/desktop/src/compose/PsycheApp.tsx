@@ -80,10 +80,10 @@ import {
   type ShellSlots,
 } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
-import { ComposedCanvas } from "./canvas.tsx";
 import { FirstRun, onboardingRoute } from "./first-run.tsx";
 import { DesktopHelperBanner, fixTouchId } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
+import { LazyCanvas, LazyFilesPane, renderLazyMarkdownEditor } from "./lazy-viewers.tsx";
 import { renderLibraryThumbnail } from "./library-thumbnails.tsx";
 import { writeOnboarding } from "./onboarding.ts";
 import { saveHabits, saveMemory, saveNightShift, saveProgress } from "./onboarding-host.ts";
@@ -97,7 +97,6 @@ import {
 import { settingsRoute } from "./settings.tsx";
 import { SideChatPane } from "./side-chat.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
-import { ComposedFilesPane, renderMarkdownEditor } from "./viewers.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
@@ -798,10 +797,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
             }}
           />
         ) : pane.pane === "files" ? (
-          <ComposedFilesPane target={pane.target} navigate={ctx.navigate} />
+          <LazyFilesPane target={pane.target} navigate={ctx.navigate} />
         ) : pane.pane === "artifact" && (pane.artifactId ?? pane.target) ? (
           // The output canvas (chat-experience-2026 §4.2): one pane, its artifact swapped in.
-          <ComposedCanvas
+          <LazyCanvas
             artifactId={(pane.artifactId ?? pane.target) as string}
             threadId={ctx.threadId}
             onOpen={(id, title) => ctx.dispatch(openArtifactAction(id, title))}
@@ -912,7 +911,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     () => ({
       ...(persona ? { persona } : {}),
       // Soul & Memory's file editor: the viewers' Markdown editor (Rich / Source / Diff).
-      renderEditor: renderMarkdownEditor,
+      renderEditor: renderLazyMarkdownEditor,
       // The desktop session refuses navigator.clipboard; copy goes through main (#507).
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
       // Connector sign-ins open in the default browser; app windows refuse window.open (#505).
