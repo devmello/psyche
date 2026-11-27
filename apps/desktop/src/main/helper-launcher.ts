@@ -144,6 +144,12 @@ export interface HelperLauncherOptions {
   onState?: (s: HelperRunState) => void;
   /** True while the app's own signature fails (bundle-integrity.ts): the helper is not started. */
   blocked?: () => boolean;
+  /**
+   * Resolves when `blocked` has its final answer (the startup signature check runs behind the
+   * first window). `launch` waits for it, so a pending check never shows as "modified" and never
+   * lets the helper start before the verdict.
+   */
+  settled?: Promise<void>;
   /** How long a launch may take to pair before it counts as offline (default 30 s). */
   pairTimeoutMs?: number;
   /** Least time between two relaunches after it went offline (default 60 s). */
@@ -224,6 +230,8 @@ export class HelperLauncher {
   private state: HelperRunState;
   private lastLaunch = Number.NEGATIVE_INFINITY;
   private launching: Promise<void> | undefined;
+  /** `opts.settled` has resolved: `blocked()` now says the final verdict. */
+  private verdictIn = false;
   private readonly opts: HelperLauncherOptions;
   /** Windows: whether the signature check passed (true until it says otherwise). */
   private signature: Promise<boolean> | undefined;
@@ -360,6 +368,12 @@ export class HelperLauncher {
   /** Launches the helper unless it is already paired; resolves once it paired or timed out. */
   launch(): Promise<void> {
     if (this.state.kind === "unbundled" || this.stopped) return Promise.resolve();
+    if (this.opts.settled !== undefined && !this.verdictIn) {
+      return this.opts.settled.then(() => {
+        this.verdictIn = true;
+        return this.launch();
+      });
+    }
     if (this.opts.blocked?.()) {
       this.set({ kind: "offline", reason: "this copy of Psyche was modified" });
       return Promise.resolve();

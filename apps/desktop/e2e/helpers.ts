@@ -25,7 +25,7 @@ export function stopTestHelpers(appDir: string): void {
 }
 
 /** Routes of the small windows (panel.html): the screen-ask panel, its overlay, the dictation HUD. */
-const PANEL_ROUTES = ["/screen-ask", "/screen-ask-region", "/dictation-hud"];
+const PANEL_ROUTES = ["/screen-ask", "/screen-ask-region", "/dictation-hud", "/quick"];
 
 const isPanel = (p: Page): boolean => {
   try {

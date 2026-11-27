@@ -17,11 +17,13 @@ describe("app:// paths", () => {
 
   it("serves panel.html for the small windows' routes", () => {
     expect([...PANEL_ROUTES].sort()).toEqual(
-      [SCREEN_ASK_ROUTE, SCREEN_ASK_REGION_ROUTE, HUD_ROUTE].sort(),
+      [SCREEN_ASK_ROUTE, SCREEN_ASK_REGION_ROUTE, HUD_ROUTE, "/quick"].sort(),
     );
     for (const route of PANEL_ROUTES) {
       expect(resolveAppPath(root, `app://psyche${route}`)).toBe(join(root, "panel.html"));
     }
+    // Quick Entry is served by the small panel entry, not the full app (audit D4).
+    expect(resolveAppPath(root, "app://psyche/quick")).toBe(join(root, "panel.html"));
     expect(resolveAppPath(root, "app://psyche/screen-ask/x")).toBe(join(root, "index.html"));
   });
 
