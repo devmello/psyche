@@ -68,6 +68,7 @@ import { settingsSections } from "./settings-sections/ar.ts";
 import { shell } from "./shell/ar.ts";
 import { simplifyB1 } from "./simplify-b1/ar.ts";
 import { simplifyB4 } from "./simplify-b4/ar.ts";
+import { simplifyB7 } from "./simplify-b7/ar.ts";
 import { simplifyB8 } from "./simplify-b8/ar.ts";
 import { skillAuthor } from "./skill-author/ar.ts";
 import { spaces } from "./spaces/ar.ts";
@@ -3958,6 +3959,7 @@ export const ar: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB7,
   ...simplifyB4,
   ...simplifyB8,
   ...simplifyB1,
