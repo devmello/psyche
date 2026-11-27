@@ -102,12 +102,6 @@ struct ThreadView: View {
                             .transition(Self.isUser(item) ? .identity : motion.transition(.rise))
                             .contextMenu { replyMenu(for: item) }
                     }
-                    feedbackRow(for: thread)
-                    if model.compacting {
-                        WorkingRow(text: String(localized: "Summarizing earlier messages", bundle: .module))
-                            .padding(.top, 14)
-                            .transition(motion.transition(.fade))
-                    }
                     if thread.statusKind == .running, !isStreaming(thread) {
                         WorkingRow(text: model.displayStatus.isEmpty ? String(localized: "Working", bundle: .module) : model.displayStatus)
                             .padding(.top, 14)
@@ -192,7 +186,7 @@ struct ThreadView: View {
                     .accessibilityElement(children: .combine)
                 }
             }
-            // One menu, not an unexplained avatar beside it: Psyche's activity is its first item.
+            // One menu for the chat-level actions.
             ToolbarItem(placement: .primaryAction) { chatMenu }
         }
         #if os(iOS)
@@ -277,21 +271,21 @@ struct ThreadView: View {
         .onDisappear { composer.dictation.stop() }
     }
 
-    /// The persistent bar above the composer while the chat is in Full access, with a one-tap way back to Balanced.
+    /// The persistent bar above the composer while the chat is in Full access: one line, with a way back.
     private var fullAccessBar: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(String(localized: "Full access: Psyche acts without asking, except sends and payments.", bundle: .module))
+        HStack(spacing: 10) {
+            Label(String(localized: "Full access", bundle: .module), systemImage: "bolt.shield")
                 .font(.footnote)
                 .foregroundStyle(PsycheColor.text)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button(String(localized: "Turn off", bundle: .module)) { Task { await model.setFullAccess(false) } }
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(PsycheColor.inkText)
                 .buttonStyle(.plain)
-                .frame(minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44)
         }
         .padding(.horizontal, PsycheMetrics.pagePadding)
-        .padding(.vertical, 8)
         .background(PsycheColor.inkSoft)
         .overlay(alignment: .top) { Divider() }
         .accessibilityElement(children: .contain)
@@ -303,12 +297,12 @@ struct ThreadView: View {
                 // A file cannot join a reply that is running (the Gateway refuses it), so while one runs
                 // the attachments wait for the reply to end.
                 canSend: composer.canSend && session.state.canAnswer && !(model.isRunning && !composer.attachments.isEmpty),
-                focused: $composerFocused, queue: model.queue, runMode: model.runMode, setRunMode: model.setRunMode,
+                focused: $composerFocused, queue: model.queue,
                 removeQueued: { item in Task { await model.removeQueued(item) } }, send: send, stop: model.cancel)
     }
 
-    /// Chat-level actions: rename, fork from the latest reply, compact and clear. Fork needs a finished reply to
-    /// fork from; compact and clear wait while Psyche runs (the Gateway refuses them then anyway).
+    /// Chat-level actions: rename, fork the chat, fork a plan, Full access and clear. Forks need a finished reply
+    /// to fork from; a plan fork and clear wait while Psyche runs (the Gateway refuses them then anyway).
     private var chatMenu: some View {
         Menu {
             Button {
@@ -324,6 +318,14 @@ struct ThreadView: View {
                     Label(String(localized: "Fork chat", bundle: .module), systemImage: "arrow.triangle.branch")
                 }
             }
+            if let thread = model.phase.value, let messageID = latestReplyID(thread) {
+                Button {
+                    forkingFrom = ForkTarget(messageID: messageID)
+                } label: {
+                    Label(String(localized: "Fork a plan…", bundle: .module), systemImage: "list.bullet.indent")
+                }
+                .disabled(model.isRunning || !session.state.canAnswer)
+            }
             if model.canToggleFullAccess {
                 Toggle(isOn: Binding(
                     get: { model.isFullAccess },
@@ -335,10 +337,6 @@ struct ThreadView: View {
                     Label(String(localized: "Full access", bundle: .module), systemImage: "bolt.shield")
                 }
             }
-            Button { Task { await model.compact() } } label: {
-                Label(String(localized: "Compact", bundle: .module), systemImage: "rectangle.compress.vertical")
-            }
-            .disabled(model.isRunning || model.compacting)
             Button(role: .destructive) { confirmingClear = true } label: {
                 Label(String(localized: "Clear chat", bundle: .module), systemImage: "eraser")
             }
@@ -349,7 +347,7 @@ struct ThreadView: View {
         .accessibilityLabel(String(localized: "Chat options", bundle: .module))
     }
 
-    /// The reply's own menu: fork the chat from it, or give thumbs.
+    /// The reply's own menu: fork the chat from it, or give thumbs. Plan forks live in the chat menu.
     @ViewBuilder private func replyMenu(for item: ChatItem) -> some View {
         if case .assistant(let messageID, _, false) = item {
             Button {
@@ -357,12 +355,6 @@ struct ThreadView: View {
             } label: {
                 Label(String(localized: "Fork from here", bundle: .module), systemImage: "arrow.triangle.branch")
             }
-            Button {
-                forkingFrom = ForkTarget(messageID: messageID)
-            } label: {
-                Label(String(localized: "Fork a plan…", bundle: .module), systemImage: "arrow.triangle.branch")
-            }
-            .disabled(model.isRunning || !session.state.canAnswer)
             Button {
                 Task { await model.giveFeedback(messageID: messageID, helpful: true) }
             } label: {
@@ -383,35 +375,6 @@ struct ThreadView: View {
         case .planTaken(_, let forkID, let branchID): AnyView(PlanTakenRow(forkID: forkID, branchID: branchID, store: backend))
         default: AnyView(EmptyView())
         }
-    }
-
-    /// A quiet thumbs row under the latest finished reply. The marked one is filled, in ink.
-    @ViewBuilder private func feedbackRow(for thread: ChatThread) -> some View {
-        if thread.statusKind != .running, !model.compacting, let messageID = latestReplyID(thread) {
-            HStack(spacing: 8) {
-                feedbackButton(messageID, helpful: true, symbol: "hand.thumbsup",
-                               label: String(localized: "Good reply", bundle: .module))
-                feedbackButton(messageID, helpful: false, symbol: "hand.thumbsdown",
-                               label: String(localized: "Not helpful", bundle: .module))
-            }
-            .padding(.top, 6)
-        }
-    }
-
-    private func feedbackButton(_ messageID: String, helpful: Bool, symbol: String, label: String) -> some View {
-        let selected = model.feedback[messageID] == helpful
-        return Button {
-            Task { await model.giveFeedback(messageID: messageID, helpful: helpful) }
-        } label: {
-            Image(systemName: selected ? "\(symbol).fill" : symbol)
-                .font(.subheadline)
-                .foregroundStyle(selected ? PsycheColor.inkText : PsycheColor.muted)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     /// The id of the newest reply, when it is finished (not streaming).
@@ -449,8 +412,7 @@ struct ThreadView: View {
         model.send(message.text, attachments: message.attachments)
     }
 
-    /// Steers the running reply or queues the text, by the chosen mode. The text leaves the field only once the
-    /// Gateway has taken it, so a refusal keeps it for another try.
+    /// Queues the text while a reply runs. The text leaves the field only once the Gateway has taken it, so a refusal keeps it for another try.
     private func sendWhileRunning() {
         let text = composer.trimmedText
         alerts?.noteSentFromPhone()

@@ -256,10 +256,6 @@ final class ThreadModel {
     private(set) var sentCount = 0
     /// The follow-ups the Gateway holds until the reply settles, in run order (`chat.queue.updated`).
     private(set) var queue: [QueuedFollowUp] = []
-    /// How a message sent while Psyche is replying goes. Queue is the default, as on the desktop.
-    private(set) var runMode: RunMessageMode = .queue
-    /// True while the Gateway summarises the thread's earlier turns (`threads.compact`); the view shows progress.
-    private(set) var compacting = false
     /// The owner's thumbs on replies in this session, by message id (true is helpful).
     private(set) var feedback: [String: Bool] = [:]
     /// The Gateway's own word on this thread's chat run (`run.updated`); nil until one arrives, and after a
@@ -364,26 +360,17 @@ final class ThreadModel {
         }
     }
 
-    func setRunMode(_ mode: RunMessageMode) {
-        runMode = mode
-    }
-
-    /// Sends a message while Psyche is replying: steers the reply now, or queues it after the reply, by
-    /// `runMode`. Returns false when the Gateway refused it (the error shows in the alert), so the composer
-    /// keeps the text. The user's bubble is not added here: a steer or a queued item shows in its own place.
+    /// Queues a message typed while Psyche is replying; it goes once the reply ends. Returns false when the
+    /// Gateway refused it (the error shows in the alert), so the composer keeps the text. The user's bubble is
+    /// not added here: a queued item shows in the queue strip.
     func submitWhileRunning(_ text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         let threadID = phase.value?.id ?? id
         do {
-            switch runMode {
-            case .steer:
-                try await store.steer(threadID: threadID, text: trimmed)
-            case .queue:
-                let item = try await store.queueFollowUp(threadID: threadID, text: trimmed)
-                if !queue.contains(where: { $0.id == item.id }) {
-                    queue = Self.sortedQueue(queue + [item])
-                }
+            let item = try await store.queueFollowUp(threadID: threadID, text: trimmed)
+            if !queue.contains(where: { $0.id == item.id }) {
+                queue = Self.sortedQueue(queue + [item])
             }
             sentCount += 1
             return true
@@ -513,7 +500,7 @@ final class ThreadModel {
 
     func clearActionError() { actionError = nil }
 
-    // MARK: Chat actions (rename, fork, clear, compact, feedback)
+    // MARK: Chat actions (rename, fork, clear, feedback)
 
     /// The chat's id as the Gateway knows it, for calls that name it.
     private var threadID: String { phase.value?.id ?? id }
@@ -582,21 +569,8 @@ final class ThreadModel {
         await replaceTranscript()
     }
 
-    /// Summarises the earlier turns now, with progress shown until the transcript is read again.
-    func compact() async {
-        guard !compacting, !isRunning else { return }
-        compacting = true
-        defer { compacting = false }
-        do {
-            _ = try await store.compactThread(id: threadID)
-        } catch {
-            actionError = error.localizedDescription
-        }
-        await replaceTranscript()
-    }
-
     /// Reads the transcript again as the Gateway has it now. Unlike `load()`, this does not keep older messages
-    /// already on screen, so a compaction or a clear shows what is left, not the old turns in front of it.
+    /// already on screen, so a clear shows what is left, not the old turns in front of it.
     private func replaceTranscript() async {
         do {
             phase = .loaded(try await store.thread(id: threadID))

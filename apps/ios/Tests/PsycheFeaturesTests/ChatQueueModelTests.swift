@@ -4,7 +4,7 @@ import Testing
 @testable import PsycheFeatures
 @testable import PsycheStore
 
-/// The composer's behaviour while a reply runs: which mode a message takes, the queue strip's state,
+/// The composer's behaviour while a reply runs: the queue strip's state,
 /// and how a refusal or a live update changes it.
 @MainActor
 struct ChatQueueModelTests {
@@ -20,19 +20,8 @@ struct ChatQueueModelTests {
     @Test func aMessageSentWhileReplyingQueuesByDefault() async throws {
         let store = FixtureBackend()
         let model = await runningThread(store)
-        #expect(model.runMode == .queue)
         #expect(await model.submitWhileRunning("Then send it to Dana"))
         #expect(model.queue.map(\.text) == ["Then send it to Dana"])
-        #expect(model.actionError == nil)
-    }
-
-    @Test func choosingSteerSendsTheTextIntoTheReplyInsteadOfQueuingIt() async throws {
-        let store = FixtureBackend()
-        let model = await runningThread(store)
-        model.setRunMode(.steer)
-        #expect(model.runMode == .steer)
-        #expect(await model.submitWhileRunning("Use euros"))
-        #expect(model.queue.isEmpty)
         #expect(model.actionError == nil)
     }
 

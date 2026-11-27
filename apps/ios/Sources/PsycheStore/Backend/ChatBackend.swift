@@ -75,11 +75,6 @@ public struct QueuedFollowUp: Sendable, Equatable, Identifiable {
     }
 }
 
-/// How a message sent while Psyche is replying goes: steer the reply now, or queue it after the reply.
-public enum RunMessageMode: String, Sendable, Equatable, CaseIterable {
-    case queue, steer
-}
-
 public struct MessageDraft: Sendable, Equatable {
     /// The idempotency key `chat.send` requires; also the local id of the user's message.
     public var clientID: String
