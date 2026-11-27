@@ -68,6 +68,7 @@ import { separateDesktop } from "./separate-desktop/ja.ts";
 import { settingsDrill } from "./settings-drill/ja.ts";
 import { settingsRest } from "./settings-rest/ja.ts";
 import { shellRest } from "./shell-rest/ja.ts";
+import { simplifyB8 } from "./simplify-b8/ja.ts";
 import { simplifyB1 } from "./simplify-b1/ja.ts";
 import { spaces } from "./spaces/ja.ts";
 import { specialistsRest } from "./specialists-rest/ja.ts";
@@ -3925,6 +3926,7 @@ export const ja: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB8,
   ...simplifyB1,
   ...desktopDialog,
   ...friction,

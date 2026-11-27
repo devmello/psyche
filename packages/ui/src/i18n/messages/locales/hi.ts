@@ -68,6 +68,7 @@ import { separateDesktop } from "./separate-desktop/hi.ts";
 import { settingsDrill } from "./settings-drill/hi.ts";
 import { settingsRest } from "./settings-rest/hi.ts";
 import { shellRest } from "./shell-rest/hi.ts";
+import { simplifyB8 } from "./simplify-b8/hi.ts";
 import { simplifyB1 } from "./simplify-b1/hi.ts";
 import { spaces } from "./spaces/hi.ts";
 import { specialistsRest } from "./specialists-rest/hi.ts";
@@ -3904,6 +3905,7 @@ export const hi: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB8,
   ...simplifyB1,
   ...desktopDialog,
   ...friction,
