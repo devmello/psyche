@@ -1,4 +1,4 @@
-import { APPROVAL_TTL_MS } from "@psyche/protocol";
+import { type AgentEvent, APPROVAL_TTL_MS, type StartTurnInput } from "@psyche/protocol";
 import { FakeClock, FakeNotifier, FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
 import { type SqliteTaskEngine, TaskWorkerPool, type TaskWorkerPoolOptions } from "../src/index.ts";
@@ -486,5 +486,89 @@ describe("TaskWorkerPool", () => {
     expect((await reportB)?.task?.status).toBe("done");
     a.turn.end("final");
     await a.report;
+  });
+});
+
+/** A loop that refuses `thread_busy` while the chat run that started the task is still ending. */
+class BusyThenFreeLoop extends ControlledLoop {
+  busyStarts = 0;
+  #busyFor: number;
+  constructor(busyFor: number) {
+    super();
+    this.#busyFor = busyFor;
+  }
+  override startTurn(input: StartTurnInput): AsyncIterable<AgentEvent> {
+    if (this.#busyFor > 0) {
+      this.#busyFor -= 1;
+      this.busyStarts += 1;
+      const ev: AgentEvent = {
+        type: "end",
+        runId: input.runId,
+        outcome: "failed",
+        error: "thread_busy",
+      };
+      return (async function* () {
+        yield ev;
+      })();
+    }
+    return super.startTurn(input);
+  }
+}
+
+describe("TaskWorkerPool thread_busy", () => {
+  async function run(busyFor: number, extra: Partial<TaskWorkerPoolOptions> = {}) {
+    const clock = new FakeClock();
+    const { engine } = testEngine({ clock });
+    const loop = new BusyThenFreeLoop(busyFor);
+    const pool = new TaskWorkerPool({
+      engine,
+      loop,
+      clock,
+      timers: clockTimers(clock),
+      leaseMs: LEASE,
+      owner: "w1",
+      isReplaySafe: () => false,
+      ...extra,
+    });
+    const task = await newTask(engine);
+    const next = loop.nextTurn();
+    const report = pool.runOnce();
+    return { clock, engine, loop, task, next, report };
+  }
+
+  it("waits out the chat run that started the task, then runs it", async () => {
+    const { clock, loop, next, report } = await run(2);
+    await flush();
+    expect(loop.turns).toHaveLength(0);
+    clock.advance(250);
+    await flush();
+    clock.advance(500);
+    const turn = await next;
+    turn.end("final");
+    expect((await report)?.task?.status).toBe("done");
+    expect(loop.busyStarts).toBe(2);
+  });
+
+  it("gives up after a bounded number of tries and reports thread_busy as a failure", async () => {
+    const { clock, loop, report } = await run(100, {
+      threadBusyRetry: { maxTries: 3, baseMs: 100, maxMs: 150 },
+    });
+    for (let i = 0; i < 4; i += 1) {
+      await flush();
+      clock.advance(150);
+    }
+    const r = await report;
+    expect(r?.task?.status).toBe("failed");
+    expect(r?.task?.summary).toBe("thread_busy");
+    expect(loop.busyStarts).toBe(3);
+  });
+
+  it("does not retry other failures", async () => {
+    const { loop, next, report } = await run(0);
+    (await next).end("failed", "provider_down");
+    const r = await report;
+    expect(r?.task?.status).toBe("failed");
+    expect(r?.task?.summary).toBe("provider_down");
+    expect(loop.busyStarts).toBe(0);
   });
 });
