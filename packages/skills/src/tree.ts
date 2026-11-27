@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, type Stats } from "node:fs";
 import { join, posix } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
@@ -125,7 +125,7 @@ export function readSkillDir(dir: string, limits: TreeLimits = DEFAULT_LIMITS): 
  */
 export function treeSignature(dir: string): string | undefined {
   const parts: string[] = [];
-  const fmt = (r: string, t: string, st: ReturnType<typeof lstatSync>) =>
+  const fmt = (r: string, t: string, st: Stats) =>
     `${r}\0${t}\0${st.size}\0${st.mtimeMs}\0${st.ctimeMs}\0${st.ino}\0${st.dev}\0${st.mode}`;
   try {
     const walk = (abs: string, rel: string): boolean => {
