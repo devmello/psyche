@@ -34,10 +34,12 @@ struct LiveRefreshTests {
         defer { task.cancel() }
         await store.publish(.chat(.run(threadID: "thr_1", update: RunUpdate(state: .running))))
         #expect(await Self.eventually { model.isRunning })
-        #expect(model.phase.value?.status == "Thinking")
+        #expect(model.thinking)
+        #expect(!model.displayStatus.isEmpty)
         await store.publish(.chat(.run(threadID: "thr_1", update: RunUpdate(state: .cancelled))))
         #expect(await Self.eventually { !model.isRunning })
-        #expect(model.phase.value?.status != "Thinking")
+        #expect(!model.thinking)
+        #expect(model.displayStatus.isEmpty)
         #expect(model.phase.value?.statusKind != .running)
     }
 

@@ -8,7 +8,8 @@ public struct MarkdownView: View {
     private let streaming: Bool
 
     public init(_ text: String, streaming: Bool = false) {
-        blocks = MarkdownParser.parse(text)
+        // A finished message never changes, so its parse is kept; a streaming one changes every flush and is not.
+        blocks = streaming ? MarkdownParser.parse(text) : MarkdownBlockCache.shared.blocks(for: text)
         self.streaming = streaming
     }
 
@@ -88,6 +89,43 @@ public struct MarkdownView: View {
                 .foregroundStyle(PsycheColor.text)
                 .textSelection(.enabled)
         }
+    }
+}
+
+/// Parsed Markdown for finished messages, keyed by their text, so a redraw of a long thread parses nothing.
+/// A cache miss and a hit give the same blocks; only the cost differs.
+final class MarkdownBlockCache: @unchecked Sendable {
+    static let shared = MarkdownBlockCache()
+
+    private final class Entry {
+        let blocks: [MarkdownBlock]
+        init(_ blocks: [MarkdownBlock]) { self.blocks = blocks }
+    }
+
+    private let cache: NSCache<NSString, Entry> = {
+        let cache = NSCache<NSString, Entry>()
+        cache.countLimit = 200
+        return cache
+    }()
+    private let lock = NSLock()
+    private var parses = 0
+
+    /// How many times a text has actually been parsed (tests).
+    var parseCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return parses
+    }
+
+    func blocks(for text: String) -> [MarkdownBlock] {
+        let key = text as NSString
+        if let hit = cache.object(forKey: key) { return hit.blocks }
+        let parsed = MarkdownParser.parse(text)
+        lock.lock()
+        parses += 1
+        lock.unlock()
+        cache.setObject(Entry(parsed), forKey: key)
+        return parsed
     }
 }
 
