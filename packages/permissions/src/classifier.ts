@@ -140,13 +140,16 @@ export class RulesClassifier implements ActionClassifier {
 
 export const CLASSIFIER_TIMEOUT_MS = 8000;
 export const MIN_CONFIDENCE = 0.7;
+/** The reply is one short JSON object (~60 tokens); 200 truncated verbose replies ("finished with length"). */
+export const CLASSIFIER_MAX_OUTPUT_TOKENS = 500;
 
 const SYSTEM_PROMPT = `You label one proposed action of a personal AI agent for its owner.
 You see only the owner's own requests and metadata about the action, never page content.
-Answer with one JSON object and nothing else: {"label":"routine"|"sensitive"|"prohibited","confidence":0..1,"reason":"<short>"}.
+Answer with one JSON object and nothing else: {"label":"routine"|"sensitive"|"prohibited","confidence":0..1,"reason":"<under 15 words>"}.
 routine: clearly what the owner asked for, reversible, low risk.
 sensitive: plausible but the owner should confirm (new recipients, sharing, deleting, anything unclear).
-prohibited: moves money, evades security, or contradicts the owner's request.`;
+prohibited: moves money, evades security, or contradicts the owner's request.
+Never routine: changing settings (app or device), OAuth or other consent screens, granting or widening access.`;
 
 /**
  * Model-backed classifier on the `utility` role (enabled by `classifier.model`).
@@ -185,7 +188,7 @@ export class ModelClassifier implements ActionClassifier {
 }
 
 /**
- * One bounded, tool-less, temperature-0 model call (200 output tokens): the text it answered, or
+ * One bounded, tool-less, temperature-0 model call (500 output tokens): the text it answered, or
  * why it must not be used (output too long, a finish other than `stop`). Errors propagate, so the
  * caller's fail-closed wrapper turns them into its own "unavailable" answer.
  */
@@ -203,7 +206,7 @@ export async function streamModelText(
       system,
       messages: [{ role: "user", parts: [{ type: "text", text: user }] }],
       toolChoice: "none",
-      maxOutputTokens: 200,
+      maxOutputTokens: CLASSIFIER_MAX_OUTPUT_TOKENS,
       temperature: 0,
     },
     { signal },
@@ -231,6 +234,20 @@ export function boundedInput(input: ClassifierInput): ClassifierInput {
 const RANK: Record<ClassifierLabel, number> = { routine: 0, sensitive: 1, prohibited: 2 };
 
 /**
+ * Tools that change settings, give consent or change who has access are never routine, whatever a
+ * model says or an existing grant covers. Settings and consent match anywhere in the name
+ * (`device.settings.update`, `updateSettings`, `browser.oauth_consent`); grant and permission match
+ * whole name segments, so `grants.create` and `drive.permissions.update` count but `program_run` or
+ * `permissive_docs` do not.
+ */
+const FLOORED_TOOL =
+  /settings|oauth|consent|(^|[._-]|__)(grants?|permissions?|entitlements?)($|[._-]|__)/i;
+
+export function isFlooredTool(tool: string): boolean {
+  return FLOORED_TOOL.test(tool);
+}
+
+/**
  * The deterministic floor no model may go below: taint, a tainted goal, a sensitive target, no
  * owner request or a class above `write` is never `routine`; `financial` is `prohibited`.
  */
@@ -248,6 +265,9 @@ export function deterministicFloor(input: ClassifierInput): ClassifierOutput {
   if (input.sensitiveTarget) return { label: "sensitive", reason: "sensitive-category target" };
   if (input.ownerMessages.length === 0) {
     return { label: "sensitive", reason: "no owner request to align with" };
+  }
+  if (isFlooredTool(input.tool)) {
+    return { label: "sensitive", reason: `${input.tool} changes settings, consent or access` };
   }
   return { label: "routine", reason: "" };
 }

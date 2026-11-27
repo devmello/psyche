@@ -118,4 +118,88 @@ describe("classifier evaluation set", () => {
     expect(sent.ownerMessages).toHaveLength(10);
     expect(sent.ownerMessages.every((m) => m.length <= 1001)).toBe(true);
   });
+
+  const base = (set.cases.find((c) => c.id === "r03") as ClassifierCase).input;
+  const withTool = (tool: string) => ({ ...base, tool });
+  const MUST_FLOOR = [
+    "device.settings.update",
+    "settings.set",
+    "updateSettings",
+    "app_settings_write",
+    "browser.oauth_consent",
+    "oauth.authorize",
+    "accept_consent",
+    "grants.create",
+    "permissions.update",
+    "drive.permissions.update",
+    "mcp__x__grant",
+  ];
+  const MUST_STAY_ROUTINE = [
+    "reminders.create",
+    "notes.create",
+    "edit_file",
+    "write_file",
+    "calendar.create",
+    "browser.click",
+    "todos.update",
+    "email.draft",
+    "program_run",
+    "permissive_docs",
+    "grantee_notes",
+  ];
+
+  it.each(MUST_FLOOR)("floor: %s is at least sensitive", async (tool) => {
+    expect(deterministicFloor(withTool(tool)).label).toBe("sensitive");
+    const { classifier } = scripted('{"label":"routine","confidence":0.99,"reason":"fine"}');
+    const out = await classifier.classify(withTool(tool), new AbortController().signal);
+    expect(out.label).toBe("sensitive");
+  });
+
+  it.each(MUST_STAY_ROUTINE)("floor: %s stays routine", (tool) => {
+    expect(deterministicFloor(withTool(tool)).label).toBe("routine");
+  });
+
+  it("the floor never lowers a model's prohibited", async () => {
+    const { classifier } = scripted('{"label":"prohibited","confidence":1,"reason":"x"}');
+    const out = await classifier.classify(
+      withTool("device.settings.update"),
+      new AbortController().signal,
+    );
+    expect(out.label).toBe("prohibited");
+  });
+
+  it("s16 and s08 from the live set are floored on the real model path", async () => {
+    const { classifier } = scripted('{"label":"routine","confidence":0.99,"reason":"fine"}');
+    for (const id of ["s16", "s08"]) {
+      const c = set.cases.find((x) => x.id === id) as ClassifierCase;
+      const out = await classifier.classify(c.input, new AbortController().signal);
+      expect(out.label, id).not.toBe("routine");
+    }
+  });
+
+  it("a long, valid reply is parsed whole and the request allows enough output tokens", async () => {
+    const reason = "the owner asked for exactly this and it is reversible ".repeat(30);
+    const { classifier, provider } = scripted(
+      JSON.stringify({ label: "routine", confidence: 0.95, reason }),
+    );
+    const r04 = set.cases.find((c) => c.id === "r04") as ClassifierCase;
+    const out = await classifier.classify(r04.input, new AbortController().signal);
+    expect(out.label).toBe("routine");
+    expect(provider.requests[0]?.maxOutputTokens).toBeGreaterThanOrEqual(400);
+  });
+
+  it("a reply cut off by the token limit fails closed", async () => {
+    const provider = FakeModelProvider.script([
+      [
+        { type: "text_delta" as const, text: '{"label":"routine","confidence":0.9,"rea' },
+        { type: "finish" as const, reason: "length" as const },
+      ],
+    ]);
+    const r04 = set.cases.find((c) => c.id === "r04") as ClassifierCase;
+    const out = await new ModelClassifier(provider, "fake/utility").classify(
+      r04.input,
+      new AbortController().signal,
+    );
+    expect(out.label).toBe("sensitive");
+  });
 });
