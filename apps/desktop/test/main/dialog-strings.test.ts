@@ -85,13 +85,13 @@ describe("dialog words follow the system language", () => {
   });
 
   it("read the system language once it is loaded (the tray's locale)", async () => {
-    const words = await loadMainWords("de");
+    const words = await loadMainWords();
     expect(words("desktop.dialog.notificationsOn")).toBe("Mitteilungen sind aktiviert.");
     expect(mainWords()("desktop.dialog.cancel")).toBe("Abbrechen");
   });
 
   it("fill the host words from the OS", async () => {
-    const words = await loadMainWords("de");
+    const words = await loadMainWords();
     expect(words("desktop.dialog.stopTitle", { os: "macos" })).toBe(
       "Psyche auf diesem Mac beenden?",
     );
