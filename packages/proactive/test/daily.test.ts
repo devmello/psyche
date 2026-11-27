@@ -206,7 +206,7 @@ describe("morning brief", () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect((notify.mock.calls[0] as unknown as [{ surfaces: string[] }])[0].surfaces).toEqual([
       "desktop",
-      "web",
+      "offMac",
       "notification",
     ]);
   });

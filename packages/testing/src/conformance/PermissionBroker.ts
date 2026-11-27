@@ -276,7 +276,7 @@ export function describePermissionBrokerConformance(
         });
       expect((await answer("desktop", "deny")).status).toBe("denied");
       await expectPsycheError(answer("desktop", "approve"), "answer_replayed");
-      await expectPsycheError(answer("web", "approve"), "answer_late");
+      await expectPsycheError(answer("offMac", "approve"), "answer_late");
       await expectPsycheError(
         broker.answer({
           approvalId: issued.approval.id,
