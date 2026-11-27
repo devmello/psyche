@@ -3732,6 +3732,7 @@ export const ja: Partial<Catalogue> = {
   "web.chat.modelTitle": "モデル（⌘⇧I）",
   "web.chat.defaultModel": "デフォルトのモデル",
   "web.chat.conversation": "会話",
+  "web.chat.stopFailed": "停止できませんでした。もう一度お試しください。",
   "web.chat.preparing": "Psycheがメインチャットを準備しています。",
   "web.quickEntry.status":
     "Psyche · {online, select, true {メインチャット} other {オフライン}}{approvals, plural, =0 {} other { · #件の承認待ち}}",

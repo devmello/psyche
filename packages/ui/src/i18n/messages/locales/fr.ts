@@ -3780,6 +3780,7 @@ export const fr: Partial<Catalogue> = {
   "web.chat.modelTitle": "Modèle (⌘⇧I)",
   "web.chat.defaultModel": "modèle par défaut",
   "web.chat.conversation": "Conversation",
+  "web.chat.stopFailed": "Impossible d’arrêter. Réessayez.",
   "web.chat.preparing": "Psyche prépare votre discussion principale.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {discussion principale} other {hors ligne}}{approvals, plural, =0 {} one { · # approbation en attente} other { · # approbations en attente}}",

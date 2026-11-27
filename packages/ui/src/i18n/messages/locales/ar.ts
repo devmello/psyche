@@ -3766,6 +3766,7 @@ export const ar: Partial<Catalogue> = {
   "web.chat.modelTitle": "النموذج (⌘⇧I)",
   "web.chat.defaultModel": "النموذج الافتراضي",
   "web.chat.conversation": "المحادثة",
+  "web.chat.stopFailed": "تعذّر الإيقاف. حاول مرة أخرى.",
   "web.chat.preparing": "يجهّز Psyche دردشتك الرئيسية.",
   "web.quickEntry.status":
     "Psyche · {online, select, true {الدردشة الرئيسية} other {غير متصل}}{approvals, plural, =0 {} one { · موافقة واحدة بالانتظار} two { · موافقتان بالانتظار} few { · # موافقات بالانتظار} many { · # موافقة بالانتظار} other { · # موافقة بالانتظار} zero {}}",

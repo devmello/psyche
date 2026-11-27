@@ -3,6 +3,7 @@ import {
   type ReactElement,
   type ReactNode,
   useContext,
+  useRef,
   useSyncExternalStore,
 } from "react";
 import type { ShellPlatform } from "./platform.ts";
@@ -27,7 +28,21 @@ export function useShell(): ShellContextValue {
   return v;
 }
 
-export function useShellState<T>(select: (s: ShellState) => T): T {
+/**
+ * Subscribes to a slice of the store. `isEqual` (default `Object.is`) lets a selector that builds a
+ * new value (a derived array or object) keep the previous one while its content is unchanged, so
+ * the component re-renders only when the slice does.
+ */
+export function useShellState<T>(
+  select: (s: ShellState) => T,
+  isEqual: (a: T, b: T) => boolean = Object.is,
+): T {
   const { store } = useShell();
-  return useSyncExternalStore(store.subscribe, () => select(store.getState()));
+  const last = useRef<{ value: T } | null>(null);
+  return useSyncExternalStore(store.subscribe, () => {
+    const next = select(store.getState());
+    if (last.current !== null && isEqual(last.current.value, next)) return last.current.value;
+    last.current = { value: next };
+    return next;
+  });
 }
