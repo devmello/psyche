@@ -478,42 +478,64 @@ export class SqliteTaskEngine implements TaskEngine {
     return event.payload.task;
   }
 
-  async claim(owner: string, options: ClaimOptions): Promise<TaskLease | undefined> {
-    if (!(options.leaseMs > 0)) fail("invalid_params", "leaseMs must be positive");
-    const result = this.#tx(() => {
-      const now = this.#iso();
-      const claimable = "(status = 'queued' OR (status = 'running' AND lease_until <= @now))";
-      // Pool filters (docs/agent/specialists-2026.md §4.5): origins in or out, and at most
-      // `perParentLimit` running specialist jobs per parent thread.
-      const params: Record<string, unknown> = { now };
-      const filters: string[] = [claimable];
-      const list = (name: string, values: readonly string[]) => {
-        values.forEach((v, i) => {
-          params[`${name}${i}`] = v;
-        });
-        return values.map((_, i) => `@${name}${i}`).join(", ");
-      };
-      if (options.origins !== undefined) {
-        filters.push(
-          options.origins.length === 0 ? "0" : `created_from IN (${list("org", options.origins)})`,
-        );
-      }
-      if (options.excludeOrigins !== undefined && options.excludeOrigins.length > 0) {
-        filters.push(`created_from NOT IN (${list("xorg", options.excludeOrigins)})`);
-      }
-      if (options.excludeTaskIds !== undefined && options.excludeTaskIds.length > 0) {
-        filters.push(`NOT (status = 'running' AND id IN (${list("xid", options.excludeTaskIds)}))`);
-      }
-      if (options.perParentLimit !== undefined) {
-        params.perParent = options.perParentLimit;
-        filters.push(`(specialist IS NULL OR (
+  /**
+   * Read-only probe, no write transaction: could `claim(options)` take a task right now? An
+   * idle pool asks this before it takes the write lock. It over-approximates (a `taskId` is not
+   * in the filter), so a true answer only costs one `claim`, and `claim` re-checks in its own
+   * transaction.
+   */
+  hasClaimable(options: ClaimOptions): boolean {
+    const { where, params } = this.#claimFilters(options, this.#iso());
+    return (
+      this.#db.sqlite.prepare(`SELECT 1 FROM tasks WHERE ${where} LIMIT 1`).get(params) !==
+      undefined
+    );
+  }
+
+  /** The WHERE clause and parameters `claim` and `hasClaimable` share. */
+  #claimFilters(
+    options: ClaimOptions,
+    now: string,
+  ): { where: string; params: Record<string, unknown> } {
+    const claimable = "(status = 'queued' OR (status = 'running' AND lease_until <= @now))";
+    // Pool filters (docs/agent/specialists-2026.md §4.5): origins in or out, and at most
+    // `perParentLimit` running specialist jobs per parent thread.
+    const params: Record<string, unknown> = { now };
+    const filters: string[] = [claimable];
+    const list = (name: string, values: readonly string[]) => {
+      values.forEach((v, i) => {
+        params[`${name}${i}`] = v;
+      });
+      return values.map((_, i) => `@${name}${i}`).join(", ");
+    };
+    if (options.origins !== undefined) {
+      filters.push(
+        options.origins.length === 0 ? "0" : `created_from IN (${list("org", options.origins)})`,
+      );
+    }
+    if (options.excludeOrigins !== undefined && options.excludeOrigins.length > 0) {
+      filters.push(`created_from NOT IN (${list("xorg", options.excludeOrigins)})`);
+    }
+    if (options.excludeTaskIds !== undefined && options.excludeTaskIds.length > 0) {
+      filters.push(`NOT (status = 'running' AND id IN (${list("xid", options.excludeTaskIds)}))`);
+    }
+    if (options.perParentLimit !== undefined) {
+      params.perParent = options.perParentLimit;
+      filters.push(`(specialist IS NULL OR (
           SELECT COUNT(*) FROM tasks AS r
           WHERE r.status = 'running' AND r.lease_until > @now AND r.specialist IS NOT NULL
             AND json_extract(r.specialist, '$.parentThreadId') =
                 json_extract(tasks.specialist, '$.parentThreadId')
         ) < @perParent)`);
-      }
-      const where = filters.join(" AND ");
+    }
+    return { where: filters.join(" AND "), params };
+  }
+
+  async claim(owner: string, options: ClaimOptions): Promise<TaskLease | undefined> {
+    if (!(options.leaseMs > 0)) fail("invalid_params", "leaseMs must be positive");
+    const result = this.#tx(() => {
+      const now = this.#iso();
+      const { where, params } = this.#claimFilters(options, now);
       const row = (
         options.taskId === undefined
           ? this.#db.sqlite

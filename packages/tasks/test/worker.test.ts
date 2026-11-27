@@ -1,6 +1,6 @@
 import { APPROVAL_TTL_MS } from "@psyche/protocol";
 import { FakeClock, FakeNotifier, FakePermissionBroker } from "@psyche/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type SqliteTaskEngine, TaskWorkerPool, type TaskWorkerPoolOptions } from "../src/index.ts";
 import { THREAD, testDb, testEngine } from "./helpers.ts";
 import { ControlledLoop, clockTimers, flush, frozenTimers, type TurnHandle } from "./loops.ts";
@@ -419,5 +419,72 @@ describe("TaskWorkerPool", () => {
     await flush();
     expect((await engine.get(task.id))?.status).toBe("done");
     await pool.stop();
+  });
+
+  it("an idle pool takes no write transaction and never calls claim", async () => {
+    const { db, engine, pool } = setup();
+    const tx = vi.spyOn(db.sqlite, "transaction");
+    const claim = vi.spyOn(engine, "claim");
+    expect(await pool.runOnce()).toBeUndefined();
+    expect(await pool.runOnce({ owner: "w1/1" })).toBeUndefined();
+    expect(tx).not.toHaveBeenCalled();
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("a poked task starts at once, well before the idle poll interval", async () => {
+    const { engine, loop, pool } = setup({ concurrency: 1, pollMs: 60 * 60_000 });
+    await pool.start();
+    const next = loop.nextTurn();
+    const task = await newTask(engine);
+    pool.poke();
+    const turn = await next;
+    expect(turn.input.taskId).toBe(task.id);
+    turn.end("final");
+    await flush();
+    expect((await engine.get(task.id))?.status).toBe("done");
+    await pool.stop();
+  });
+
+  it("an expired lease is still reclaimed by an idle pool's next poll", async () => {
+    const { clock, engine, db } = setup();
+    const loopA = new ControlledLoop();
+    const frozen = new TaskWorkerPool({
+      engine,
+      loop: loopA,
+      clock,
+      timers: frozenTimers,
+      leaseMs: LEASE,
+      owner: "a",
+      isReplaySafe: (t) => SAFE.has(t),
+    });
+    const task = await newTask(engine);
+    const a = await startTurn(frozen, loopA);
+    a.turn.emit({ type: "tool_call", toolCallId: "tc1", tool: "search", status: "running" });
+    await flush();
+    const loopB = new ControlledLoop();
+    const b = new TaskWorkerPool({
+      engine,
+      loop: loopB,
+      clock,
+      timers: clockTimers(clock),
+      leaseMs: LEASE,
+      owner: "b",
+      isReplaySafe: (t) => SAFE.has(t),
+    });
+    // Live lease: the probe finds nothing, so no write transaction is taken.
+    const tx = vi.spyOn(db.sqlite, "transaction");
+    expect(await b.runOnce()).toBeUndefined();
+    expect(tx).not.toHaveBeenCalled();
+    // Lease expired: the probe sees it and the claim takes the task over.
+    clock.advance(LEASE + 1);
+    const next = loopB.nextTurn();
+    const reportB = b.runOnce();
+    const turnB = await next;
+    expect(turnB.input.taskId).toBe(task.id);
+    expect(tx).toHaveBeenCalled();
+    turnB.end("final");
+    expect((await reportB)?.task?.status).toBe("done");
+    a.turn.end("final");
+    await a.report;
   });
 });

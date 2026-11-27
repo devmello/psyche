@@ -139,6 +139,7 @@ import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { personalizeMessageEvent } from "../message-scrub.ts";
 import { openGatewayDb, purgePreUpdateSnapshots, releaseGatewayLock } from "../pre-update.ts";
+import { failureFields } from "../process-errors.ts";
 import {
   personalizeLoopEvent,
   personalizeNotificationEvent,
@@ -2539,7 +2540,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         if (f.event !== "settings.changed") return;
         const keys: readonly string[] = [...WORKFLOW_SETTING_KEYS, ...DAILY_SETTING_KEYS];
         if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
-          void proactive.syncWorkflowSchedules();
+          void proactive
+            .syncWorkflowSchedules()
+            .catch((err: unknown) =>
+              gwOptions.logger?.log("warn", "workflow schedules sync failed", failureFields(err)),
+            );
         }
       });
     },
