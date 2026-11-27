@@ -21,6 +21,7 @@ import { computerWatch } from "./computer-watch/ko.ts";
 import { dailyRest } from "./daily-rest/ko.ts";
 import { deckRest } from "./deck-rest/ko.ts";
 import { designRest } from "./design-rest/ko.ts";
+import { desktopDialog } from "./desktop-dialog/ko.ts";
 import { desktopMenu } from "./desktop-menu/ko.ts";
 import { desktopSimple } from "./desktop-simple/ko.ts";
 import { desktopTray } from "./desktop-tray/ko.ts";
@@ -3896,6 +3897,7 @@ export const ko: Partial<Catalogue> = {
   ...desktopMenu,
   ...desktopTray,
   ...simplifyB6,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,

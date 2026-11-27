@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from "electron";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
   app: { name: "Psyche", isPackaged: true, quit: () => {} },
@@ -9,6 +9,13 @@ vi.mock("electron", () => ({
 }));
 
 const { gatewayRowLabel, trayTemplate, trayTooltip } = await import("../../src/main/tray.ts");
+const { createLoadedI18n } = await import("@psyche/ui/i18n-core");
+
+// The app loads the system language's catalogue at startup (main-i18n.ts); the tray reads only
+// what is loaded, so the German cases load German first.
+beforeAll(async () => {
+  await createLoadedI18n({ locale: "de" });
+});
 
 const noop = () => {};
 const actions = {
