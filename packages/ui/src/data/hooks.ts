@@ -51,6 +51,7 @@ import {
   putMany,
   type QueuedFollowUp,
   replaceLibraryWindow,
+  runsOfThread,
   type StreamingMessage,
   type ThreadContextEntry,
   type UiState,
@@ -444,7 +445,7 @@ export function useThread(threadId: string | null) {
   const select = useCallback(
     (s: UiState): ThreadView => {
       const id = threadId ?? "";
-      const runs = Object.values(s.runs).filter((r) => r.threadId === id);
+      const runs = runsOfThread(s.runs, id);
       // A freshly loaded thread knows its active run only from `activeWriterRunId`.
       const active = s.threads[id]?.thread.activeWriterRunId ?? null;
       const activeRun = active === null ? undefined : s.runs[active];
@@ -466,12 +467,25 @@ export function useThread(threadId: string | null) {
   );
   const view = useStoreStateShallow(select);
 
+  // An open thread is never evicted from the store (bounded memory, see `retainThread`).
+  useEffect(
+    () => (threadId === null ? undefined : store.retainThread(threadId)),
+    [store, threadId],
+  );
+
   const load = useLoader(threadId === null ? null : `thread:${threadId}`, async (st) => {
     if (threadId === null) return;
     const version = st.version();
-    const [entry, history] = await Promise.all([
+    // An evicted thread lost its runs too: read the ones the transcript shows (failed, stopped).
+    const reloadRuns = st.takeEvicted(threadId);
+    const [entry, history, runs] = await Promise.all([
       st.call("threads.get", { threadId }),
       st.call("chat.history", { threadId, limit: 100 }),
+      reloadRuns
+        ? st
+            .call("runs.list", { threadId, status: ["running", "failed", "cancelled"], limit: 50 })
+            .catch(() => null)
+        : Promise.resolve(null),
     ]);
     st.update((s) => {
       const known = s.messages[threadId] ?? [];
@@ -488,6 +502,7 @@ export function useThread(threadId: string | null) {
             : { ...s.threads, [threadId]: entry },
         messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
         historyCursor: { ...s.historyCursor, [threadId]: history.nextCursor ?? null },
+        runs: runs === null ? s.runs : putMany(s, "runs", runs.runs, version).runs,
       };
     });
   });

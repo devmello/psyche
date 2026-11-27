@@ -23,15 +23,28 @@ import {
   appendBlock,
   dropSettledStreaming,
   INITIAL_STATE,
+  isOwnedTouched,
+  isUnsettled,
+  ownTouched,
+  pruneTouched,
   put,
   putMany,
   type QueuedFollowUp,
+  runsOfThread,
   touch,
   type UiState,
   upsertMessage,
   upsertRunSteps,
   withThreadCleared,
+  withThreadEvicted,
 } from "./state.ts";
+
+/** Events between two maintenance sweeps (guard pruning and eviction of closed threads). */
+const MAINTAIN_EVERY_EVENTS = 128;
+/** Closed threads whose data stays loaded: the most recently used ones. */
+export const KEEP_RECENT_THREADS = 5;
+/** How long a `version()` read protects the guard before its request registers (a safety net). */
+const VERSION_LEASE_MS = 10_000;
 
 type Overlay = { id: number; apply: (s: UiState) => UiState };
 type Refresher = () => Promise<void>;
@@ -111,6 +124,19 @@ export class GatewayStore {
    * was last loaded. A settled run is re-read on refresh only when it is in this set.
    */
   private readonly changedRuns = new Set<string>();
+  /** Start versions of the requests in flight (see `pruneTouched` for why only the minimum matters). */
+  private readonly inflight = new Map<number, number>();
+  private nextRequestId = 1;
+  /** `version()` reads that no request has registered for yet: `[version, expiry in ms]`. */
+  private leases: Array<[number, number]> = [];
+  /** Threads open in a view right now, with how many views. Never evicted. */
+  private readonly retained = new Map<string, number>();
+  /** When each thread was last opened or got an event, for the recent-threads cache. */
+  private readonly lastUsed = new Map<string, number>();
+  private useClock = 0;
+  /** Threads whose data was evicted; the next load of one also reads its runs. */
+  private readonly evicted = new Set<string>();
+  private eventsSinceMaintain = 0;
   /** The outbox's retry after a send gave up on `rate_limited` (one at a time; see `scheduleOutboxRetry`). */
   private outboxRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -122,7 +148,11 @@ export class GatewayStore {
     this.detached = options.detached ?? false;
     this.outbox = options.outbox;
     this.now = options.now ?? (() => new Date().toISOString());
-    this.base = { ...INITIAL_STATE, connection: client.connectionState() };
+    this.base = {
+      ...INITIAL_STATE,
+      touched: ownTouched({}),
+      connection: client.connectionState(),
+    };
     this.hasOpened = this.base.connection === "open";
     this.settled = this.base.connection !== "connecting";
     this.snapshot = this.base;
@@ -265,8 +295,13 @@ export class GatewayStore {
 
   /** Applies a change to the base state and recomputes the visible snapshot. */
   update(fn: (s: UiState) => UiState): void {
-    this.base = fn(this.base);
+    this.base = this.adopt(fn(this.base));
     this.recompute();
+  }
+
+  /** A caller that swapped in its own `touched` object hands it over: the store copies it once and owns that. */
+  private adopt(s: UiState): UiState {
+    return isOwnedTouched(s.touched) ? s : { ...s, touched: ownTouched({ ...s.touched }) };
   }
 
   private recompute(): void {
@@ -290,7 +325,7 @@ export class GatewayStore {
    * and takes the pending notification with it.
    */
   private updateCoalesced(fn: (s: UiState) => UiState): void {
-    this.base = fn(this.base);
+    this.base = this.adopt(fn(this.base));
     this.snapshot = this.overlays.reduce((s, o) => o.apply(s), this.base);
     if (this.notifyFrame !== undefined) return;
     this.notifyFrame = scheduleFrame(() => {
@@ -317,19 +352,27 @@ export class GatewayStore {
       ...(sideEffecting ? { idempotencyKey: newIdempotencyKey() } : {}),
       ...(callOptions.timeoutMs === undefined ? {} : { timeoutMs: callOptions.timeoutMs }),
     };
-    for (let attempt = 1; ; attempt += 1) {
-      await this.gate.admit(method);
-      try {
-        return await this.client.request(method, params, options);
-      } catch (err) {
-        const error = toRequestError(method, err);
-        if (error.code !== "rate_limited") throw error;
-        // A spent model budget is answered to the caller; it does not hold every other request.
-        if (modelBudgetMinutes(error) !== null) throw error;
-        const until = this.gate.pause(retryAfterSecOf(error.details));
-        if (sideEffecting || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw error;
-        await this.gate.waitUntil(until);
+    // The request counts as in flight from here (even while the gate holds it): a response that
+    // comes back must still lose against any event newer than this version.
+    const requestId = this.nextRequestId++;
+    this.inflight.set(requestId, this.base.stateVersion);
+    try {
+      for (let attempt = 1; ; attempt += 1) {
+        await this.gate.admit(method);
+        try {
+          return await this.client.request(method, params, options);
+        } catch (err) {
+          const error = toRequestError(method, err);
+          if (error.code !== "rate_limited") throw error;
+          // A spent model budget is answered to the caller; it does not hold every other request.
+          if (modelBudgetMinutes(error) !== null) throw error;
+          const until = this.gate.pause(retryAfterSecOf(error.details));
+          if (sideEffecting || attempt >= MAX_RATE_LIMIT_ATTEMPTS) throw error;
+          await this.gate.waitUntil(until);
+        }
       }
+    } finally {
+      this.inflight.delete(requestId);
     }
   }
 
@@ -354,7 +397,7 @@ export class GatewayStore {
     try {
       const result = await opts.run();
       const commit = opts.commit;
-      if (commit !== undefined) this.base = commit(this.base, result);
+      if (commit !== undefined) this.base = this.adopt(commit(this.base, result));
       drop();
       this.recompute();
       return result;
@@ -367,7 +410,106 @@ export class GatewayStore {
 
   /** The stateVersion a list request starts at; pass it to `putMany`. */
   version(): number {
-    return this.base.stateVersion;
+    const v = this.base.stateVersion;
+    // The caller's request starts a moment later: hold the guard at `v` until it has registered.
+    this.leases.push([v, Date.now() + VERSION_LEASE_MS]);
+    return v;
+  }
+
+  /**
+   * The lowest stateVersion a pending request may have been issued at, or Infinity when none is.
+   * `touched` entries at or below it can never block a response (see `touch` in state.ts).
+   */
+  private watermark(): number {
+    const now = Date.now();
+    this.leases = this.leases.filter(([, until]) => until > now);
+    let low = Number.POSITIVE_INFINITY;
+    for (const v of this.inflight.values()) low = Math.min(low, v);
+    for (const [v] of this.leases) low = Math.min(low, v);
+    return low;
+  }
+
+  // --- Bounded memory: guard pruning and closed threads -------------------------------------------
+
+  /**
+   * Marks a thread as open in a view: its data is never evicted until the returned release runs.
+   * A view that opens an evicted thread loads it again (`useThread`).
+   */
+  retainThread(threadId: string): () => void {
+    this.retained.set(threadId, (this.retained.get(threadId) ?? 0) + 1);
+    this.lastUsed.set(threadId, ++this.useClock);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const n = (this.retained.get(threadId) ?? 1) - 1;
+      if (n <= 0) this.retained.delete(threadId);
+      else this.retained.set(threadId, n);
+      this.lastUsed.set(threadId, ++this.useClock);
+      this.maintain();
+    };
+  }
+
+  /** True once when a thread's data was evicted since it was last loaded. */
+  takeEvicted(threadId: string): boolean {
+    return this.evicted.delete(threadId);
+  }
+
+  /** Counts for tests and diagnostics: how much the store holds on to. */
+  memoryStats(): { touched: number; recentThreads: number; evictedThreads: number } {
+    return {
+      touched: Object.keys(this.base.touched).length,
+      recentThreads: this.lastUsed.size,
+      evictedThreads: this.evicted.size,
+    };
+  }
+
+  /** Drops guard entries no pending request can need, then evicts closed threads. */
+  maintain(): void {
+    this.eventsSinceMaintain = 0;
+    pruneTouched(this.base.touched, this.watermark());
+    this.evictClosedThreads();
+  }
+
+  private evictClosedThreads(): void {
+    const s = this.base;
+    const candidates = new Set<string>(Object.keys(s.messages));
+    for (const r of Object.values(s.runs)) candidates.add(r.threadId);
+    if (candidates.size === 0) return;
+    // Recent first: the last few used threads stay loaded, open or not.
+    const recent = new Set(
+      [...this.lastUsed.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, KEEP_RECENT_THREADS)
+        .map(([id]) => id),
+    );
+    const streaming = new Set(Object.values(s.streaming).map((m) => m.threadId));
+    const queued = new Set(s.queue.map((q) => q.threadId));
+    const drop: string[] = [];
+    for (const id of candidates) {
+      if (this.retained.has(id) || recent.has(id) || streaming.has(id) || queued.has(id)) continue;
+      if ((s.threads[id]?.thread.activeWriterRunId ?? null) !== null) continue;
+      if (runsOfThread(s.runs, id).some(isUnsettled)) continue;
+      drop.push(id);
+    }
+    // Forget bookkeeping of threads that fell out of the cache.
+    for (const id of this.lastUsed.keys()) {
+      if (!recent.has(id) && !this.retained.has(id)) this.lastUsed.delete(id);
+    }
+    if (drop.length === 0) return;
+    this.base = drop.reduce(withThreadEvicted, this.base);
+    for (const id of drop) this.evicted.add(id);
+    this.recompute();
+  }
+
+  private noteThreadUse(e: GatewayEvent): void {
+    const p = e.payload as {
+      threadId?: unknown;
+      message?: { threadId?: unknown };
+      run?: { threadId?: unknown };
+    };
+    const id = p.threadId ?? p.message?.threadId ?? p.run?.threadId;
+    if (typeof id === "string") this.lastUsed.set(id, ++this.useClock);
   }
 
   // --- Follow-up queue ---------------------------------------------------------------------------
@@ -565,6 +707,8 @@ export class GatewayStore {
         e,
       ),
     );
+    this.noteThreadUse(e);
+    if (++this.eventsSinceMaintain >= MAINTAIN_EVERY_EVENTS) this.maintain();
     if (e.event === "run.step") this.changedRuns.add(e.payload.runId);
     if (e.event === "run.updated") this.changedRuns.add(e.payload.run.id);
     if (gap) {
