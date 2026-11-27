@@ -113,6 +113,21 @@ describe("exec_host card", () => {
     expect(onAnswer).toHaveBeenCalledTimes(1);
   });
 
+  it("Return and Space on the run-once button never run it; only a pointer does", async () => {
+    const onAnswer = show(execHost("srt"));
+    const button = screen.getByRole("button", { name: "Run once without the sandbox" });
+    await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+    button.focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onAnswer).not.toHaveBeenCalled();
+    await userEvent.click(button);
+    await waitFor(() =>
+      expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
+    );
+  });
+
   it("the button never turns an ordinary Allow into an unsandboxed one (positive control)", async () => {
     const onAnswer = show(execHost("srt"));
     await userEvent.click(allow());
