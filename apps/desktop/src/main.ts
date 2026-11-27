@@ -111,6 +111,7 @@ import {
   integrityText,
   pidsOfExecutable,
 } from "./main/bundle-integrity.ts";
+import { dialogWords, loadDialogWords } from "./main/dialog-words.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { DictationService, dictationSettingsUrl } from "./main/dictation/service.ts";
@@ -799,7 +800,10 @@ const permissions = createPermissions({
   },
   showFirstNotification: () => {
     if (!Notification.isSupported()) return false;
-    new Notification({ title: "Psyche", body: "Notifications are on." }).show();
+    new Notification({
+      title: "Psyche",
+      body: dialogWords()("desktop.dialog.notificationsOn"),
+    }).show();
     return true;
   },
 });
@@ -964,59 +968,69 @@ function requireBrowser(): BrowserHost {
  * where this app sends its signed handshake (security §10: never an address a page chose).
  */
 async function confirmGatewayChange(c: GatewayConfirm): Promise<boolean | "plain"> {
+  const t = await loadDialogWords();
+  const os = hostWords().os;
   const opts =
     c.kind === "addLan"
       ? {
-          message: `Is ${c.origin} a Psyche on this network?`,
-          detail: `Name: ${c.name}\n\nA Psyche on this network uses its own certificate, which Psyche pins instead of trusting the system's: it checks the certificate and the Gateway's key at the first connection and refuses any other later. Choose "Plain https" only for a server with an ordinary certificate (for example a reverse proxy with your own CA). Nothing is shared until its owner approves this computer there.`,
-          buttons: ["Psyche on this network", "Plain https", "Cancel"],
+          message: t("desktop.dialog.addLanTitle", { origin: c.origin }),
+          detail: t("desktop.dialog.addLanDetail", { name: c.name }),
+          buttons: [
+            t("desktop.dialog.psycheOnNetwork"),
+            t("desktop.dialog.plainHttps"),
+            t("desktop.dialog.cancel"),
+          ],
         }
       : c.kind === "addLink"
         ? {
             message: c.lan
-              ? `Connect Psyche to ${c.origin} on this network?`
-              : `Connect Psyche to ${c.origin}?`,
-            detail: `${
-              c.external
-                ? `This link was opened by another app or a website, not pasted by you. Only continue if you made it yourself on ${hostWords().theDevice} that runs Psyche.\n\n`
-                : ""
-            }Psyche will connect only if that Gateway proves this identity:\n${c.fingerprint}\n\n${
-              c.lan
-                ? `It uses its own certificate, not one the system trusts. Psyche holds it to the one this link names (${c.lan.certPin.slice(0, 12)}…) before sending anything, and refuses any other. Only continue if the link came from your own ${hostWords().device} on this network.\n\n`
-                : ""
-            }The link's one-time code then lets that Gateway approve this computer without asking again, with the access its owner chose when making it.`,
-            buttons: ["Add Gateway", "Cancel"],
+              ? t("desktop.dialog.addLinkTitleLan", { origin: c.origin })
+              : t("desktop.dialog.addLinkTitle", { origin: c.origin }),
+            detail: t("desktop.dialog.addLinkDetail", {
+              external: c.external ? "yes" : "no",
+              lan: c.lan ? "yes" : "no",
+              os,
+              fingerprint: c.fingerprint,
+              pin: c.lan?.certPin.slice(0, 12) ?? "",
+            }),
+            buttons: [t("desktop.dialog.addGatewayButton"), t("desktop.dialog.cancel")],
           }
         : c.kind === "add"
           ? {
-              message: `Connect Psyche to ${c.origin}?`,
-              detail: `Name: ${c.name}${c.fingerprint ? `\nKey it announced: ${c.fingerprint.slice(0, 31)}…` : ""}\n\nThis computer will ask that Gateway to pair. Nothing is shared until its owner approves this computer there, and Psyche pins the Gateway's identity at the first connection.`,
-              buttons: ["Add Gateway", "Cancel"],
+              message: t("desktop.dialog.addLinkTitle", { origin: c.origin }),
+              detail: c.fingerprint
+                ? t("desktop.dialog.addDetailKey", {
+                    name: c.name,
+                    key: c.fingerprint.slice(0, 31),
+                  })
+                : t("desktop.dialog.addDetailPlain", { name: c.name }),
+              buttons: [t("desktop.dialog.addGatewayButton"), t("desktop.dialog.cancel")],
             }
           : c.kind === "claim"
             ? {
-                message: `Set up the Psyche server at ${c.origin}?`,
-                detail:
-                  "Psyche checks that the server knows the setup code you typed before it trusts it, and the server checks that this computer knows it before making it the server's admin. Only continue if you just installed that server yourself.",
-                buttons: ["Set up", "Cancel"],
+                message: t("desktop.dialog.claimTitle", { origin: c.origin }),
+                detail: t("desktop.dialog.claimDetail"),
+                buttons: [t("desktop.dialog.setUp"), t("desktop.dialog.cancel")],
               }
             : c.kind === "forget"
               ? {
-                  message: `Forget ${c.name}?`,
-                  detail: `${c.origin}\n\nThis removes this computer's key for it and everything Psyche stored here for it. ${c.name} still lists this computer until someone removes it there.`,
-                  buttons: ["Forget", "Cancel"],
+                  message: t("desktop.dialog.forgetTitle", { name: c.name }),
+                  detail: t("desktop.dialog.forgetDetail", { origin: c.origin, name: c.name }),
+                  buttons: [t("desktop.dialog.forgetButton"), t("desktop.dialog.cancel")],
                 }
               : c.kind === "repair"
                 ? {
-                    message: `Pair with ${c.name} again?`,
-                    detail: `${c.origin}\n\nThis forgets the identity Psyche pinned for it and this computer's key, so the next connection pins whatever answers at that address and asks to pair as a new computer. Only do this if you know why its identity changed.`,
-                    buttons: ["Pair again", "Cancel"],
+                    message: t("desktop.dialog.repairTitle", { name: c.name }),
+                    detail: t("desktop.dialog.repairDetail", { origin: c.origin }),
+                    buttons: [t("desktop.dialog.repairButton"), t("desktop.dialog.cancel")],
                   }
                 : {
-                    message: `Stop Psyche on ${hostWords().thisDevice}?`,
-                    detail:
-                      "Its automations and scheduled tasks stop until you switch back. Leave it running to keep them going.",
-                    buttons: [`Stop Psyche on ${hostWords().thisDevice}`, "Keep it running"],
+                    message: t("desktop.dialog.stopTitle", { os }),
+                    detail: t("desktop.dialog.stopDetail"),
+                    buttons: [
+                      t("desktop.dialog.stopButton", { os }),
+                      t("desktop.dialog.keepRunning"),
+                    ],
                   };
   const win = windows?.main();
   const dialogOptions = {
@@ -1072,7 +1086,13 @@ function registerIpc(): void {
       home,
       {
         refuse: async (title, body) => {
-          await show({ type: "warning", message: title, detail: body, buttons: ["OK"] });
+          const t = await loadDialogWords();
+          await show({
+            type: "warning",
+            message: title,
+            detail: body,
+            buttons: [t("desktop.dialog.ok")],
+          });
         },
         confirm: async (s) =>
           (
@@ -1642,20 +1662,24 @@ function registerIpc(): void {
       });
     },
     confirm: async (plan) => {
+      const t = await loadDialogWords();
       const box = await dialog.showMessageBox({
         type: "warning",
-        buttons: ["Cancel", plan.deleteData ? "Delete data and uninstall" : "Uninstall"],
+        buttons: [
+          t("desktop.dialog.cancel"),
+          plan.deleteData ? t("desktop.dialog.uninstallAndDelete") : t("desktop.dialog.uninstall"),
+        ],
         defaultId: 0,
         cancelId: 0,
-        message: "Uninstall Psyche?",
+        message: t("desktop.dialog.uninstallTitle"),
         detail: [
-          `${plan.trash.length} item(s) will be moved to the Trash, including Psyche.app.`,
+          t("desktop.dialog.uninstallItems", { count: plan.trash.length }),
           plan.deleteData && plan.dataFolder !== undefined
-            ? `Your data folder ${plan.dataFolder} will be moved to the Trash too.`
-            : "Your data folder is kept.",
+            ? t("desktop.dialog.uninstallDataFolder", { folder: plan.dataFolder })
+            : t("desktop.dialog.uninstallDataKept"),
           plan.keychain.length > 0
-            ? "The Keychain items Psyche keeps will be removed."
-            : "Keychain items stay; remove them in Keychain Access if you want.",
+            ? t("desktop.dialog.uninstallKeychain")
+            : t("desktop.dialog.uninstallKeychainKept"),
         ].join("\n"),
       });
       return box.response === 1;
@@ -1698,20 +1722,27 @@ function registerIpc(): void {
           });
         },
         confirm: async (plan) => {
+          const t = await loadDialogWords();
           const box = await dialog.showMessageBox({
             type: "warning",
-            buttons: ["Cancel", plan.deleteData ? "Delete data and uninstall" : "Uninstall"],
+            buttons: [
+              t("desktop.dialog.cancel"),
+              plan.deleteData
+                ? t("desktop.dialog.uninstallAndDelete")
+                : t("desktop.dialog.uninstall"),
+            ],
             defaultId: 0,
             cancelId: 0,
-            message: "Uninstall Psyche?",
+            message: t("desktop.dialog.uninstallTitle"),
             detail: confirmDetailWindows(plan),
           });
           return box.response === 1;
         },
         showManualSteps: async (detail) => {
+          const t = await loadDialogWords();
           await dialog.showMessageBox({
             type: "info",
-            message: "One more step to finish removing Psyche",
+            message: t("desktop.dialog.manualStepsTitle"),
             detail,
           });
         },
@@ -1903,11 +1934,12 @@ function registerIpc(): void {
     const title =
       typeof r.title === "string" ? str(IPC.dialogPickFolder, r.title, "title", 120) : undefined;
     const win = windows?.main();
+    const t = await loadDialogWords();
     const opts = {
       properties: ["openDirectory", "createDirectory"] as ("openDirectory" | "createDirectory")[],
-      title: title ?? "Share a folder with Psyche",
-      message: title ?? "Share a folder with Psyche",
-      buttonLabel: "Share",
+      title: title ?? t("desktop.dialog.shareFolderTitle"),
+      message: title ?? t("desktop.dialog.shareFolderTitle"),
+      buttonLabel: t("desktop.dialog.share"),
     };
     const res =
       win && windows?.isAppContents(event.sender)
@@ -2083,15 +2115,20 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  void loadDialogWords();
   // The signature check runs behind the first window. Until it settles the TCC-backed features
   // stay blocked (fail closed): the helper, Ask about screen and dictation wait on it.
   const gate = createIntegrityGate(startupIntegrity, (m) => console.warn(m));
   integrity = gate;
   if (gatewaysFileProblem !== undefined) {
+    const t = await loadDialogWords();
     await dialog.showMessageBox({
       type: "warning",
-      message: "Psyche can't read its saved Gateways",
-      detail: `${gatewaysFileProblem}. Psyche starts on This Mac and leaves the file as it is, so no pinned identity is lost. Fix or remove the file in Psyche's data folder to use another computer's Gateway.`,
+      message: t("desktop.dialog.gatewaysFileTitle"),
+      detail: t("desktop.dialog.gatewaysFileDetail", {
+        problem: gatewaysFileProblem,
+        os: hostWords().os,
+      }),
     });
   }
   await decideSplash();
@@ -2524,13 +2561,14 @@ void app.whenReady().then(async () => {
     prepareRestart: () =>
       requireGateway().call("gateway.prepareUpdate", { waitMs: 10_000, timeoutMs: 60_000 }),
     confirmTakeover: async (other) => {
+      const t = await loadDialogWords();
       const opts = {
         type: "question" as const,
-        buttons: ["Keep the other copy", "Use this copy"],
+        buttons: [t("desktop.dialog.keepOtherCopy"), t("desktop.dialog.useThisCopy")],
         defaultId: 0,
         cancelId: 0,
-        message: "Another copy of Psyche is already running",
-        detail: `It runs from ${other}. Using this copy switches Psyche to this app; the other copy then connects to this one.`,
+        message: t("desktop.dialog.anotherCopyTitle"),
+        detail: t("desktop.dialog.anotherCopyDetail", { path: other }),
       };
       const win = windows?.main();
       const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
@@ -2698,9 +2736,9 @@ void app.whenReady().then(async () => {
  */
 function sayStillRunningOnce(): void {
   if (quittingEntirely || !firstCloseToTray(join(baseUserData, "closed-to-tray"))) return;
-  const title = "Psyche is still running";
-  const body =
-    "Tasks and automations keep going. Open Psyche from its icon in the notification area; right-click it to quit.";
+  const t = dialogWords();
+  const title = t("desktop.dialog.stillRunningTitle");
+  const body = t("desktop.dialog.stillRunningBody");
   if (Notification.isSupported()) {
     const n = new Notification({ title, body, silent: true });
     n.on("click", () => windows?.showMain());

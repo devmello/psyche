@@ -22,6 +22,7 @@ import { connectorGallery } from "./connector-gallery/ar.ts";
 import { connectorsPage } from "./connectors-page/ar.ts";
 import { daily } from "./daily/ar.ts";
 import { design } from "./design/ar.ts";
+import { desktopDialog } from "./desktop-dialog/ar.ts";
 import { desktopMenu } from "./desktop-menu/ar.ts";
 import { desktopSimple } from "./desktop-simple/ar.ts";
 import { desktopTray } from "./desktop-tray/ar.ts";
@@ -3954,6 +3955,7 @@ export const ar: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...desktopDialog,
   ...friction,
   ...update,
   ...spaces,
