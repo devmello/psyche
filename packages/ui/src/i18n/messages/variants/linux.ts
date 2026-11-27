@@ -251,7 +251,7 @@ export const linux: Partial<Record<MessageId, string>> = {
     "Install Node.js (nodejs.org, or your package manager) so npm is on this computer, then check again.",
   "settings.mcp.fail.uv_missing": "Install uv (docs.astral.sh/uv), then check the server again.",
   "settings.mail.voice.learn.hint":
-    "Wren reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this computer in mail/VOICE.md.",
+    "{persona} reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this computer in mail/VOICE.md.",
   "settings.mail.voice.localModel.hint": "Drafts in your voice never leave this computer.",
   "settings.mail.transcribe.endpoint.hint":
     "Optional. An OpenAI-compatible /v1/audio/transcriptions server (for example whisper.cpp on this computer). Used when the Linux helper has no speech engine. Audio goes only to this address: https, or http on 127.0.0.1.",

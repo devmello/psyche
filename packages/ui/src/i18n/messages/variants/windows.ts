@@ -311,7 +311,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.mcp.fail.uv_missing":
     "Install uv (winget install astral-sh.uv, or docs.astral.sh/uv), then check the server again.",
   "settings.mail.voice.learn.hint":
-    "Wren reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this PC in mail/VOICE.md.",
+    "{persona} reads only what you wrote in sent mail, without quoted text or signatures. The profile stays on this PC in mail/VOICE.md.",
   "settings.mail.voice.localModel.hint": "Drafts in your voice never leave this PC.",
   "settings.mail.transcribe.endpoint.hint":
     "Optional. An OpenAI-compatible /v1/audio/transcriptions server (for example whisper.cpp on this PC). Used when the Windows helper has no speech engine. Audio goes only to this address: https, or http on 127.0.0.1.",
