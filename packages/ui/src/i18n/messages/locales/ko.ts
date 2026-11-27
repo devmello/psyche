@@ -67,6 +67,7 @@ import { separateDesktop } from "./separate-desktop/ko.ts";
 import { settingsDrill } from "./settings-drill/ko.ts";
 import { settingsRest } from "./settings-rest/ko.ts";
 import { shellRest } from "./shell-rest/ko.ts";
+import { simplifyB7 } from "./simplify-b7/ko.ts";
 import { spaces } from "./spaces/ko.ts";
 import { specialistsRest } from "./specialists-rest/ko.ts";
 import { update } from "./update/ko.ts";
@@ -3894,6 +3895,7 @@ export const ko: Partial<Catalogue> = {
   ...keepAwake,
   ...desktopMenu,
   ...desktopTray,
+  ...simplifyB7,
   ...friction,
   ...update,
   ...spaces,
