@@ -13,6 +13,7 @@ import { charts } from "./charts/pt.ts";
 import { chatA } from "./chat-a/pt.ts";
 import { computerWatch } from "./computer-watch/pt.ts";
 import { dailyA } from "./daily-a/pt.ts";
+import { desktopMenu } from "./desktop-menu/pt.ts";
 import { desktopSimple } from "./desktop-simple/pt.ts";
 import { final202611 } from "./final-2026-11/pt.ts";
 import { friction } from "./friction/pt.ts";
@@ -3899,6 +3900,7 @@ export const pt: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
   ...friction,
   ...update,
   ...spaces,

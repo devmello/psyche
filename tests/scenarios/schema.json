@@ -362,7 +362,7 @@
             "modes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/runMode" } },
             "note": { "type": "string", "minLength": 1 },
             "text": { "type": "string", "minLength": 1 },
-            "surface": { "enum": ["desktop", "web", "telegram"] },
+            "surface": { "enum": ["desktop", "offMac", "telegram"] },
             "script": { "$ref": "#/$defs/script" },
             "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
           }
@@ -380,7 +380,7 @@
             "approvalRef": { "$ref": "#/$defs/id" },
             "decision": { "enum": ["allow", "deny"] },
             "scope": { "$ref": "#/$defs/scope" },
-            "surface": { "enum": ["desktop", "notification", "web", "telegram"] },
+            "surface": { "enum": ["desktop", "notification", "offMac", "telegram"] },
             "token": { "enum": ["current", "stale"] },
             "expectAnswer": {
               "enum": ["accepted", "rejected_reissued", "rejected_late", "rejected_replayed"]

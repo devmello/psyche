@@ -1595,7 +1595,7 @@ export const settings = {
     "Nothing is read or written while on, and nothing is back-filled afterwards.",
   "settings.learning.weeklyCard": "Weekly “What I learned” card",
   "settings.learning.weeklyCardHint":
-    "A Feed post on Sundays, only when there is something to review.",
+    "A Home post on Sundays, only when there is something to review.",
   "settings.learning.open": "What {persona} learned",
   "settings.learning.openButton": "Open Growth",
   "settings.learning.forgetAll": "Forget everything {persona} learned",

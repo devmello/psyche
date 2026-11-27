@@ -634,7 +634,7 @@ export const settingsRest: Partial<Catalogue> = {
   "settings.learning.paused": "सीखना रोकें",
   "settings.learning.pausedHint": "चालू रहने पर कुछ पढ़ा या लिखा नहीं जाता, और बाद में कुछ भरा नहीं जाता।",
   "settings.learning.weeklyCard": "साप्ताहिक “मैंने क्या सीखा” कार्ड",
-  "settings.learning.weeklyCardHint": "रविवार को फ़ीड में एक पोस्ट, सिर्फ़ तब जब समीक्षा के लिए कुछ हो।",
+  "settings.learning.weeklyCardHint": "रविवार को होम में एक पोस्ट, सिर्फ़ तब जब समीक्षा के लिए कुछ हो।",
   "settings.learning.open": "{persona} ने क्या सीखा",
   "settings.learning.openButton": "ग्रोथ खोलें",
   "settings.learning.forgetAll": "{persona} ने जो भी सीखा सब भूल जाएँ",

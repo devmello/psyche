@@ -22,6 +22,7 @@ import { connectorGallery } from "./connector-gallery/zh.ts";
 import { connectorsPage } from "./connectors-page/zh.ts";
 import { daily } from "./daily/zh.ts";
 import { design } from "./design/zh.ts";
+import { desktopMenu } from "./desktop-menu/zh.ts";
 import { desktopSimple } from "./desktop-simple/zh.ts";
 import { deviceAccess } from "./device-access/zh.ts";
 import { final202611 } from "./final-2026-11/zh.ts";
@@ -3824,6 +3825,7 @@ export const zh: Partial<Catalogue> = {
   ...mailFollowups,
   ...nightShift,
   ...keepAwake,
+  ...desktopMenu,
   ...friction,
   ...update,
   ...spaces,
