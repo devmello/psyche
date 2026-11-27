@@ -1,9 +1,11 @@
 import type { Task } from "@psyche/protocol";
 import { activeI18n, mayCloseFilesPane, PanePresence, t } from "@psyche/ui";
 import {
+  lazy,
   type PointerEvent,
   type ReactElement,
   type ReactNode,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -20,8 +22,12 @@ import {
   presentation,
 } from "../layout/index.ts";
 import { ComputerWatchPane } from "../panes/ComputerWatchPane.tsx";
-import { TerminalPane } from "../panes/TerminalPane.tsx";
 import { BrowserPane } from "./BrowserPane.tsx";
+
+/** xterm (about 300 KB) loads only when a terminal pane opens, not on every window launch. */
+const TerminalPane = lazy(() =>
+  import("../panes/TerminalPane.tsx").then((m) => ({ default: m.TerminalPane })),
+);
 
 const PANE_KINDS: readonly PaneInstance["pane"][] = [
   "browser",
@@ -119,11 +125,13 @@ function PaneBody(props: {
       return <BrowserPane covered={props.covered} onClose={props.onClose} />;
     case "terminal":
       return platform.terminal ? (
-        <TerminalPane
-          port={platform.terminal}
-          threadId={props.threadId}
-          {...(props.pane.target ? { cwd: props.pane.target } : {})}
-        />
+        <Suspense fallback={<div style={{ width: "100%", height: "100%" }} />}>
+          <TerminalPane
+            port={platform.terminal}
+            threadId={props.threadId}
+            {...(props.pane.target ? { cwd: props.pane.target } : {})}
+          />
+        </Suspense>
       ) : (
         <p style={{ padding: 16, color: "var(--shell-muted)" }} data-testid="terminal-remote">
           {platform.chrome?.remote

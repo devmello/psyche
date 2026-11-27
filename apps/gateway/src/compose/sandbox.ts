@@ -362,10 +362,7 @@ export function composeSandbox(
     },
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;
-      unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-        const f = JSON.parse(frame) as { event?: string };
-        if (f.event === "settings.changed") sync();
-      });
+      unsubscribe = gateway.bus.tap(["settings.changed"], () => sync());
     },
     // Stops the containers this process started; their servers are announced `stopped`.
     stop: async () => {

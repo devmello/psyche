@@ -304,7 +304,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // consumes it); without one here a marker would re-seal at every start, so it is ignored.
   const seal = options.securityState ?? (await StateSeal.open(db, { home: config.home, now, log }));
   const recovery = recoverAfterRestart(db, log);
-  const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v));
+  const bus = new EventBus(readStateVersion(db), (v) => writeStateVersion(db, v), {
+    // Under test a tap gets a frozen copy, so one that mutates its payload fails there.
+    freezeTaps: process.env.VITEST !== undefined || process.env.PSYCHE_FREEZE_TAPS === "1",
+    onTapError: (event, err) =>
+      log.log("warn", "event tap failed", { event, code: PsycheError.from(err).code }),
+  });
   // The secret is written to disk only after both listeners are up (see below).
   const handshakeSecret = newHandshakeSecret();
   // Created at first start, never silently replaced (identity.ts): clients pin its public half.

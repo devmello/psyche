@@ -711,13 +711,9 @@ export function composePeople(deps: PeopleDeps): People {
         async start(gateway: Gateway) {
           await ensureOwner();
           sync(getSetting(db, GRAPH_SETTING)?.value);
-          unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-            const f = JSON.parse(frame) as {
-              event?: string;
-              payload?: { entries?: { key: string; value: unknown }[] };
-            };
-            if (f.event !== "settings.changed") return;
-            for (const entry of f.payload?.entries ?? [])
+          unsubscribe = gateway.bus.tap(["settings.changed"], (_event, payload) => {
+            const p = payload as { entries?: { key: string; value: unknown }[] } | undefined;
+            for (const entry of p?.entries ?? [])
               if (entry.key === GRAPH_SETTING) sync(entry.value);
           });
           await ensureDreamingAutomation(scheduler, { timezone });

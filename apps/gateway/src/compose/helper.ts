@@ -740,10 +740,9 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
             settle(e.approval.id);
           }
         }),
-        gw.bus.subscribe(["operator.read"], (frame) => {
-          const f = JSON.parse(frame) as { event?: string; payload?: { node?: NodeInfo } };
-          const node = f.payload?.node;
-          if (f.event !== "node.updated" || node === undefined) return;
+        gw.bus.tap(["node.updated"], (_event, payload) => {
+          const node = (payload as { node?: NodeInfo } | undefined)?.node;
+          if (node === undefined) return;
           if (node.status === "online" && gw.context.nodes.isLive(node.id)) attach(node);
           else detach(node.id);
         }),
