@@ -874,7 +874,7 @@ export function composePromises(deps: PromisesDeps): Promises {
         body: `Due ${whenWord(Date.parse(p.dueAt as string))}: ${p.text}`.slice(0, 300),
         route: `/promises/${p.id}`,
         dedupeKey: `promise:${p.id}:warn:${p.dueAt}`,
-        surfaces: ["desktop", "web", "notification"],
+        surfaces: ["desktop", "offMac", "notification"],
       });
       return 1;
     }
@@ -884,7 +884,7 @@ export function composePromises(deps: PromisesDeps): Promises {
       body: `${send.length} promises are due soon`,
       route: "/memory/promises",
       dedupeKey: `promises:warn:${sha(send.map((p) => `${p.id}:${p.dueAt}`).join("|")).slice(0, 16)}`,
-      surfaces: ["desktop", "web", "notification"],
+      surfaces: ["desktop", "offMac", "notification"],
     });
     return send.length;
   };

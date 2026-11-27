@@ -1131,7 +1131,7 @@ export interface ApprovalRequest {
 export interface DecidedByClass {
     deviceId?: string;
     /**
-     * "desktop" | "notification" | "web" | "device:<deviceId>"
+     * "desktop" | "notification" | "offMac" | "device:<deviceId>"
      */
     surface?:  string;
     channel?:  string;
@@ -1822,7 +1822,7 @@ export interface AuditActor {
     runId?:    string;
     scope?:    string;
     /**
-     * "desktop" | "notification" | "web" | "device:<deviceId>"
+     * "desktop" | "notification" | "offMac" | "device:<deviceId>"
      */
     surface?: string;
     type:     AuditActorType;
@@ -4251,7 +4251,7 @@ export interface DailyWorkflowsConfirmResult {
 export interface DecidedBy {
     deviceId?: string;
     /**
-     * "desktop" | "notification" | "web" | "device:<deviceId>"
+     * "desktop" | "notification" | "offMac" | "device:<deviceId>"
      */
     surface?:  string;
     channel?:  string;
@@ -5145,7 +5145,7 @@ export interface FeedbackEvent {
     reason?:   FeedbackReason | null;
     scope?:    FeedbackScope | null;
     /**
-     * "desktop", "web" or "channel:<channelId>"
+     * "desktop", "offMac" or "channel:<channelId>"
      */
     surface: string;
     target:  FeedbackTarget;

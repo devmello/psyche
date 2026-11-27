@@ -8277,7 +8277,7 @@
         },
         "surfaces": {
           "items": {
-            "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
+            "description": "\"desktop\" | \"notification\" | \"offMac\" | \"device:<deviceId>\"",
             "minLength": 1,
             "type": "string"
           },
@@ -10528,7 +10528,7 @@
           "type": "string"
         },
         "surface": {
-          "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
+          "description": "\"desktop\" | \"notification\" | \"offMac\" | \"device:<deviceId>\"",
           "minLength": 1,
           "type": "string"
         },
@@ -18671,7 +18671,7 @@
               "type": "string"
             },
             "surface": {
-              "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
+              "description": "\"desktop\" | \"notification\" | \"offMac\" | \"device:<deviceId>\"",
               "minLength": 1,
               "type": "string"
             }
@@ -20974,7 +20974,7 @@
           ]
         },
         "surface": {
-          "description": "\"desktop\", \"web\" or \"channel:<channelId>\"",
+          "description": "\"desktop\", \"offMac\" or \"channel:<channelId>\"",
           "maxLength": 128,
           "type": "string"
         },
@@ -35923,7 +35923,7 @@
         },
         "surfaces": {
           "items": {
-            "description": "\"desktop\" | \"notification\" | \"web\" | \"device:<deviceId>\"",
+            "description": "\"desktop\" | \"notification\" | \"offMac\" | \"device:<deviceId>\"",
             "minLength": 1,
             "type": "string"
           },

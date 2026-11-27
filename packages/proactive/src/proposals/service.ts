@@ -333,7 +333,7 @@ export class ProposalService {
         ...(p.taintSources === undefined ? {} : { taintSources: p.taintSources }),
       },
       requestedBy: { runId, taskId: null, threadId },
-      surfaces: this.#o.surfaces ?? ["desktop", "web"],
+      surfaces: this.#o.surfaces ?? ["desktop", "offMac"],
       details: { proposalId: p.id, job: p.createdBy.job },
       ...(p.taintSources === undefined ? {} : { taintSources: p.taintSources }),
     });

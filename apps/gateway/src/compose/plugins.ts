@@ -43,7 +43,7 @@ export function composePlugins(setup: PluginsSetup): ComposedPart & { manager: P
     broker: setup.broker,
     registry: setup.loop.plugins,
     enabled,
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     onChange: (name, change) => setup.publish?.("plugins.changed", { name, change }),
     log: (message, data) => setup.logger?.log("info", `plugins: ${message}`, data ?? {}),
   });

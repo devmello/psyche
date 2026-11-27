@@ -505,7 +505,7 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     const gates = skillGates(services);
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
-      surfaces: ["desktop", "web"],
+      surfaces: ["desktop", "offMac"],
       deviceName: (id) => getDevice(services.db, id)?.name,
       onUpdate: (update) => publish("skills.updated", update),
       drafts,

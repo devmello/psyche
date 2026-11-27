@@ -262,7 +262,7 @@ describe("a Gateway booted on an install that used chat channels", () => {
     expect(fresh.length).toBeGreaterThan(0);
     for (const n of fresh) {
       expect(
-        n.surfaces.every((s) => ["desktop", "web", "notification"].includes(s)),
+        n.surfaces.every((s) => ["desktop", "offMac", "notification"].includes(s)),
         n.id,
       ).toBe(true);
     }

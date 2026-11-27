@@ -1,3 +1,4 @@
+import { isOffMacSurface } from "@psyche/protocol";
 import { Fingerprint } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
@@ -94,7 +95,7 @@ function PendingApprovalBanner({
           approval={approval}
           canAnswer={canAnswer}
           persona={persona.name}
-          otherSurfaces={approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
+          otherSurfaces={approval.surfaces.filter((s) => s !== "desktop" && !isOffMacSurface(s))}
           onAnswer={async (decision, scope) => {
             try {
               await answerApproval(store, approval.id, decision, scope);

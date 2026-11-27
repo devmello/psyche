@@ -89,7 +89,7 @@ describe("non-payment changes are one tap for the owner's admin device", () => {
       // Never offered in chat: a channel has no token for it.
       expect(
         got.approval.surfaces.every(
-          (s) => ["desktop", "web", "notification"].includes(s) || s.startsWith("device:"),
+          (s) => ["desktop", "offMac", "notification"].includes(s) || s.startsWith("device:"),
         ),
       ).toBe(true);
       const denied = (await member.request(method, params, ik())) as {
@@ -243,7 +243,7 @@ describe("a paired phone taps a device-only card with its own token", () => {
       ik(),
     );
     const got = await get(admin, approvalIdOf(res));
-    expect(got.approval.surfaces).toEqual(["desktop", "web", "notification"]);
+    expect(got.approval.surfaces).toEqual(["desktop", "offMac", "notification"]);
     expect(got.answerToken).toBeDefined();
   });
 });
@@ -398,7 +398,7 @@ describe("which cards a phone gets a token for", () => {
       summary: "pay",
       details: {},
       requestedBy,
-      surfaces: ["desktop", "notification", "web"],
+      surfaces: ["desktop", "notification", "offMac"],
       taint: false,
       bindingHash: `sha256:${"7".repeat(64)}`,
       grantKey: "pay",
@@ -422,6 +422,33 @@ describe("which cards a phone gets a token for", () => {
     expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: true });
     expect(await answer(p1, id, mine.answerToken ?? "")).toMatchObject({ ok: false });
   });
+
+  // `web` is what a card raised before the rename stored (browser access was dropped,
+  // 2026-11-25): it is the same marker as `offMac`, also after a restart re-issues it.
+  it.each(["offMac", "web"])(
+    "a routine card marked %s gets a phone token, answerable once, also after reissue()",
+    async (marker) => {
+      const { c } = await boot();
+      const p1 = await phone(c, "phone-1", false);
+      await connectMacHelper(c);
+      const over: Over = { ...routine, surfaces: ["desktop", marker] };
+      const issued = await card(c, over, "c");
+      const mine = await get(p1, issued.approval.id);
+      expect(mine.approval.surfaces).toContain("device:phone-1");
+      expect(mine.answerToken).toBeDefined();
+      await armed();
+      expect(await answer(p1, issued.approval.id, mine.answerToken ?? "")).toMatchObject({
+        ok: true,
+      });
+      // Re-issued after a restart, the same card still reaches the phone.
+      const next = await card(c, over, "d");
+      const again = (await c.gateway.context.broker.reissue()).find(
+        (i) => i.approval.bindingHash === next.approval.bindingHash,
+      );
+      expect(again?.approval.surfaces).toContain("device:phone-1");
+      expect(Object.keys(again?.answerTokens ?? {})).toContain("device:phone-1");
+    },
+  );
 
   it("a phone paired after the card was raised gets no token for it", async () => {
     const { c } = await boot();

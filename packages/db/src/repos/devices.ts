@@ -71,6 +71,20 @@ export function listDevices(db: PsycheDb, opts: { includeRevoked?: boolean } = {
   return rows.map(deviceFromRow);
 }
 
+/**
+ * Ids of every device row left by browser access (dropped 2026-11-25), revoked or not. Only the
+ * startup sweep that ends the standing grants those browsers created reads them: `listDevices`
+ * never returns these rows.
+ */
+export function legacyWebDeviceIds(db: PsycheDb): string[] {
+  return db.drizzle
+    .select({ id: devices.id })
+    .from(devices)
+    .where(eq(devices.platform, LEGACY_WEB_PLATFORM))
+    .all()
+    .map((r) => r.id);
+}
+
 /** Revokes a device and drops its token hash. Idempotent; `undefined` if the device is unknown. */
 export function revokeDevice(db: PsycheDb, id: string): Device | undefined {
   const at = db.now();

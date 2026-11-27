@@ -167,7 +167,7 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
    */
   deviceOnly?: true;
   /**
-   * Whether the caller itself offered an off-Mac surface (`notification` or `web`), before the
+   * Whether the caller itself offered an off-Mac surface (`notification` or `offMac`), before the
    * Gateway's relays (the Mac helper's `notification`) added theirs. Only that decides whether a
    * paired phone gets its own `device:` surface: a card its caller kept on `["desktop"]` stays on
    * the Mac even with the helper connected. The Gateway's relay wrapper always sets it from the

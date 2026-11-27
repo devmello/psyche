@@ -32,8 +32,9 @@ export function mountParamsOnly(handlers: ParamsOnly): Record<string, HandlerDef
  * The approval surface a device answers for. The desktop app answers `desktop`; a phone or other
  * paired device answers on its own `device:<deviceId>` surface, which device-only cards that need
  * no presence add for every paired operator device (broker `deviceSurfaces`, §3.7). No device
- * answers `web` any more (browser access was dropped, 2026-11-25): the `"web"` entry in a card's
- * `surfaces` is now only the marker that lets the broker offer it to paired phones (`offMac`).
+ * answers `web` any more (browser access was dropped, 2026-11-25): the `"offMac"` entry in a card's
+ * `surfaces` is only the marker that lets the broker offer it to paired phones (a stored
+ * old `web` entry counts the same).
  */
 export function surfaceOf(db: PsycheDb, deviceId: string): Surface {
   const platform = getDevice(db, deviceId)?.platform;

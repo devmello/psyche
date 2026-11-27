@@ -4683,7 +4683,7 @@ public struct ApprovalRequest: Codable, Sendable {
 // MARK: - DecidedByClass
 public struct DecidedByClass: Codable, Sendable {
     public let deviceID: String?
-    /// "desktop" | "notification" | "web" | "device:<deviceId>"
+    /// "desktop" | "notification" | "offMac" | "device:<deviceId>"
     public let surface: String?
     public let channel: String?
     public let senderID: String?
@@ -6894,7 +6894,7 @@ public struct AuditActor: Codable, Sendable {
     public let deviceID: String?
     public let runID: String?
     public let scope: String?
-    /// "desktop" | "notification" | "web" | "device:<deviceId>"
+    /// "desktop" | "notification" | "offMac" | "device:<deviceId>"
     public let surface: String?
     public let type: AuditActorType
 
@@ -13499,7 +13499,7 @@ public struct DailyWorkflowsConfirmResult: Codable, Sendable {
 // MARK: - DecidedBy
 public struct DecidedBy: Codable, Sendable {
     public let deviceID: String?
-    /// "desktop" | "notification" | "web" | "device:<deviceId>"
+    /// "desktop" | "notification" | "offMac" | "device:<deviceId>"
     public let surface: String?
     public let channel: String?
     public let senderID: String?
@@ -15953,7 +15953,7 @@ public struct FeedbackEvent: Codable, Sendable {
     public let lessonID: String?
     public let reason: FeedbackReason?
     public let scope: FeedbackScope?
-    /// "desktop", "web" or "channel:<channelId>"
+    /// "desktop", "offMac" or "channel:<channelId>"
     public let surface: String
     public let target: FeedbackTarget
     public let text: String?

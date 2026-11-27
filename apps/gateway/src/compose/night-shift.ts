@@ -496,7 +496,7 @@ export function composeNightShift(setup: NightShiftSetup) {
         body: n.body,
         route: n.route,
         dedupeKey: n.dedupeKey,
-        surfaces: ["desktop", "web", "notification"],
+        surfaces: ["desktop", "offMac", "notification"],
       });
     },
     emit: (night) => setup.publish?.("nightShift.updated", { night }),

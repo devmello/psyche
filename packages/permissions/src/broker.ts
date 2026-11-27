@@ -21,11 +21,13 @@ import {
   type GrantFilter,
   type GrantScope,
   type IssuedApproval,
+  isOffMacSurface,
   isPrepNoteCall,
   type JsonObject,
   machineNameOk,
   type NeedsMacReason,
   type Notifier,
+  offersOffMac,
   type PermissionBroker,
   PREP_NOTE_TITLE_PREFIX,
   type PreviewResult,
@@ -2445,12 +2447,12 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (surfaces.length === 0) surfaces = ["desktop"];
     // A card that needs no presence is a plain tap on any paired operator device (owner's decision,
     // 2026-11-09): each gets its own surface and token. Only when the caller itself offered the
-    // off-Mac surfaces (`notification` or `web`), never a relay (the Mac helper adds
+    // off-Mac surfaces (`notification` or `offMac`), never a relay (the Mac helper adds
     // `notification` to every card): a card its caller kept on `["desktop"]` shows arguments only
     // the Mac renders in full and stays there. A card that needs a presence assertion (a payment,
     // enrolling a verifier) stays on the Mac surfaces. A phone paired after the card was raised
     // gets no token for it.
-    const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
+    const offMac = input.offMac ?? offersOffMac(input.surfaces);
     // The same limits as a token on request (`#needsMacReason`): never a saved login, pairing or
     // a policy change, and not a card too long to show in full on a phone.
     const phoneOk =
@@ -2904,7 +2906,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     if (PHONE_NEVER_KINDS.includes(a.kind)) return "mac_only";
     const input = rec.input;
-    const offMac = input.offMac ?? input.surfaces.some((s) => s === "notification" || s === "web");
+    const offMac = input.offMac ?? offersOffMac(input.surfaces);
     if (!offMac) return "mac_only";
     if (JSON.stringify(a.details).length > PHONE_DETAILS_MAX_CHARS) return "too_long";
     return undefined;
@@ -4442,7 +4444,9 @@ export class PsychePermissionBroker implements PermissionBroker {
       input.taint = input.taint || rec.approval.taint;
       // A row stored without the flag (before it existed, or from a caller the relay wrapper never saw) holds the
       // relay-merged surfaces: never take the phones from those. Every card the Gateway raises now carries it.
-      input.offMac ??= false;
+      // The one exception is the off-Mac marker itself (`offMac`, or a stored legacy `web`): no relay
+      // ever adds it, so it was the caller's own offer and the card keeps its phones.
+      input.offMac ??= input.surfaces.some(isOffMacSurface);
       if (input.call !== undefined && input.context !== undefined) {
         const ctx = { ...input.context, taint: input.context.taint || rec.approval.taint };
         const { decision } = await this.engine.evaluate(input.call, ctx);

@@ -301,7 +301,7 @@ function mint(
     requestedBy: { runId: null, taskId: null, threadId: null },
     requestedAt: now,
     expiresAt: new Date(Math.max(Date.parse(now), Date.now()) + 10 * 60_000).toISOString(),
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     scopesOffered: ["once"],
     deviceOnly: destructive,
     requiresAuthentication: false,

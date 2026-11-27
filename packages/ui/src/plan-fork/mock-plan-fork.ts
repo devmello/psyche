@@ -596,7 +596,7 @@ export function planForkHandlers(ctx: PlanForkCtx): Handlers {
         grantKey: `staged_apply|${b.id}`,
         requestedBy: { runId: null, taskId: null, threadId: f.threadId },
         sideEffect: "write",
-        surfaces: ["desktop", "web"],
+        surfaces: ["desktop", "offMac"],
         scopesOffered: ["once"],
         deviceOnly: true,
         requiresAuthentication: false,

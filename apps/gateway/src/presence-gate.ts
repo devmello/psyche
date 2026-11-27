@@ -146,7 +146,7 @@ export async function requireFreshPresence(
       requestedBy: { runId: null, taskId: null, threadId: null },
       sideEffect: "destructive",
       // `web`: the server-mode web client answers with a passkey (issue #79).
-      surfaces: ["desktop", "web", "notification"],
+      surfaces: ["desktop", "offMac", "notification"],
       scopesOffered: ["once"],
       taint: false,
       ...(opts.strong === true ? { requireAuthentication: true } : {}),

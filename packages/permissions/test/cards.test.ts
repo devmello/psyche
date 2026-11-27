@@ -69,7 +69,7 @@ describe("renderForSurface: device-only approvals on chat surfaces", () => {
   });
 
   it("the device itself still renders the full card", () => {
-    for (const surface of ["desktop", "web"]) {
+    for (const surface of ["desktop", "offMac", "web"]) {
       const card = renderForSurface(surface, fill);
       expect(card.deviceOnly).toBe(false);
       expect(card.buttons.map((b) => b.decision)).toEqual(["approve", "deny"]);
@@ -92,7 +92,8 @@ describe("renderForSurface: device-only approvals on chat surfaces", () => {
 
   it("classifies surfaces", () => {
     expect(isChatSurface("desktop")).toBe(false);
-    expect(isChatSurface("web")).toBe(false);
+    expect(isChatSurface("offMac")).toBe(false);
+    expect(isChatSurface("web")).toBe(false); // a stored legacy row
     expect(isChatSurface("notification")).toBe(false);
     expect(isChatSurface("oldchat:1")).toBe(true);
     expect(isChatSurface("signal:+1")).toBe(true);

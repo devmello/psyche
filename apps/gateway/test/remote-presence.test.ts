@@ -82,7 +82,7 @@ async function card(
     // A payment is once-only and never offers `always`; the wider-scope card is a destructive
     // one that the Gateway still requires presence for (`requireAuthentication`).
     sideEffect: kind === "exec_host" ? "destructive" : risky ? "financial" : "write",
-    surfaces: ["desktop", "web"],
+    surfaces: ["desktop", "offMac"],
     scopesOffered: kind === "exec_host" ? ["once", "always"] : ["once"],
     ...(kind === "exec_host" ? { requireAuthentication: true } : {}),
     taint: false,
