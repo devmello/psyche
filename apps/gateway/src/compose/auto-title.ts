@@ -181,11 +181,11 @@ export function createAutoTitler(deps: AutoTitleDeps) {
     let unsubscribe: (() => void) | undefined;
     return {
       start: (gw) => {
-        unsubscribe = gw.bus.subscribe(["operator.read"], (frame) => {
-          const f = JSON.parse(frame) as { event?: string; payload?: { run?: Run } };
-          if (f.event !== "run.updated" || f.payload?.run === undefined) return;
+        unsubscribe = gw.bus.tap(["run.updated"], (_event, payload) => {
+          const run = (payload as { run?: Run } | undefined)?.run;
+          if (run === undefined) return;
           // Fire and forget: naming never holds up a reply or a queued turn.
-          void onRunFinished(f.payload.run).catch(() => undefined);
+          void onRunFinished(run).catch(() => undefined);
         });
       },
       stop: () => {

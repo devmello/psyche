@@ -1177,16 +1177,9 @@ export function composeEverything(deps: EverythingDeps): Everything {
               }),
             );
           sync();
-          unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
-            const f = JSON.parse(frame) as {
-              event?: string;
-              payload?: { entries?: { key: string }[] };
-            };
-            if (
-              f.event === "settings.changed" &&
-              f.payload?.entries?.some((e) => e.key === EVERYTHING_MEMORY_SETTING_KEY)
-            )
-              sync();
+          unsubscribe = gateway.bus.tap(["settings.changed"], (_event, payload) => {
+            const p = payload as { entries?: { key: string }[] } | undefined;
+            if (p?.entries?.some((e) => e.key === EVERYTHING_MEMORY_SETTING_KEY)) sync();
           });
         },
         stop() {

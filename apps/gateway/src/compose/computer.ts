@@ -3705,50 +3705,60 @@ export function composeComputer(services: ComposeServices): ComposedComputer {
             services.logger?.log("warn", "computer-use: helper check failed", failureFields(err)),
           );
       offs.push(
-        gw.bus.subscribe(["operator.read"], (frame) => {
-          const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
-          const p = f.payload ?? {};
-          if (f.event === "run.updated") {
-            const run = p.run as { id: string; status: string } | undefined;
-            if (run !== undefined && RUN_FINISHED.has(run.status))
-              void cu
-                .runEnded(run.id)
-                .catch((err: unknown) =>
-                  services.logger?.log("warn", "computer-use: run end failed", failureFields(err)),
-                );
-          } else if (f.event === "task.updated") {
-            const task = p.task as { id: string; status: string } | undefined;
-            if (task !== undefined && TASK_FINISHED.has(task.status))
-              void cu
-                .taskEnded(task.id)
-                .catch((err: unknown) =>
-                  services.logger?.log("warn", "computer-use: task end failed", failureFields(err)),
-                );
-          } else if (f.event === "node.updated") {
-            const node = p.node as NodeInfo | undefined;
-            if (node !== undefined && node.status !== "online") {
-              cu.nodeGone(node.id);
-              for (const id of surfaceNodesOnOffline(node.kind)) cu.nodeGone(id);
-              // A machine's sessions are keyed by its device id.
-              if (node.kind === "machine") cu.nodeGone(machineNodeId(node.deviceId));
+        gw.bus.tap(
+          ["run.updated", "task.updated", "node.updated", "settings.changed"],
+          (event, payload) => {
+            const p = (payload ?? {}) as Record<string, unknown>;
+            if (event === "run.updated") {
+              const run = p.run as { id: string; status: string } | undefined;
+              if (run !== undefined && RUN_FINISHED.has(run.status))
+                void cu
+                  .runEnded(run.id)
+                  .catch((err: unknown) =>
+                    services.logger?.log(
+                      "warn",
+                      "computer-use: run end failed",
+                      failureFields(err),
+                    ),
+                  );
+            } else if (event === "task.updated") {
+              const task = p.task as { id: string; status: string } | undefined;
+              if (task !== undefined && TASK_FINISHED.has(task.status))
+                void cu
+                  .taskEnded(task.id)
+                  .catch((err: unknown) =>
+                    services.logger?.log(
+                      "warn",
+                      "computer-use: task end failed",
+                      failureFields(err),
+                    ),
+                  );
+            } else if (event === "node.updated") {
+              const node = p.node as NodeInfo | undefined;
+              if (node !== undefined && node.status !== "online") {
+                cu.nodeGone(node.id);
+                for (const id of surfaceNodesOnOffline(node.kind)) cu.nodeGone(id);
+                // A machine's sessions are keyed by its device id.
+                if (node.kind === "machine") cu.nodeGone(machineNodeId(node.deviceId));
+              }
+              if (node !== undefined && node.kind === "machine" && node.status === "online") {
+                void machines.syncTiers(node.deviceId);
+              }
+              if (node !== undefined && isHostHelperKind(node.kind)) {
+                syncTools();
+                if (node.status === "online") void linux?.helperOnline();
+              }
+            } else if (event === "settings.changed") {
+              const entries = (p.entries ?? []) as { key: string; value: unknown }[];
+              for (const e of entries) {
+                if (e.key === COMPUTER_USE_ENABLED) setEnabled(e.value === true);
+              }
+              settings.onChanged(entries);
+              machines.onChanged(entries);
+              linux?.onChanged(entries);
             }
-            if (node !== undefined && node.kind === "machine" && node.status === "online") {
-              void machines.syncTiers(node.deviceId);
-            }
-            if (node !== undefined && isHostHelperKind(node.kind)) {
-              syncTools();
-              if (node.status === "online") void linux?.helperOnline();
-            }
-          } else if (f.event === "settings.changed") {
-            const entries = (p.entries ?? []) as { key: string; value: unknown }[];
-            for (const e of entries) {
-              if (e.key === COMPUTER_USE_ENABLED) setEnabled(e.value === true);
-            }
-            settings.onChanged(entries);
-            machines.onChanged(entries);
-            linux?.onChanged(entries);
-          }
-        }),
+          },
+        ),
       );
     },
     async stop() {

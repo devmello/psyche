@@ -100,27 +100,19 @@ export function composeSpaces(deps: {
     handlers: { ...base, ...spaceTrackerHandlers(engine) },
     start: (gw) => {
       unsubscribe.push(
-        gw.bus.subscribe(["operator.read"], (frame) => {
-          let f: {
-            event?: string;
-            payload?: { id?: string; spaceId?: string; changed?: string[] };
-          };
-          try {
-            f = JSON.parse(frame);
-          } catch {
-            return;
-          }
-          if (f.event === "memory.entity.updated" && typeof f.payload?.id === "string") {
-            engine.signal({ kind: "memory", entityId: f.payload.id });
+        gw.bus.tap(["memory.entity.updated", "space.updated"], (event, payload) => {
+          const p = (payload ?? {}) as { id?: string; spaceId?: string; changed?: string[] };
+          if (event === "memory.entity.updated" && typeof p.id === "string") {
+            engine.signal({ kind: "memory", entityId: p.id });
           } else if (
-            f.event === "space.updated" &&
-            f.payload?.changed?.includes("archived") === true &&
-            typeof f.payload.spaceId === "string"
+            event === "space.updated" &&
+            p.changed?.includes("archived") === true &&
+            typeof p.spaceId === "string"
           ) {
             const row = services.db.sqlite
               .prepare("SELECT archived_at FROM spaces WHERE id = ?")
-              .get(f.payload.spaceId) as { archived_at: string | null } | undefined;
-            if (row?.archived_at != null) engine.freezeShelf(f.payload.spaceId);
+              .get(p.spaceId) as { archived_at: string | null } | undefined;
+            if (row?.archived_at != null) engine.freezeShelf(p.spaceId);
           }
         }),
       );

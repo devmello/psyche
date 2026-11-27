@@ -85,26 +85,18 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
   return {
     // A task that ends freezes the widgets it owns (generative-ui-2026 §5.1); bound ones keep going.
     start: (gw) => {
-      unsubscribe = gw.bus.subscribe(["operator.read"], (frame) => {
-        let f: {
-          event?: string;
-          payload?: {
-            task?: { id?: string; status?: string };
-            toolCallId?: string;
-            event?: ResearchEvent;
-          };
+      unsubscribe = gw.bus.tap(["research.progress", "task.updated"], (event, payload) => {
+        const p = (payload ?? {}) as {
+          task?: { id?: string; status?: string };
+          toolCallId?: string;
+          event?: ResearchEvent;
         };
-        try {
-          f = JSON.parse(frame);
-        } catch {
+        if (event === "research.progress" && p.toolCallId && p.event) {
+          research.apply(p.toolCallId, p.event);
           return;
         }
-        if (f.event === "research.progress" && f.payload?.toolCallId && f.payload.event) {
-          research.apply(f.payload.toolCallId, f.payload.event);
-          return;
-        }
-        const task = f.payload?.task;
-        if (f.event === "task.updated" && task?.id && task.status && ENDED.has(task.status)) {
+        const task = p.task;
+        if (event === "task.updated" && task?.id && task.status && ENDED.has(task.status)) {
           store.freezeOwnedBy("task", task.id);
         }
       });

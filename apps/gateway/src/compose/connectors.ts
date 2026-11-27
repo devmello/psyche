@@ -578,18 +578,18 @@ export function composeConnectors(
     handlers,
     start(gw) {
       gateway = gw;
-      unsubscribeMatrix = gw.bus.subscribe(["operator.read"], (frame) => {
-        const f = JSON.parse(frame) as {
-          event?: string;
-          payload?: { entries?: { key: string }[] };
-        };
-        if (f.event === "connectors.updated") void matrix.sync();
-        if (f.event !== "settings.changed") return;
-        if ((f.payload?.entries ?? []).some((e) => matrix.follows(e.key))) {
-          matrix.applyNow();
-          void matrix.sync();
-        }
-      });
+      unsubscribeMatrix = gw.bus.tap(
+        ["connectors.updated", "settings.changed"],
+        (event, payload) => {
+          if (event === "connectors.updated") void matrix.sync();
+          if (event !== "settings.changed") return;
+          const p = payload as { entries?: { key: string }[] } | undefined;
+          if ((p?.entries ?? []).some((e) => matrix.follows(e.key))) {
+            matrix.applyNow();
+            void matrix.sync();
+          }
+        },
+      );
       // After a restart: duplicates of one-per-machine connectors go (#549, oldest kept), then
       // connected records come back (tools registered, tokens from the vault).
       void (async () => {
