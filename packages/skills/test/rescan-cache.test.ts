@@ -1,9 +1,17 @@
-import { appendFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FsSkillLoader } from "../src/loader.ts";
 import { writeLock } from "../src/lock.ts";
-import { readSkillDir, treeHash } from "../src/tree.ts";
+import { readSkillDir, treeHash, treeSignature } from "../src/tree.ts";
 import { setup, writeSkill } from "./helpers.ts";
 
 const spies = vi.hoisted(() => ({ read: vi.fn(), hash: vi.fn() }));
@@ -48,11 +56,11 @@ function approve(loader: FsSkillLoader, dir: string, name: string) {
 }
 
 /** An approved workspace skill, with the loader watching so reads don't refresh on their own. */
-function fixture(rescanMs = 1_000_000, forceEvery?: number) {
+function fixture(rescanMs = 1_000_000, forceEvery?: number, debounceMs = 1_000_000) {
   const t = setup();
   const dir = writeSkill(t.workspaceDir, "notes", { files: { "scripts/run.py": "print(1)\n" } });
   approve(t.loader, dir, "notes");
-  stops.push(t.loader.watch(1_000_000, rescanMs, forceEvery));
+  stops.push(t.loader.watch(debounceMs, rescanMs, forceEvery));
   spies.read.mockClear();
   spies.hash.mockClear();
   const status = async () => (await t.loader.listDetailed())[0]?.status;
@@ -108,9 +116,14 @@ describe("periodic rescan cache", () => {
 
   it("restoring the mtime still misses, because ctime moved", async () => {
     const t = fixture();
-    const { atime, mtime } = statSync(t.file);
-    writeFileSync(t.file, "print(2)\n");
-    utimesSync(t.file, atime, mtime);
+    // Pin the mtime to a whole second so it can be restored exactly, then re-prime the cache.
+    utimesSync(t.file, 1e9, 1e9);
+    t.loader.refresh();
+    expect(statSync(t.file).mtimeMs).toBe(1e12);
+    spies.read.mockClear();
+    writeFileSync(t.file, "print(2)\n"); // same size, different bytes
+    utimesSync(t.file, 1e9, 1e9);
+    expect(statSync(t.file).mtimeMs).toBe(1e12);
     t.cached();
     expect(spies.read).toHaveBeenCalledTimes(1);
     expect(await t.status()).toBe("hash_mismatch");
@@ -154,5 +167,41 @@ describe("periodic rescan scheduling", () => {
     vi.advanceTimersByTime(1_001);
     expect(spies.read).toHaveBeenCalledTimes(1);
     expect(await t.status()).toBe("hash_mismatch");
+  });
+
+  it("a cached tick that lands while a watcher refresh is pending still reads everything", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    // Debounce longer than the tick, so the watcher's refresh is still pending at the tick.
+    const t = fixture(1_000, 100, 5_000);
+    writeFileSync(join(t.dir, "extra.txt"), "x");
+    for (let i = 0; i < 200 && vi.getTimerCount() < 2; i += 1)
+      await new Promise((r) => setImmediate(r));
+    expect(vi.getTimerCount()).toBeGreaterThanOrEqual(2); // interval + pending watcher timer
+    t.loader.refresh(); // prime the cache with the new tree
+    spies.read.mockClear();
+    vi.advanceTimersByTime(1_001); // the tick replaces the pending timer
+    vi.advanceTimersByTime(1);
+    expect(spies.read).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("treeSignature limits", () => {
+  it("a small tree has a signature (positive control)", () => {
+    const t = fixture();
+    expect(treeSignature(t.dir)).toBeTypeOf("string");
+  });
+
+  it("an oversized folder gets none, in one directory or spread over several", () => {
+    const t = fixture();
+    const big = join(t.dir, "big");
+    mkdirSync(big);
+    for (let i = 0; i < 600; i += 1) writeFileSync(join(big, `f${i}`), "");
+    expect(treeSignature(t.dir)).toBeUndefined();
+    rmSync(big, { recursive: true });
+    for (const d of ["a", "b", "c"]) {
+      mkdirSync(join(t.dir, d));
+      for (let i = 0; i < 200; i += 1) writeFileSync(join(t.dir, d, `f${i}`), "");
+    }
+    expect(treeSignature(t.dir)).toBeUndefined();
   });
 });

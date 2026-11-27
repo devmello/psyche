@@ -121,16 +121,23 @@ export function readSkillDir(dir: string, limits: TreeLimits = DEFAULT_LIMITS): 
  * added, removed, renamed, replaced or rewritten file changes it. `undefined` when anything
  * cannot be read or is not a plain file or folder (a symlink, a special file): the caller must
  * then take the full path, which reads, hashes and refuses as before. It is a fast path for the
- * periodic rescan only; it never decides trust by itself.
+ * periodic rescan only; it never decides trust by itself. A same-size, same-mtime, same-ctime
+ * content change needs root, or an open shared mmap of the file: the forced pass is the
+ * backstop for that. A folder with more entries than `readSkillDir` would accept (plus room for
+ * directories) gets no signature, so an oversized folder is never walked in full every pass.
  */
 export function treeSignature(dir: string): string | undefined {
   const parts: string[] = [];
+  const cap = DEFAULT_LIMITS.maxFiles * 2 + 50;
   const fmt = (r: string, t: string, st: Stats) =>
     `${r}\0${t}\0${st.size}\0${st.mtimeMs}\0${st.ctimeMs}\0${st.ino}\0${st.dev}\0${st.mode}`;
   try {
     const walk = (abs: string, rel: string): boolean => {
-      for (const entry of readdirSync(abs).sort()) {
+      const names = readdirSync(abs);
+      if (names.length > cap) return false;
+      for (const entry of names.sort()) {
         if (IGNORED.has(entry)) continue;
+        if (parts.length >= cap) return false;
         const p = join(abs, entry);
         const r = rel === "" ? entry : `${rel}/${entry}`;
         const st = lstatSync(p);
