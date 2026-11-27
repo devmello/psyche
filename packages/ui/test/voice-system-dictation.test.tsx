@@ -30,11 +30,7 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
     ).toEqual(["voice.conversation.enabled", "voice.systemWide"]);
     expect(inAdvanced(key("voice.pushToTalk"))).toBe(false);
     expect(inAdvanced(key("voice.conversation.key"))).toBe(false);
-    for (const k of [
-      "voice.mode",
-      "screenAsk.enabled",
-      "voice.conversation.reviewBeforeSend",
-    ]) {
+    for (const k of ["voice.mode", "screenAsk.enabled", "voice.conversation.reviewBeforeSend"]) {
       expect(key(k), k).toBeTruthy();
       expect(inAdvanced(key(k)), k).toBe(true);
     }
