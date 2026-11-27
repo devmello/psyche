@@ -133,7 +133,8 @@ describe("composeSearch with a key from the Mac helper", () => {
       backfillPauseMs: 0,
       ...extra,
     }) as never;
-  const fakeGateway = () => ({ bus: { publish() {}, subscribe: () => () => {}, tap: () => () => {} } }) as never;
+  const fakeGateway = () =>
+    ({ bus: { publish() {}, subscribe: () => () => {}, tap: () => () => {} } }) as never;
 
   it("derives the pending state from the keychain slot and the key from the helper item", async () => {
     const f = fixture(true);
@@ -297,7 +298,9 @@ describe("the Memory source and the index's real encryption state", () => {
       { status: { state: "pending" }, pending: async () => Buffer.alloc(32, 9) },
       memory,
     );
-    search.start?.({ bus: { publish() {}, subscribe: () => () => {}, tap: () => () => {} } } as never);
+    search.start?.({
+      bus: { publish() {}, subscribe: () => () => {}, tap: () => () => {} },
+    } as never);
     await wait(
       async () =>
         ((await search.status()) as { encryption?: { state: string } }).encryption?.state === "on",
