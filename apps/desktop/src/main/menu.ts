@@ -17,6 +17,10 @@ import { app, Menu, type MenuItemConstructorOptions } from "electron";
 export interface MenuActions {
   newSideChat(): void;
   palette(): void;
+  /** View → Toggle Sidebar (⌘B): the sidebar, or the threads drawer when compact. */
+  toggleSidebar(): void;
+  /** View → Compact Sidebar (⌘⌥B): full sidebar or rail. */
+  toggleCompactSidebar(): void;
   closeThreadView(): void;
   quitEntirely(): void;
   /** Opens the Settings window (⌘,; docs/design/redesign-2026.md §4). */
@@ -37,10 +41,24 @@ function viewMenu(
   a: MenuActions,
   label: (id: MessageId) => string,
   fullScreen: MenuItemConstructorOptions,
+  compactAccelerator: string | undefined,
 ): MenuItemConstructorOptions {
   return {
     label: label("desktop.menu.view"),
     submenu: [
+      {
+        label: label("desktop.menu.toggleSidebar"),
+        accelerator: "CmdOrCtrl+B",
+        click: a.toggleSidebar,
+      },
+      {
+        label: label("desktop.menu.compactSidebar"),
+        // Windows: no key here. Ctrl+Alt is AltGr on many keyboards, and a menu accelerator would
+        // take AltGr+B before the renderer's AltGr guard sees it. The renderer key still works.
+        ...(compactAccelerator !== undefined ? { accelerator: compactAccelerator } : {}),
+        click: a.toggleCompactSidebar,
+      },
+      { type: "separator" },
       {
         label: label("shell.shortcut.palette"),
         accelerator: "CmdOrCtrl+K",
@@ -107,7 +125,7 @@ export function appMenuTemplate(
         ],
       },
       { role: "editMenu" },
-      viewMenu(a, label, { role: "togglefullscreen", accelerator: "F11" }),
+      viewMenu(a, label, { role: "togglefullscreen", accelerator: "F11" }, undefined),
       { role: "windowMenu" },
     ];
   }
@@ -150,7 +168,7 @@ export function appMenuTemplate(
       ],
     },
     { role: "editMenu" },
-    viewMenu(a, label, { role: "togglefullscreen" }),
+    viewMenu(a, label, { role: "togglefullscreen" }, "CmdOrCtrl+Alt+B"),
     { role: "windowMenu" },
   ];
 }

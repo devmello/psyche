@@ -86,7 +86,7 @@ type Command = Parameters<NonNullable<ShellPlatform["windows"]>["onCommand"]>[0]
 function desktopPlatform() {
   const { platform, calls } = webPlatform();
   const opened: (string | undefined)[] = [];
-  let send: ((c: Command) => void) | undefined;
+  const listeners = new Set<(c: Command) => void>();
   const desktop: ShellPlatform = {
     ...platform,
     kind: "desktop",
@@ -96,14 +96,21 @@ function desktopPlatform() {
       closeWindow: () => {},
       openSettings: (section) => opened.push(section),
       onCommand: (cb) => {
-        send = cb;
+        listeners.add(cb);
         return () => {
-          send = undefined;
+          listeners.delete(cb);
         };
       },
     },
   };
-  return { platform: desktop, calls, opened, command: (c: Command) => send?.(c) };
+  return {
+    platform: desktop,
+    calls,
+    opened,
+    command: (c: Command) => {
+      for (const cb of listeners) cb(c);
+    },
+  };
 }
 
 describe("Settings in their own window on the desktop (docs/design/redesign-2026.md §4, §5.8)", () => {

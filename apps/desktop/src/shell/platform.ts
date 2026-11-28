@@ -469,6 +469,8 @@ export type ShellCommand =
   | { type: "navigate"; route: string }
   | { type: "newSideChat" }
   | { type: "palette" }
+  /** View menu items (Toggle Sidebar, Compact Sidebar): run the same renderer action as their key. */
+  | { type: "shortcut"; action: "toggleThreadList" | "toggleCompactSidebar" }
   /**
    * The menu-bar row "Point me through this window…" (Psyche points): opens the start sheet, with
    * the window main found behind Psyche chosen when it is still listed. Starts nothing.

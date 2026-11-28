@@ -2153,6 +2153,8 @@ void app.whenReady().then(async () => {
       {
         newSideChat: () => command({ type: "newSideChat" }),
         palette: () => command({ type: "palette" }),
+        toggleSidebar: () => command({ type: "shortcut", action: "toggleThreadList" }),
+        toggleCompactSidebar: () => command({ type: "shortcut", action: "toggleCompactSidebar" }),
         closeThreadView: () => {
           const focused = webContents.getFocusedWebContents();
           const wc =

@@ -14,6 +14,8 @@ function accelerators(): string[] {
   const template = buildAppMenu({
     newSideChat: noop,
     palette: noop,
+    toggleSidebar: noop,
+    toggleCompactSidebar: noop,
     closeThreadView: noop,
     quitEntirely: noop,
     settings: noop,
@@ -49,6 +51,8 @@ describe("application menu language", () => {
   const actions = {
     newSideChat: noop,
     palette: noop,
+    toggleSidebar: noop,
+    toggleCompactSidebar: noop,
     closeThreadView: noop,
     quitEntirely: noop,
     settings: noop,
@@ -95,4 +99,59 @@ describe("application menu language", () => {
     const labels = items(appMenuTemplate(actions, "darwin", "xx-XX")).map((i) => i.label);
     expect(labels).toContain("New Chat");
   });
+});
+
+describe("View menu sidebar items", () => {
+  beforeAll(async () => {
+    const { createLoadedI18n } = await import("@psyche/ui/i18n-core");
+    await createLoadedI18n({ locale: "en" });
+  });
+  const noop = () => {};
+  const toggleSidebar = vi.fn();
+  const toggleCompactSidebar = vi.fn();
+  const actions = {
+    newSideChat: noop,
+    palette: noop,
+    toggleSidebar,
+    toggleCompactSidebar,
+    closeThreadView: noop,
+    quitEntirely: noop,
+    settings: noop,
+    zoomIn: noop,
+    zoomOut: noop,
+    zoomReset: noop,
+  };
+
+  async function viewItems(platform: NodeJS.Platform) {
+    const { appMenuTemplate } = await import("../src/main/menu.ts");
+    const view = appMenuTemplate(actions, platform, "en").find((m) => m.label === "View");
+    return (view?.submenu ?? []) as MenuItemConstructorOptions[];
+  }
+
+  for (const platform of ["darwin", "win32"] as const) {
+    it(`puts Toggle Sidebar and Compact Sidebar first in View on ${platform}, then a separator`, async () => {
+      const [first, second, third] = await viewItems(platform);
+      expect(first?.label).toBe("Toggle Sidebar");
+      expect(second?.label).toBe("Compact Sidebar");
+      expect(third?.type).toBe("separator");
+    });
+
+    it(`runs the same actions as the sidebar keys on ${platform}, once per click`, async () => {
+      const items = await viewItems(platform);
+      const toggle = items[0] as MenuItemConstructorOptions;
+      const compact = items[1] as MenuItemConstructorOptions;
+      // ⌘B on macOS, Ctrl+B on Windows: the menu accelerator takes the key, the page never sees it.
+      expect(toggle.accelerator).toBe("CmdOrCtrl+B");
+      // ⌘⌥B on macOS. On Windows no accelerator: Ctrl+Alt is AltGr, and the renderer keeps the guard.
+      expect(compact.accelerator).toBe(platform === "darwin" ? "CmdOrCtrl+Alt+B" : undefined);
+      toggleSidebar.mockClear();
+      toggleCompactSidebar.mockClear();
+      (toggle.click as () => void)();
+      expect(toggleSidebar).toHaveBeenCalledTimes(1);
+      expect(toggleCompactSidebar).not.toHaveBeenCalled();
+      (compact.click as () => void)();
+      expect(toggleCompactSidebar).toHaveBeenCalledTimes(1);
+      expect(toggleSidebar).toHaveBeenCalledTimes(1);
+    });
+  }
 });

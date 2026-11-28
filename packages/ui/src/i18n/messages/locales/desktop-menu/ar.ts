@@ -11,6 +11,8 @@ export const desktopMenu: Partial<Catalogue> = {
   "desktop.menu.actualSize": "الحجم الفعلي",
   "desktop.menu.zoomIn": "تكبير",
   "desktop.menu.zoomOut": "تصغير",
+  "desktop.menu.toggleSidebar": "إظهار الشريط الجانبي أو إخفاؤه",
+  "desktop.menu.compactSidebar": "شريط جانبي مضغوط",
   "desktop.menu.closeWindow": "إغلاق النافذة",
   "desktop.menu.openPsyche": "فتح Psyche",
   "desktop.menu.quickEntry": "إدخال سريع",

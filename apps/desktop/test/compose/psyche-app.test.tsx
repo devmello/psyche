@@ -290,18 +290,24 @@ describe("Run setup again in the main window", () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/home");
     const { platform } = webPlatform();
-    let emit: ((c: ShellCommand) => void) | undefined;
+    // Every subscriber hears each command, like the preload's ipcRenderer listeners.
+    const listeners = new Set<(c: ShellCommand) => void>();
+    const emit = (c: ShellCommand) => {
+      for (const cb of listeners) cb(c);
+    };
     platform.windows = {
       popOutPane: async () => {},
       closeWindow: () => {},
       onCommand: (cb) => {
-        emit = cb;
-        return () => {};
+        listeners.add(cb);
+        return () => {
+          listeners.delete(cb);
+        };
       },
     };
     render(<PsycheApp platform={platform} />);
     await screen.findByTestId("screen-home");
-    act(() => emit?.({ type: "navigate", route: "/onboarding" }));
+    act(() => emit({ type: "navigate", route: "/onboarding" }));
     await screen.findByTestId("screen-onboarding-rerun");
     expect(window.location.pathname).toBe("/onboarding");
     // Re-running only revisits steps; it never gates the app behind the first-run screen.
@@ -314,18 +320,24 @@ describe("Try it fills the chat composer (#677)", () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/home");
     const { platform, calls } = webPlatform();
-    let emit: ((c: ShellCommand) => void) | undefined;
+    // Every subscriber hears each command, like the preload's ipcRenderer listeners.
+    const listeners = new Set<(c: ShellCommand) => void>();
+    const emit = (c: ShellCommand) => {
+      for (const cb of listeners) cb(c);
+    };
     platform.windows = {
       popOutPane: async () => {},
       closeWindow: () => {},
       onCommand: (cb) => {
-        emit = cb;
-        return () => {};
+        listeners.add(cb);
+        return () => {
+          listeners.delete(cb);
+        };
       },
     };
     render(<PsycheApp platform={platform} />);
     await screen.findByTestId("screen-home");
-    act(() => emit?.({ type: "prefillComposer", text: "What's on my calendar today?" }));
+    act(() => emit({ type: "prefillComposer", text: "What's on my calendar today?" }));
     await waitFor(() => expect(window.location.pathname).toBe("/chat"));
     const composer = (await screen.findByRole("textbox", {
       name: "Message Flash",
@@ -459,12 +471,12 @@ describe("the composed app on the web host (A8)", () => {
       health: "ok",
       attempt: 1,
     });
-    act(() => emit?.(st("disconnected")));
+    act(() => emit(st("disconnected")));
     await waitFor(() => expect(screen.queryByTestId("gate-loading")).toBeNull());
     const shell = view.container.querySelector("[data-testid]:not([data-testid^='gate'])");
     expect(shell).not.toBeNull();
     for (const phase of ["connecting", "challenge", "verifying", "disconnected", "connecting"]) {
-      act(() => emit?.(st(phase as GatewayStatus["phase"])));
+      act(() => emit(st(phase as GatewayStatus["phase"])));
       expect(screen.queryByTestId("gate-loading")).toBeNull();
       expect(shell?.isConnected).toBe(true);
     }

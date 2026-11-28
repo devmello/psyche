@@ -11,6 +11,8 @@ export const desktopMenu: Partial<Catalogue> = {
   "desktop.menu.actualSize": "実際のサイズ",
   "desktop.menu.zoomIn": "拡大",
   "desktop.menu.zoomOut": "縮小",
+  "desktop.menu.toggleSidebar": "サイドバーの表示/非表示",
+  "desktop.menu.compactSidebar": "コンパクトサイドバー",
   "desktop.menu.closeWindow": "ウィンドウを閉じる",
   "desktop.menu.openPsyche": "Psyche を開く",
   "desktop.menu.quickEntry": "クイック入力",

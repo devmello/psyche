@@ -1069,6 +1069,16 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     return () => window.removeEventListener("keydown", onKey, true);
   }, [mac, run]);
 
+  // View menu items send the same action as their key. The menu accelerator takes the key before
+  // the page sees it, so the keydown above does not run it a second time.
+  useEffect(
+    () =>
+      platform.windows?.onCommand((c) => {
+        if (c.type === "shortcut") run(c.action);
+      }),
+    [platform.windows, run],
+  );
+
   const actions: PaletteAction[] = [
     { id: "new", label: t("web.palette.newSideChat"), run: newSideChat },
     { id: "incognito", label: t("web.palette.newIncognito"), run: newIncognitoChat },
