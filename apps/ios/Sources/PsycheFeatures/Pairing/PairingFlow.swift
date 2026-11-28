@@ -114,6 +114,7 @@ private struct ScannerView: View {
         PairingScaffold {
             Text("Scan the code on your Mac.", bundle: .module).psycheTitle(.title)
                 .foregroundStyle(PsycheColor.text)
+                .accessibilityIdentifier("pairing.scan.title")
             viewfinder
             if let error = session.pairingError {
                 Text(error).font(.footnote).foregroundStyle(PsycheColor.red)
@@ -123,6 +124,7 @@ private struct ScannerView: View {
         } footer: {
             Button(String(localized: "Enter code by hand", bundle: .module)) { enteringCode = true }
                 .font(.subheadline)
+                .accessibilityIdentifier("pairing.enter-code")
             Button(String(localized: "Try the demo", bundle: .module)) { session.requestFixtureMode() }
                 .font(.subheadline)
                 .accessibilityHint(String(localized: "Opens the app with sample content", bundle: .module))
@@ -209,6 +211,7 @@ private struct CodeEntrySheet: View {
                         .autocorrectionDisabled()
                         .font(.psycheMono(.footnote))
                         .lineLimit(1...4)
+                        .accessibilityIdentifier("pairing.code-field")
                     PasteButton(payloadType: String.self) { strings in
                         Task { @MainActor in text = strings.first ?? "" }
                     }
@@ -232,6 +235,7 @@ private struct CodeEntrySheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Connect", bundle: .module)) { session.beginPairing(code: text) }
+                        .accessibilityIdentifier("pairing.code-connect")
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -250,6 +254,7 @@ private struct ConfirmView: View {
         PairingScaffold {
             Text("Connect to \(preview.hostName)?", bundle: .module).psycheTitle(.title)
                 .foregroundStyle(PsycheColor.text)
+                .accessibilityIdentifier("pairing.confirm.title")
             PaperCard(padding: 18, radius: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Security code", bundle: .module).font(.footnote).foregroundStyle(PsycheColor.muted)
@@ -322,6 +327,7 @@ struct PairingProgressView: View {
                 } else {
                     Text("Can't reach your Mac. Check that it's on and awake, and on the same Wi-Fi as this iPhone. Psyche keeps trying until you cancel.", bundle: .module)
                         .font(.subheadline).foregroundStyle(PsycheColor.muted)
+                        .accessibilityIdentifier("pairing.unreachable")
                 }
             }
             DetailsDisclosure(rows: [(String(localized: "Address", bundle: .module), attempt.host)])
@@ -352,10 +358,12 @@ struct RefusedView: View {
             switch reason {
             case .identityMismatch:
                 Text("This isn't the Mac you paired with.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                    .accessibilityIdentifier("pairing.refused.mismatch")
                 Text("Psyche stopped and sent nothing. If you reset your Mac, pair again.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             case .identityChanged:
                 Text("Psyche can't confirm your Mac.", bundle: .module).psycheTitle(.title).foregroundStyle(PsycheColor.text)
+                    .accessibilityIdentifier("pairing.refused.changed")
                 Text("Psyche sent nothing and keeps trying. If you reset your Mac, pair again.", bundle: .module)
                     .font(.subheadline).foregroundStyle(PsycheColor.muted)
             }

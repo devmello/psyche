@@ -4,20 +4,20 @@ import XCTest
 final class PairingEscapeUITests: PsycheUITestCase {
     func testRefusedGatewayCanBePairedAgain() {
         launch("mismatch")
-        waitFor(match("This isn't your Gateway"))
+        waitFor(app.staticTexts["pairing.refused.mismatch"])
         let pairAgain = app.buttons["Pair again"]
         waitFor(pairAgain)
         pairAgain.tap()
         // The confirmation names what is forgotten; its button is the last "Pair again" on screen.
         waitFor(match("Pair this phone again?"))
         app.buttons.matching(identifier: "Pair again").allElementsBoundByIndex.last?.tap()
-        waitFor(match("Pair with your Mac"))
-        XCTAssertFalse(match("This isn't your Gateway").exists)
+        waitFor(app.staticTexts["pairing.scan.title"])
+        XCTAssertFalse(app.staticTexts["pairing.refused.mismatch"].exists)
     }
 
     func testAChangedMacIdentityCanBePairedAgain() {
         launch("identityChanged")
-        waitFor(match("Psyche can't confirm your Mac."))
+        waitFor(app.staticTexts["pairing.refused.changed"])
         // "Try again" is the primary button; "Pair again" is behind a confirm.
         waitFor(app.buttons["Try again"])
         let pairAgain = app.buttons["Pair again"]
@@ -25,7 +25,7 @@ final class PairingEscapeUITests: PsycheUITestCase {
         pairAgain.tap()
         waitFor(match("Pair this phone again?"))
         app.buttons.matching(identifier: "Pair again").allElementsBoundByIndex.last?.tap()
-        waitFor(match("Pair with your Mac"))
+        waitFor(app.staticTexts["pairing.scan.title"])
     }
 
     private func base64URL(_ data: Data) -> String {
@@ -33,10 +33,10 @@ final class PairingEscapeUITests: PsycheUITestCase {
             .replacingOccurrences(of: "=", with: "")
     }
 
-    /// A pasted `psyche-pair:v2` link (a Mac on the local network) is understood, and when that Mac can't be reached
+    /// A `psyche-pair:v2` link entered by hand (a Mac on the local network) is understood, and when that Mac can't be reached
     /// the first pairing shows why and offers Cancel instead of empty tabs. Uses the real client: the name below
     /// never answers.
-    func testPastedLanLinkParsesAndAnUnreachableMacCanBeCancelled() throws {
+    func testEnteredLanLinkParsesAndAnUnreachableMacCanBeCancelled() throws {
         let fields: [String: String] = [
             "gatewayUrl": "https://psyche-ui-test-nobody.local:7443",
             "gatewayKey": base64URL(Data(repeating: 5, count: 32)),
@@ -45,19 +45,23 @@ final class PairingEscapeUITests: PsycheUITestCase {
             "hostName": "Studio Mac",
         ]
         let json = try JSONSerialization.data(withJSONObject: fields, options: [.sortedKeys])
-        UIPasteboard.general.string = "psyche-pair:v2:" + base64URL(json)
         launch("")
-        let paste = app.buttons["Paste a pairing link"]
-        waitFor(paste, 15)
-        paste.tap()
+        let enterCode = app.buttons["pairing.enter-code"]
+        waitFor(enterCode, 15)
+        enterCode.tap()
+        let field = app.descendants(matching: .any)["pairing.code-field"]
+        waitFor(field)
+        field.tap()
+        field.typeText("psyche-pair:v2:" + base64URL(json))
+        app.buttons["pairing.code-connect"].tap()
         // The scheme-and-host check passed: the phone asks before it sends anything.
-        waitFor(match("Connect to Studio Mac?"), 10)
+        waitFor(app.staticTexts["pairing.confirm.title"], 10)
         app.buttons["Connect"].tap()
-        waitFor(match("Can't reach your Mac at psyche-ui-test-nobody.local"), 30)
+        waitFor(app.staticTexts["pairing.unreachable"], 30)
         let cancel = app.buttons["Cancel"]
         waitFor(cancel)
         cancel.tap()
-        waitFor(match("Pair with your Mac"), 10)
+        waitFor(app.staticTexts["pairing.scan.title"], 10)
     }
 
     func testDemoCanBeLeftFromSettings() {
@@ -69,6 +73,6 @@ final class PairingEscapeUITests: PsycheUITestCase {
         let exit = app.buttons["Exit demo"]
         scrollTo(exit)
         exit.tap()
-        waitFor(match("Pair with your Mac"), 15)
+        waitFor(app.staticTexts["pairing.scan.title"], 15)
     }
 }
