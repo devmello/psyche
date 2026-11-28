@@ -267,7 +267,11 @@ describe("SecurityStateBanner", () => {
     it("is hidden when the app talks to a Gateway on another computer", async () => {
       const g = platform({ "security.state.get": () => untrusted([]) });
       // Positive control: the same state with a local Gateway shows it (first test above).
-      render(<SecurityStateBanner platform={{ ...g.p, remote: { hostName: "Studio" } }} />);
+      render(
+        <SecurityStateBanner
+          platform={{ ...g.p, chrome: { remote: { hostName: "Studio" } } } as ShellPlatform}
+        />,
+      );
       await screen.findByTestId("security-banner");
       fireEvent.click(screen.getByRole("button", { name: "Review" }));
       expect(screen.getByTestId("security-alert")).toBeTruthy();

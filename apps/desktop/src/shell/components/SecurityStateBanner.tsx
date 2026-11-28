@@ -134,7 +134,9 @@ export function SecurityStateBanner({
   // this app talks to the Gateway on This Mac: a remote Gateway refuses it (Host only), so the
   // button would only fail.
   const canReseal =
-    untrusted && platform.remote === undefined && !waiting.some((r) => r.op === "seal.reset");
+    untrusted &&
+    platform.chrome?.remote === undefined &&
+    !waiting.some((r) => r.op === "seal.reset");
   const when = (iso: string | undefined) => (iso === undefined ? "" : i18n.dateTime(iso));
   const headline = untrusted
     ? t("web.security.banner.untrusted")
