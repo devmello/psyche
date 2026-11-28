@@ -83,7 +83,7 @@ export interface FreshPresenceAction {
 export function stateUntrustedError(): PsycheError {
   return new PsycheError(
     "presence_required",
-    "Psyche's security records failed their check, so changes that widen access are blocked. Review your devices in Settings → Devices, then run `psyched security reseal` on the machine (it applies after 24 hours).",
+    "Psyche's security records failed their check, so changes that widen access are blocked. Review your devices in Settings → Devices, then press Re-seal in Psyche on the Mac (it applies after 24 hours).",
     { details: { reason: "state_untrusted" } },
   );
 }

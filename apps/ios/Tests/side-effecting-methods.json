@@ -158,6 +158,7 @@
   "security.alerts.acknowledge",
   "security.recoveries.approve",
   "security.recoveries.cancel",
+  "security.reseal.request",
   "settings.set",
   "skills.authors.createNotice",
   "skills.authors.importNotice",

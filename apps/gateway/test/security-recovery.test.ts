@@ -1,17 +1,20 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDevice, insertDevice, openDb, setSetting } from "@psyche/db";
+import { getDevice, insertDevice, openDb, setSetting, updateDevice } from "@psyche/db";
 import type { SecurityStateStatus } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
+import { securityHandlers } from "../src/handlers/security.ts";
 import { PRESENCE_ENROLLED_SETTING } from "../src/presence-gate.ts";
 import {
   adminClient,
   TestClient as Client,
+  desktopClient,
   handshake,
   ik,
   newDeviceKey,
+  remoteClient,
   startTestGateway,
   type TestClient,
   type TestGateway,
@@ -377,5 +380,236 @@ describe("the seal in a running Gateway", () => {
     offsetMs = DAY + 1000;
     gw.gateway.context.securityRecoveries?.applyDue();
     expect((await state(admin)).status).toBe("sealed");
+  });
+});
+
+describe("security.reseal.request (the Mac app's Re-seal button)", () => {
+  async function untrustedGateway() {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    return { gw, admin };
+  }
+
+  it("queues a waiting seal.reset 24 hours out, joins a repeat, and never re-seals early", async () => {
+    const { gw, admin } = await untrustedGateway();
+    const first = await admin.call<{
+      recovery: { id: string; op: string; status: string; requestedAt: string; notBefore: string };
+    }>("security.reseal.request", {}, ik());
+    const r = first.recovery;
+    expect(r).toMatchObject({ op: "seal.reset", status: "waiting" });
+    expect(Date.parse(r.notBefore) - Date.parse(r.requestedAt)).toBe(DAY);
+    const s = await state(admin);
+    expect(s.status).toBe("untrusted");
+    const alert = s.alerts.find((a) => a.kind === "recovery_requested");
+    expect(alert?.details).toMatchObject({ op: "seal.reset", via: "desktop", recoveryId: r.id });
+
+    // A repeat (and the CLI) join the one that waits; its time does not move.
+    const again = await admin.call<{ recovery: { id: string; notBefore: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    expect(again.recovery).toMatchObject({ id: r.id, notBefore: r.notBefore });
+    expect((await cli(["security", "reseal"])).lines[0]).toMatch(/already waits/);
+    expect((await state(admin)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(1);
+
+    // Not before its time.
+    offsetMs = DAY - 60_000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect((await state(admin)).status).toBe("untrusted");
+    offsetMs = DAY + 60_000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect((await state(admin)).status).toBe("sealed");
+  });
+
+  it("approve still refuses it, and a trusted admin can cancel it", async () => {
+    const { admin } = await untrustedGateway();
+    const { recovery } = await admin.call<{ recovery: { id: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    expect(
+      await admin.request("security.recoveries.approve", { id: recovery.id }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const cancelled = await admin.call<{ recovery: { status: string } }>(
+      "security.recoveries.cancel",
+      { id: recovery.id },
+      ik(),
+    );
+    expect(cancelled.recovery.status).toBe("cancelled");
+  });
+
+  it("is refused while the records are sealed", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    expect(await admin.request("security.reseal.request", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "conflict" },
+    });
+    expect((await state(admin)).recoveries).toHaveLength(0);
+  });
+
+  const ADMIN_SCOPES = [
+    "operator.read",
+    "operator.write",
+    "operator.approvals",
+    "operator.admin",
+  ] as const;
+
+  it("is Host only: a remote device is refused, admin or not, with the terminal command named", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    // Made admin while the records were sealed, so the seal vouches for it afterwards: the Host
+    // check is the only guard that can fire.
+    const remoteKey = newDeviceKey();
+    (await remoteClient(gw.gateway, remoteKey, "remote-admin")).close();
+    updateDevice(gw.gateway.context.db, "remote-admin", { scopes: [...ADMIN_SCOPES] });
+    const remote = await remoteClient(gw.gateway, remoteKey, "remote-admin");
+    open.push(remote);
+    const plain = await remoteClient(gw.gateway);
+    open.push(plain);
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    // The dispatcher refuses a non-app caller before the handler runs (`hostOnly` in the protocol).
+    const handler = securityHandlers["security.reseal.request"];
+    expect(handler).toBeDefined();
+    const ran = vi.spyOn(handler as { run: (...a: never[]) => unknown }, "run");
+    for (const c of [remote, plain]) {
+      const res = await c.request("security.reseal.request", {}, ik());
+      expect(ran).not.toHaveBeenCalled();
+      expect(res).toMatchObject({
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: expect.stringMatching(
+            /Only the Psyche app on the Mac itself.*psyched security reseal/,
+          ),
+        },
+      });
+    }
+    expect((await state(admin)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(0);
+    // Positive control: the same untrusted state accepts the request from the app on this Mac.
+    expect(await admin.request("security.reseal.request", {}, ik())).toMatchObject({ ok: true });
+    expect(ran).toHaveBeenCalledTimes(1);
+    ran.mockRestore();
+  });
+
+  it("a read-only app, or a device row planted with admin, is a Host app like any other: it asks only as the app", async () => {
+    const { gw } = await untrustedGateway();
+    // A device row planted outside Psyche, connecting without the app's secret: not the app.
+    const plantedKey = newDeviceKey();
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    insertDevice(other, {
+      id: "planted",
+      name: "planted",
+      platform: "macos",
+      role: "client",
+      publicKey: plantedKey.publicKey,
+      scopes: [...ADMIN_SCOPES],
+      pairedAt: other.now(),
+    });
+    other.close();
+    const c = await Client.open(wsUrlOf(gw.gateway));
+    open.push(c);
+    await handshake(c, gw.gateway.origin, { key: plantedKey, deviceId: "planted" });
+    expect(await c.request("security.reseal.request", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", message: expect.stringMatching(/Mac itself/) },
+    });
+    expect(gw.gateway.context.securityRecoveries?.list() ?? []).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "an aggregate tamper",
+      (_home: string, dbPath: string) => {
+        const other = openDb(dbPath, { migrate: false });
+        other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+        other.close();
+      },
+    ],
+    [
+      "a missing key file",
+      (home: string) => rmSync(join(home, "security", "state-seal-key.json"), { force: true }),
+    ],
+  ])(
+    "after a restart into an untrusted state (%s) the read-only Host app can still ask",
+    async (_n, tamper) => {
+      const home = mkdtempSync(join(tmpdir(), "psyche-rec-"));
+      const dbPath = join(home, "state", "psyche.sqlite");
+      const opts = {
+        home,
+        config: { dbPath },
+        now: () => new Date(Date.now() + offsetMs),
+        security: { pollMs: 20 },
+        broker: tapBroker(),
+      };
+      const first = await startTestGateway(opts);
+      const key = newDeviceKey();
+      (await desktopClient(first.gateway, key, "owner-desktop")).close();
+      updateDevice(first.gateway.context.db, "owner-desktop", { scopes: [...ADMIN_SCOPES] });
+      await first.gateway.stop("test");
+      tamper(home, dbPath);
+      t = await startTestGateway(opts);
+      const desktop = await desktopClient(t.gateway, key, "owner-desktop");
+      open.push(desktop);
+      expect((await state(desktop)).status).toBe("untrusted");
+      // The app is read-only now (the seal vouches for nothing after a restart): an admin method
+      // fails on scope, which is what made the old admin requirement unusable.
+      expect(
+        await desktop.request("security.recoveries.cancel", { id: "none" }, ik()),
+      ).toMatchObject({
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: expect.stringMatching(/requires scope operator.admin/),
+        },
+      });
+      const res = await desktop.call<{
+        recovery: { op: string; status: string; requestedAt: string; notBefore: string };
+      }>("security.reseal.request", {}, ik());
+      expect(res.recovery).toMatchObject({ op: "seal.reset", status: "waiting" });
+      expect(Date.parse(res.recovery.notBefore) - Date.parse(res.recovery.requestedAt)).toBe(DAY);
+      expect((await state(desktop)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(
+        1,
+      );
+      offsetMs = DAY + 60_000;
+      t.gateway.context.securityRecoveries?.applyDue();
+      // Read from the Gateway itself: a re-seal revokes a device it cannot vouch for, this app too.
+      expect(t.gateway.context.securityState?.status().status).toBe("sealed");
+    },
+  );
+
+  it("planted recovery rows cannot push the real waiting re-seal out of the list", async () => {
+    const { gw, admin } = await untrustedGateway();
+    const { recovery } = await admin.call<{ recovery: { id: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    // 25 newer rows planted outside Psyche (waiting, so they sort ahead of everything else).
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    const at = new Date(Date.now() + 3600_000).toISOString();
+    for (let i = 0; i < 25; i++) {
+      other.sqlite
+        .prepare(
+          `INSERT INTO security_recoveries (id, op, params, status, seen_at, not_before, created_at, updated_at)
+           VALUES (?, 'devices.grant', '{}', 'waiting', ?, ?, ?, ?)`,
+        )
+        .run(`planted-${i}`, at, at, at, at);
+    }
+    other.close();
+    const listed = gw.gateway.context.securityRecoveries?.list() ?? [];
+    expect(listed.map((r) => r.id)).toEqual([recovery.id]);
   });
 });

@@ -14,7 +14,7 @@ export const notices: Partial<Catalogue> = {
     "Un programma su questo Mac ha modificato {count, plural, =1 {# registro di sicurezza} other {# registri di sicurezza}} (dispositivi, chiavi, permessi o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, finora # volte}}. Psyche li ha ripristinati. Se non sei stato tu, controlla che il Mac non abbia software indesiderato.",
   "notice.security.untrusted.title": "Psyche non può fidarsi dei suoi registri di sicurezza",
   "notice.security.untrusted.body":
-    "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui `psyched security reseal` sul Mac (vale dopo 24 ore).",
+    "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi premi «Sigilla di nuovo» in Psyche sul Mac; vale dopo 24 ore.",
   "notice.security.firstSeal.title": "Psyche ora controlla i suoi registri di sicurezza",
   "notice.security.firstSeal.body":
     "Psyche ha sigillato {devices, plural, =1 {# dispositivo associato} other {# dispositivi associati}} e le sue impostazioni di sicurezza. D’ora in poi una modifica fatta fuori da Psyche viene annullata e mostrata qui. Controlla i tuoi dispositivi una volta.",
@@ -26,6 +26,7 @@ export const notices: Partial<Catalogue> = {
     "Un comando su questo Mac ha creato il primo dispositivo amministratore",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo Mac. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
+  "notice.security.resealRequested.title": "Hai chiesto di sigillare di nuovo in Psyche",
   "notice.security.recovery.title":
     "{state, select, requested {Un comando su questo Mac ha chiesto una modifica di sicurezza} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}",
   "notice.security.recovery.body":

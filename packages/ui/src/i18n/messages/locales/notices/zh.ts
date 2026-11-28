@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "这台 Mac 上有程序绕过 Psyche 更改了 {count, plural, =1 {# 条安全记录} other {# 条安全记录}}（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，目前已发生 # 次}}。Psyche 已将它们恢复。如果不是你做的，请检查 Mac 上是否有不明软件。",
   "notice.security.untrusted.title": "Psyche 无法信任它的安全记录",
   "notice.security.untrusted.body":
-    "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上运行 `psyched security reseal`（24 小时后生效）。",
+    "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上的 Psyche 中点按“重新封存”（24 小时后生效）。",
   "notice.security.firstSeal.title": "Psyche 现在会检查它的安全记录",
   "notice.security.firstSeal.body":
     "Psyche 已封存 {devices, plural, =1 {# 台已配对设备} other {# 台已配对设备}}及其安全设置。从现在起，在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。",
@@ -24,6 +24,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "这台 Mac 上的命令创建了第一台管理员设备",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other {（密钥 {key}）}}已在这台 Mac 上{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}成为第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销。",
+  "notice.security.resealRequested.title": "你在 Psyche 中请求了重新封存",
   "notice.security.recovery.title":
     "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}",
   "notice.security.recovery.body":

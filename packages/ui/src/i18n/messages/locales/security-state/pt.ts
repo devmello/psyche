@@ -16,7 +16,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "Um programa neste Mac alterou {count, plural, one {1 registro de segurança} other {# registros de segurança}} sem passar pelo Psyche. O Psyche {count, plural, one {o restaurou} other {os restaurou}}. Se não foi você, verifique se há software indesejado no Mac.",
   "web.security.alert.untrusted":
-    "A verificação dos registros de segurança do Psyche falhou. Novos dispositivos, ajustes de segurança e aprovações por Touch ID estão bloqueados. Revise seus dispositivos em Ajustes → Dispositivos e toque em “Marcar como revisado”. Se o Psyche pedir para aceitar os registros atuais, toque em “Aprovar agora”; vale depois de 24 horas.",
+    "A verificação dos registros de segurança do Psyche falhou. Novos dispositivos, ajustes de segurança e aprovações por Touch ID estão bloqueados. Revise seus dispositivos e toque em “Selar de novo” no Psyche do Mac; vale após 24 horas.",
   "web.security.alert.firstSeal":
     "O Psyche agora verifica seus registros de segurança ({devices, plural, one {1 dispositivo pareado} other {# dispositivos pareados}}). Uma alteração feita fora do Psyche é desfeita e mostrada aqui. Revise seus dispositivos uma vez.",
   "web.security.alert.resealed": "O Psyche selou de novo seus registros de segurança.",
@@ -41,6 +41,9 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "Marcar como revisado",
   "web.security.approveNow": "Aprovar agora",
   "web.security.cancel": "Cancelar pedido",
+  "web.security.reseal": "Selar de novo",
+  "web.security.resealHelp":
+    "Aceita os registros atuais depois que você revisar seus dispositivos. Vale após 24 horas, a menos que você cancele.",
   "web.security.needsApprovalPresence":
     "Aprove o cartão com Touch ID ou uma chave de acesso e toque no botão de novo.",
   "web.security.needsApproval": "Aprove o cartão e depois pressione o botão de novo.",

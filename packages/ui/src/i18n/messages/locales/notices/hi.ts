@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "इस Mac पर किसी प्रोग्राम ने Psyche से गुज़रे बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग) बदल दिए{times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने उन्हें वापस ठीक कर दिया। अगर यह आपने नहीं किया, तो Mac में अनचाहे सॉफ़्टवेयर की जाँच करें।",
   "notice.security.untrusted.title": "Psyche अपने सुरक्षा रिकॉर्ड पर भरोसा नहीं कर सकता",
   "notice.security.untrusted.body":
-    "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और Touch ID से मंज़ूरियाँ रोक दी गई हैं। अपने डिवाइस देखें, फिर Mac पर `psyched security reseal` चलाएँ (यह 24 घंटे बाद लागू होता है)।",
+    "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और Touch ID से मंज़ूरियाँ रोक दी गई हैं। अपने डिवाइस देखें, फिर Mac पर Psyche में “फिर से सील करें” दबाएँ; यह 24 घंटे बाद लागू होता है।",
   "notice.security.firstSeal.title": "Psyche अब अपने सुरक्षा रिकॉर्ड की जाँच करता है",
   "notice.security.firstSeal.body":
     "Psyche ने {devices, plural, =1 {# पेयर किया गया डिवाइस} other {# पेयर किए गए डिवाइस}} और अपनी सुरक्षा सेटिंग सील कर दीं। अब से Psyche के बाहर किया गया कोई भी बदलाव पलट दिया जाएगा और यहाँ दिखेगा। अपने डिवाइस एक बार देख लें।",
@@ -24,6 +24,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "इस Mac पर एक कमांड ने पहला एडमिन डिवाइस बनाया",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (कुंजी {key})}} इस Mac पर {via, select, desktop {Psyche ऐप से} other {`psyched` के ज़रिए}} पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो इसे सेटिंग → डिवाइस में रद्द करें।",
+  "notice.security.resealRequested.title": "आपने Psyche में फिर से सील करने का अनुरोध किया",
   "notice.security.recovery.title":
     "{state, select, requested {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}",
   "notice.security.recovery.body":

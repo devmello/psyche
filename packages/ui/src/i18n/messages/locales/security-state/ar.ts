@@ -15,7 +15,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "غيّر برنامج على هذا الـ Mac {count, plural, one {سجل أمان واحدًا} two {سجلَّي أمان} few {# سجلات أمان} many {# سجل أمان} other {# سجل أمان}} دون المرور عبر Psyche. أعاد Psyche ما تغيّر كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها.",
   "web.security.alert.untrusted":
-    "فشل فحص سجلات الأمان في Psyche. الأجهزة الجديدة وإعدادات الأمان وموافقات Touch ID محظورة. راجع أجهزتك في الإعدادات ← الأجهزة، ثم اضغط «وضع علامة تمت المراجعة». إذا طلب Psyche قبول السجلات الحالية، اضغط «الموافقة الآن»؛ ويسري ذلك بعد 24 ساعة.",
+    "فشل فحص سجلات الأمان في Psyche. الأجهزة الجديدة وإعدادات الأمان وموافقات Touch ID محظورة. راجع أجهزتك، ثم اضغط «إعادة الختم» في Psyche على الـ Mac؛ يسري ذلك بعد 24 ساعة.",
   "web.security.alert.firstSeal":
     "أصبح Psyche يفحص سجلات الأمان ({devices, plural, zero {لا أجهزة مقترنة} one {جهاز مقترن واحد} two {جهازان مقترنان} few {# أجهزة مقترنة} many {# جهازًا مقترنًا} other {# جهاز مقترن}}). أي تغيير يُجرى خارج Psyche يُتراجع عنه ويظهر هنا. راجع أجهزتك مرة واحدة.",
   "web.security.alert.resealed": "ختم Psyche سجلات الأمان من جديد.",
@@ -39,6 +39,9 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "وضع علامة تمت المراجعة",
   "web.security.approveNow": "الموافقة الآن",
   "web.security.cancel": "إلغاء الطلب",
+  "web.security.reseal": "إعادة الختم",
+  "web.security.resealHelp":
+    "تقبل السجلات الحالية بعد أن تراجع أجهزتك. يسري ذلك بعد 24 ساعة ما لم تلغِه.",
   "web.security.needsApprovalPresence":
     "وافق على البطاقة بـ Touch ID أو مفتاح مرور، ثم اضغط الزر مرة أخرى.",
   "web.security.needsApproval": "وافِق على البطاقة، ثم اضغط الزر مرة أخرى.",

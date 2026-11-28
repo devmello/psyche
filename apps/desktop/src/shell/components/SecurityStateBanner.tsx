@@ -130,6 +130,13 @@ export function SecurityStateBanner({
   const { show, openAlerts, waiting, untrusted } = securityBannerView(state);
   if (!show) return null;
 
+  // Untrusted, and no re-seal waits yet: one tap asks for it (it still waits 24 hours). Only when
+  // this app talks to the Gateway on This Mac: a remote Gateway refuses it (Host only), so the
+  // button would only fail.
+  const canReseal =
+    untrusted &&
+    platform.chrome?.remote === undefined &&
+    !waiting.some((r) => r.op === "seal.reset");
   const when = (iso: string | undefined) => (iso === undefined ? "" : i18n.dateTime(iso));
   const headline = untrusted
     ? t("web.security.banner.untrusted")
@@ -178,6 +185,8 @@ export function SecurityStateBanner({
     void run(`ack:${a.id}`, "security.alerts.acknowledge", { id: a.id });
   const cancel = (r: SecurityRecovery) =>
     void run(`cancel:${r.id}`, "security.recoveries.cancel", { id: r.id });
+  // A plain tap: the Gateway queues the same 24-hour re-seal `psyched security reseal` does.
+  const reseal = () => void run("reseal", "security.reseal.request", {});
   const approve = (r: SecurityRecovery) =>
     void run(
       `approve:${r.id}`,
@@ -267,6 +276,21 @@ export function SecurityStateBanner({
                   )}
                 </li>
               ))}
+            {canReseal ? (
+              <li data-testid="security-reseal">
+                <p>{t("web.security.resealHelp")}</p>
+                <div className="security-actions">
+                  <button
+                    type="button"
+                    className="banner-action"
+                    disabled={busy !== null}
+                    onClick={reseal}
+                  >
+                    {t("web.security.reseal")}
+                  </button>
+                </div>
+              </li>
+            ) : null}
           </ul>
           {notice === null ? null : (
             <p role="status" className="security-notice">

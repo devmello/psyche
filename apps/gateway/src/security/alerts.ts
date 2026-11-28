@@ -299,7 +299,12 @@ export function alertMessage(alert: SecurityAlert): NoticeMessage {
     case "recovery_cancelled":
     case "recovery_failed":
       return {
-        titleKey: "notice.security.recovery.title",
+        // A re-seal the owner asked for in the app has its own title: a client that does not know
+        // the id shows the English title; the generic id stays as it was for every other origin.
+        titleKey:
+          alert.kind === "recovery_requested" && d.via === "desktop"
+            ? "notice.security.resealRequested.title"
+            : "notice.security.recovery.title",
         bodyKey: "notice.security.recovery.body",
         params: {
           state: stateOf(alert.kind),
@@ -326,7 +331,7 @@ function alertNoticeEnglish(alert: SecurityAlert): { title: string; body: string
     case "state_untrusted":
       return {
         title: "Psyche cannot trust its security records",
-        body: "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours).",
+        body: "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then press Re-seal in Psyche on the Mac (it applies after 24 hours).",
       };
     case "state_first_seal":
       return {
@@ -349,7 +354,10 @@ function alertNoticeEnglish(alert: SecurityAlert): { title: string; body: string
       };
     case "recovery_requested":
       return {
-        title: "A command on this Mac asked for a security change",
+        title:
+          d.via === "desktop"
+            ? "You asked for a re-seal in Psyche"
+            : "A command on this Mac asked for a security change",
         body: `${recoveryText(d)} It applies ${when === "" ? "in 24 hours" : `on ${when}`} unless you cancel it in Psyche.`,
       };
     case "recovery_applied":

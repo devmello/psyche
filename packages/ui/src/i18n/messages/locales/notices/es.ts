@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "Un programa de este Mac cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche los restauró. Si no fuiste tú, revisa el Mac por si hay software no deseado.",
   "notice.security.untrusted.title": "Psyche no puede fiarse de sus registros de seguridad",
   "notice.security.untrusted.body":
-    "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con Touch ID están bloqueados. Revisa tus dispositivos y ejecuta `psyched security reseal` en el Mac (se aplica a las 24 horas).",
+    "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con Touch ID están bloqueados. Revisa tus dispositivos y pulsa «Volver a sellar» en Psyche en el Mac; se aplica pasadas 24 horas.",
   "notice.security.firstSeal.title": "Psyche ahora comprueba sus registros de seguridad",
   "notice.security.firstSeal.body":
     "Psyche selló {devices, plural, =1 {# dispositivo vinculado} other {# dispositivos vinculados}} y sus ajustes de seguridad. A partir de ahora, un cambio hecho fuera de Psyche se deshace y se muestra aquí. Revisa tus dispositivos una vez.",
@@ -25,6 +25,7 @@ export const notices: Partial<Catalogue> = {
     "Un comando de este Mac creó el primer dispositivo administrador",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este Mac. Si no fuiste tú, revócalo en Ajustes → Dispositivos.",
+  "notice.security.resealRequested.title": "Pediste volver a sellar en Psyche",
   "notice.security.recovery.title":
     "{state, select, requested {Un comando de este Mac pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad de este Mac} cancelled {Se canceló un cambio de seguridad de este Mac} other {No se pudo aplicar un cambio de seguridad de este Mac}}",
   "notice.security.recovery.body":

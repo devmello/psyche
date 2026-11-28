@@ -67,6 +67,43 @@ describe("noticeText", () => {
     expect(out.body).toContain("24 heures");
   });
 
+  it("words a re-seal asked for in the app in French, and an older Gateway's request shape still falls to the generic title", () => {
+    const fr = createI18n({ locale: "fr-FR", language: "fr" });
+    const params = {
+      state: "requested",
+      op: "seal",
+      device: "?",
+      key: "none",
+      scopes: "",
+      when: "none",
+      reason: "none",
+    };
+    const fromApp = noticeText(
+      {
+        ...fallback,
+        message: {
+          titleKey: "notice.security.resealRequested.title",
+          bodyKey: "notice.security.recovery.body",
+          params,
+        },
+      },
+      fr,
+    );
+    expect(fromApp.title).toContain("sceller à nouveau");
+    const generic = noticeText(
+      {
+        ...fallback,
+        message: {
+          titleKey: "notice.security.recovery.title",
+          bodyKey: "notice.security.recovery.body",
+          params,
+        },
+      },
+      fr,
+    );
+    expect(generic.title).toContain("modification de sécurité");
+  });
+
   it("words the specialist result and MCP review notices from their ids and values", () => {
     const de = createI18n({ locale: "de-DE", language: "de" });
     const done = noticeText(

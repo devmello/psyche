@@ -6539,67 +6539,67 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم شغّل `psyched security reseal` على الـ Mac (يسري بعد 24 ساعة)."
+            "value": "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم اضغط «إعادة الختم» في Psyche على الـ Mac؛ يسري ذلك بعد 24 ساعة."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und führe dann auf dem Mac `psyched security reseal` aus (es gilt nach 24 Stunden)."
+            "value": "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und wähle dann in Psyche auf dem Mac „Neu versiegeln“; das gilt nach 24 Stunden."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours)."
+            "value": "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then press Re-seal in Psyche on the Mac (it applies after 24 hours)."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con Touch ID están bloqueados. Revisa tus dispositivos y ejecuta `psyched security reseal` en el Mac (se aplica a las 24 horas)."
+            "value": "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con Touch ID están bloqueados. Revisa tus dispositivos y pulsa «Volver a sellar» en Psyche en el Mac; se aplica pasadas 24 horas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "La vérification des enregistrements de sécurité de Psyche a échoué : les modifications de sécurité, les nouveaux appareils et les approbations par Touch ID sont bloqués. Vérifiez vos appareils, puis lancez `psyched security reseal` sur le Mac (effectif après 24 heures)."
+            "value": "La vérification des enregistrements de sécurité de Psyche a échoué : les modifications de sécurité, les nouveaux appareils et les approbations par Touch ID sont bloqués. Vérifiez vos appareils, puis appuyez sur « Sceller à nouveau » dans Psyche sur le Mac ; cela s’applique après 24 heures."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और Touch ID से मंज़ूरियाँ रोक दी गई हैं। अपने डिवाइस देखें, फिर Mac पर `psyched security reseal` चलाएँ (यह 24 घंटे बाद लागू होता है)।"
+            "value": "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और Touch ID से मंज़ूरियाँ रोक दी गई हैं। अपने डिवाइस देखें, फिर Mac पर Psyche में “फिर से सील करें” दबाएँ; यह 24 घंटे बाद लागू होता है।"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui `psyched security reseal` sul Mac (vale dopo 24 ore)."
+            "value": "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi premi «Sigilla di nuovo» in Psyche sul Mac; vale dopo 24 ore."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、Touch ID による承認はブロックされています。デバイスを確認してから、Mac で `psyched security reseal` を実行してください（24 時間後に適用されます）。"
+            "value": "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、Touch ID による承認はブロックされています。デバイスを確認してから、Macの Psyche で「再封印」を押してください（24 時間後に適用されます）。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche의 보안 기록 확인에 실패해서 보안 변경, 새 기기, Touch ID 승인이 차단되었습니다. 기기를 확인한 다음 Mac에서 `psyched security reseal`을 실행하세요(24시간 후에 적용됩니다)."
+            "value": "Psyche의 보안 기록 확인에 실패해서 보안 변경, 새 기기, Touch ID 승인이 차단되었습니다. 기기를 확인한 다음 Mac의 Psyche에서 “다시 봉인” 버튼을 누르세요(24시간 후에 적용됩니다)."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações com Touch ID estão bloqueados. Revise seus dispositivos e execute `psyched security reseal` no Mac (vale após 24 horas)."
+            "value": "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações com Touch ID estão bloqueados. Revise seus dispositivos e toque em “Selar de novo” no Psyche do Mac; vale após 24 horas."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上运行 `psyched security reseal`（24 小时后生效）。"
+            "value": "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上的 Psyche 中点按“重新封存”（24 小时后生效）。"
           }
         }
       }
@@ -7452,6 +7452,77 @@
           "stringUnit": {
             "state": "translated",
             "value": "Psyche 已封存 {devices, plural, =1 {# 台已配对设备} other {# 台已配对设备}}及其安全设置。从现在起，在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。"
+          }
+        }
+      }
+    },
+    "notice.security.resealRequested.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "طلبتَ إعادة الختم في Psyche"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast in Psyche ein erneutes Versiegeln angefordert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You asked for a re-seal in Psyche"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pediste volver a sellar en Psyche"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez demandé de sceller à nouveau dans Psyche"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपने Psyche में फिर से सील करने का अनुरोध किया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai chiesto di sigillare di nuovo in Psyche"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche で再封印を依頼しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche에서 다시 봉인을 요청했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você pediu para selar de novo no Psyche"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你在 Psyche 中请求了重新封存"
           }
         }
       }

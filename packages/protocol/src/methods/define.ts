@@ -31,6 +31,14 @@ export interface MethodSpec<
    */
   readonly callsModel: boolean;
   /**
+   * `true` → only the Psyche desktop app on the Host's own machine may call it (the desktop shell
+   * on a loopback connection, no Origin, not the LAN listener). The Gateway refuses every other
+   * caller in the dispatcher, before the handler runs. It is the one reason a side-effecting
+   * method may be `operator.read`-scoped: the owner's own app is read-only after a restart into an
+   * untrusted state. `registry.test.ts` lists every such method; add one only on purpose.
+   */
+  readonly hostOnly?: true;
+  /**
    * For a method that calls a model only for some params (`search.query` with `smart`, a memo
    * that may start a task): the budget applies when this says yes. Never set together with
    * `callsModel: true`.
@@ -56,6 +64,7 @@ export function defineMethod<
   scope: S;
   sideEffecting?: E;
   callsModel?: boolean;
+  hostOnly?: true;
   callsModelWhen?: (params: Static<P>) => boolean;
   description: string;
 }): MethodSpec<P, R, S, E> {
@@ -65,6 +74,7 @@ export function defineMethod<
     scope: spec.scope,
     sideEffecting: (spec.sideEffecting ?? false) as E,
     callsModel: spec.callsModel ?? false,
+    ...(spec.hostOnly === true ? { hostOnly: true as const } : {}),
     ...(spec.callsModelWhen === undefined ? {} : { callsModelWhen: spec.callsModelWhen }),
     description: spec.description,
   };

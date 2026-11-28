@@ -214,4 +214,101 @@ describe("SecurityStateBanner", () => {
     expect(screen.queryByRole("button", { name: "Approve now" })).toBeNull();
     expect(screen.getByRole("button", { name: "Cancel request" })).toBeTruthy();
   });
+
+  describe("the Re-seal button", () => {
+    const untrustedAlert = {
+      id: "u1",
+      kind: "state_untrusted" as const,
+      severity: "warning" as const,
+      details: { reason: "ledger_mismatch" },
+      createdAt: "2026-11-05T10:00:00.000Z",
+      acknowledgedAt: null,
+    };
+    const waitingReseal = {
+      id: "r2",
+      op: "seal.reset" as const,
+      status: "waiting" as const,
+      requestedAt: "2026-11-05T10:00:00.000Z",
+      notBefore: "2026-11-06T10:00:00.000Z",
+      decidedAt: null,
+      outcome: null,
+    };
+    const untrusted = (recoveries: SecurityStateStatus["recoveries"]): SecurityStateStatus => ({
+      status: "untrusted",
+      reason: "ledger_mismatch",
+      alerts: [untrustedAlert],
+      recoveries,
+    });
+
+    it("appears while untrusted with nothing waiting, and one tap asks for the re-seal", async () => {
+      let state = untrusted([]);
+      const g = platform({
+        "security.state.get": () => state,
+        "security.reseal.request": () => {
+          state = untrusted([waitingReseal]);
+          return { recovery: waitingReseal };
+        },
+      });
+      render(<SecurityStateBanner platform={g.p} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByText(/applies after 24 hours unless you cancel it/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Re-seal" }));
+      await waitFor(() =>
+        expect(g.seen.filter((c) => c.method === "security.reseal.request")).toEqual([
+          { method: "security.reseal.request", params: {} },
+        ]),
+      );
+      // The waiting re-seal shows as before, with Cancel; the button is gone.
+      await screen.findByRole("button", { name: "Cancel request" });
+      expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
+    });
+
+    it("is hidden when the app talks to a Gateway on another computer", async () => {
+      const g = platform({ "security.state.get": () => untrusted([]) });
+      // Positive control: the same state with a local Gateway shows it (first test above).
+      render(
+        <SecurityStateBanner
+          platform={{ ...g.p, chrome: { remote: { hostName: "Studio" } } } as ShellPlatform}
+        />,
+      );
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByTestId("security-alert")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
+    });
+
+    it("is hidden while a re-seal waits, while sealed and for a sealed state with an alert", async () => {
+      const waiting = platform({ "security.state.get": () => untrusted([waitingReseal]) });
+      render(<SecurityStateBanner platform={waiting.p} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
+      cleanup();
+      const sealed = platform({ "security.state.get": () => changed });
+      render(<SecurityStateBanner platform={sealed.p} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByTestId("security-alert")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
+    });
+
+    it("shows a refusal as a notice and keeps the button", async () => {
+      const g = platform({
+        "security.state.get": () => untrusted([]),
+        "security.reseal.request": () => {
+          throw Object.assign(new Error("Psyche can no longer vouch for this device"), {
+            code: "forbidden",
+          });
+        },
+      });
+      render(<SecurityStateBanner platform={g.p} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      fireEvent.click(screen.getByRole("button", { name: "Re-seal" }));
+      const note = await screen.findByRole("status");
+      expect(note.textContent).toMatch(/no longer vouch/);
+      expect(screen.getByRole("button", { name: "Re-seal" })).toBeTruthy();
+    });
+  });
 });

@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "この Mac のプログラムが、Psyche を通さずに {count, plural, =1 {# 件のセキュリティ記録} other {# 件のセキュリティ記録}}（デバイス、キー、許可、設定）を変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、Mac に不要なソフトウェアがないか確認してください。",
   "notice.security.untrusted.title": "Psyche はセキュリティ記録を信頼できません",
   "notice.security.untrusted.body":
-    "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、Touch ID による承認はブロックされています。デバイスを確認してから、Mac で `psyched security reseal` を実行してください（24 時間後に適用されます）。",
+    "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、Touch ID による承認はブロックされています。デバイスを確認してから、Macの Psyche で「再封印」を押してください（24 時間後に適用されます）。",
   "notice.security.firstSeal.title": "Psyche がセキュリティ記録の確認を開始しました",
   "notice.security.firstSeal.body":
     "Psyche は、ペアリング済みの {devices, plural, =1 {# 台のデバイス} other {# 台のデバイス}}とセキュリティ設定を保護しました。今後、Psyche の外で行われた変更は元に戻され、ここに表示されます。デバイスを一度確認してください。",
@@ -24,6 +24,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "この Mac のコマンドで最初の管理デバイスが作られました",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other {（キー {key}）}}が、この Mac で{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}最初の管理デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
+  "notice.security.resealRequested.title": "Psyche で再封印を依頼しました",
   "notice.security.recovery.title":
     "{state, select, requested {この Mac のコマンドがセキュリティ変更を要求しました} applied {この Mac からのセキュリティ変更を適用しました} cancelled {この Mac からのセキュリティ変更を取り消しました} other {この Mac からのセキュリティ変更を適用できませんでした}}",
   "notice.security.recovery.body":

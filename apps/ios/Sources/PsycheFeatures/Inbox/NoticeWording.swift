@@ -33,6 +33,7 @@ enum NoticeWording {
         "notice.security.changed.body", "notice.security.firstAdmin.body", "notice.security.firstSeal.body",
         "notice.security.recovery.title", "notice.security.recovery.body",
         "notice.security.resealed.title", "notice.security.resealed.body",
+        "notice.security.resealRequested.title",
         "notice.security.tightened.title",
         "notice.specialist.result.title", "notice.specialist.result.body",
         "notice.action.keepIt",

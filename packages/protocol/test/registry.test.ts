@@ -259,8 +259,28 @@ describe("method registry", () => {
     for (const name of sideEffecting) {
       expect(methodSpec(name).description, name).toMatch(/Side-effecting/);
       expect(requiresIdempotencyKey(name)).toBe(true);
-      expect(methodSpec(name).scope, name).not.toBe("operator.read");
+      // A read-only device can never cause a side effect. The one exception is a method the
+      // Gateway's dispatcher limits to the desktop app on the Host's own machine (`hostOnly`).
+      if (methodSpec(name).hostOnly !== true) {
+        expect(methodSpec(name).scope, name).not.toBe("operator.read");
+      }
     }
+    // Every host-only method, listed on purpose: a new one fails here until it is added.
+    expect(names.filter((n) => methodSpec(n).hostOnly === true)).toEqual([
+      "security.reseal.request",
+    ]);
+    // Positive control: a host-only method is a side-effecting one, and read-scoped only by this flag.
+    expect(methodSpec("security.reseal.request")).toMatchObject({
+      scope: "operator.read",
+      sideEffecting: true,
+      hostOnly: true,
+    });
+    // And only host-only methods may be read-scoped writes.
+    expect(
+      sideEffecting.filter(
+        (n) => methodSpec(n).scope === "operator.read" && methodSpec(n).hostOnly !== true,
+      ),
+    ).toEqual([]);
     expect(requiresIdempotencyKey("threads.list")).toBe(false);
     expect(requiresIdempotencyKey("nope")).toBe(false);
   });
