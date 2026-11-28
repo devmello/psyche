@@ -218,9 +218,12 @@ struct SearchView: View {
             .buttonStyle(.plain)
             Button { model.forget(recent) } label: {
                 Image(systemName: "xmark").font(.caption.weight(.semibold)).foregroundStyle(PsycheColor.muted)
-                    .frame(width: 32, height: 32).contentShape(Rectangle())
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+                    // The tap target is 44 pt; the negative padding keeps the row as tall and the icon where it was.
+                    .padding(-6)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("search.forget-recent")
             .accessibilityLabel(String(localized: "Remove \(recent) from recent searches", bundle: .module))
         }
         .padding(PsycheMetrics.rowPadding)

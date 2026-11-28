@@ -1355,7 +1355,7 @@ function cardSpans(f: Folded, out: [number, number][]): void {
         let total = 0;
         for (let b = a; b < groups.length; b++) {
           const [gb, gbEnd] = groups[b] as [number, number];
-          // One block, or groups of 3+ digits ("4242 4242 …", "3782 822463 10005").
+          // One block, or groups of 3+ digits (a 4-4-4-4 or 4-6-5 card layout).
           if (b > a && (gbEnd - gb < 2 || gaEnd - ga < 2)) break;
           total += gbEnd - gb + 1;
           if (total > 19) break;

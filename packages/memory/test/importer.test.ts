@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -9,7 +9,6 @@ import {
   importMemory,
   importOpenClaw,
   parseImport,
-  readWorkspaceFolder,
 } from "../src/importer.ts";
 import { FIXTURE_TEMPLATES, makeEnv, type TestEnv } from "./helpers.ts";
 
@@ -479,37 +478,6 @@ describe("importOpenClaw", () => {
       content: "x",
     }));
     expect((await rejection(importOpenClaw(env.store, files))).code).toBe("invalid_params");
-  });
-});
-
-describe("readWorkspaceFolder", () => {
-  let env: TestEnv;
-  beforeEach(async () => {
-    env = await makeEnv({ init: false });
-  });
-  afterEach(async () => {
-    await env.cleanup();
-  });
-
-  it("reads Markdown files recursively and skips hidden entries, other types and symlinks", () => {
-    const root = join(env.dir, "openclaw");
-    mkdirSync(join(root, "memory"), { recursive: true });
-    mkdirSync(join(root, ".git"), { recursive: true });
-    mkdirSync(join(root, ".obsidian"), { recursive: true });
-    writeFileSync(join(root, "SOUL.md"), "# Soul\n");
-    writeFileSync(join(root, "memory", "2026-09-01.md"), "# 2026-09-01\n");
-    writeFileSync(join(root, ".hidden.md"), "secret-ish\n");
-    writeFileSync(join(root, ".git", "notes.md"), "git\n");
-    writeFileSync(join(root, ".obsidian", "workspace.md"), "x\n");
-    writeFileSync(join(root, "picture.png"), "not markdown");
-    writeFileSync(join(env.dir, "outside.md"), "outside\n");
-    symlinkSync(join(env.dir, "outside.md"), join(root, "link.md"));
-
-    const files = readWorkspaceFolder(root).sort((a, b) => (a.path < b.path ? -1 : 1));
-    expect(files).toEqual([
-      { path: "SOUL.md", content: "# Soul\n" },
-      { path: "memory/2026-09-01.md", content: "# 2026-09-01\n" },
-    ]);
   });
 });
 

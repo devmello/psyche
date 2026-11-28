@@ -1,5 +1,4 @@
 import { createRequire } from "node:module";
-import type { ModelProvider, ModelRef } from "@psyche/protocol";
 import type Database from "better-sqlite3";
 
 /**
@@ -9,47 +8,10 @@ import type Database from "better-sqlite3";
  * cosine in process, which is fast enough at personal scale (thousands of chunks).
  */
 
-export type VectorMode = "sqlite-vec" | "brute-force" | "off";
-
 export interface Embedder {
   /** Identifies the vector space; a change triggers re-embedding. */
   readonly model: string;
   embed(texts: string[], purpose: "document" | "query", signal?: AbortSignal): Promise<number[][]>;
-}
-
-export interface ProviderEmbedderOptions {
-  model?: ModelRef;
-  /** Task prefixes some local models need, e.g. nomic-embed-text: `search_document: `. */
-  documentPrefix?: string;
-  queryPrefix?: string;
-  batchSize?: number;
-}
-
-/** Wraps `ModelProvider.embed`; `undefined` when the provider has no embeddings. */
-export function providerEmbedder(
-  provider: ModelProvider,
-  options: ProviderEmbedderOptions = {},
-): Embedder | undefined {
-  const embed = provider.embed?.bind(provider);
-  if (embed === undefined) return undefined;
-  const batch = Math.max(1, options.batchSize ?? 64);
-  return {
-    model: options.model ?? `${provider.id}/default`,
-    async embed(texts, purpose, signal) {
-      const prefix = (purpose === "query" ? options.queryPrefix : options.documentPrefix) ?? "";
-      const out: number[][] = [];
-      for (let i = 0; i < texts.length; i += batch) {
-        const part = texts.slice(i, i + batch).map((t) => prefix + t);
-        out.push(
-          ...(await embed(part, {
-            ...(options.model === undefined ? {} : { model: options.model }),
-            ...(signal === undefined ? {} : { signal }),
-          })),
-        );
-      }
-      return out;
-    },
-  };
 }
 
 export function encodeVector(v: readonly number[]): Buffer {

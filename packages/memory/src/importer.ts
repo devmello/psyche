@@ -1,5 +1,3 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
 import { type MemoryClaim, PsycheError } from "@psyche/protocol";
 import { stripComments } from "./chunker.ts";
 import { applyDailyWrite, oneLine } from "./daily.ts";
@@ -213,30 +211,6 @@ export async function importMemory(
     if (job !== undefined) store.finishJob(job, "failed", `${format} import failed`);
     throw err;
   }
-}
-
-/** Reads an OpenClaw workspace folder into `{path, content}` pairs (CLI and desktop use). */
-export function readWorkspaceFolder(dir: string): { path: string; content: string }[] {
-  const out: { path: string; content: string }[] = [];
-  const visit = (abs: string) => {
-    for (const e of readdirSync(abs, { withFileTypes: true })) {
-      if (e.name.startsWith(".") || out.length >= IMPORT_LIMITS.files) continue;
-      const child = join(abs, e.name);
-      if (e.isDirectory()) visit(child);
-      else if (
-        e.isFile() &&
-        e.name.endsWith(".md") &&
-        statSync(child).size <= IMPORT_LIMITS.fileChars
-      ) {
-        out.push({
-          path: relative(dir, child).split(sep).join("/"),
-          content: readFileSync(child, "utf8"),
-        });
-      }
-    }
-  };
-  visit(dir);
-  return out;
 }
 
 /**

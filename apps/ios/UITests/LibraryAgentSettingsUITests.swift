@@ -40,7 +40,7 @@ final class SettingsUITests: PsycheUITestCase {
     func testToggleKeepsStateAndRemoveConfirmationCancels() {
         launch()
         openSettings()
-        let toggle = app.switches["Face ID for approvals"]
+        let toggle = app.switches["Live Activities"]
         scrollTo(toggle)
         waitFor(toggle)
         let before = toggle.value as? String
@@ -50,7 +50,7 @@ final class SettingsUITests: PsycheUITestCase {
         app.navigationBars["Settings"].buttons["Done"].tap()
         waitGone(app.navigationBars["Settings"], 5)
         openSettings()
-        let again = app.switches["Face ID for approvals"]
+        let again = app.switches["Live Activities"]
         scrollTo(again)
         XCTAssertEqual(again.value as? String, after)
 
@@ -87,7 +87,7 @@ final class InboxUITests: PsycheUITestCase {
 final class StatesUITests: PsycheUITestCase {
     func testAwayScenarioShowsBannerAndDisablesAnswering() {
         launch("away")
-        waitFor(match("You're away from home"))
+        waitFor(app.descendants(matching: .any)["connection.banner"].firstMatch)
         // Home rows say why they can't be opened and are not buttons.
         waitFor(match("reconnect to answer"))
         XCTAssertFalse(needsYouRow("Pay the electricity bill").exists)
@@ -95,7 +95,7 @@ final class StatesUITests: PsycheUITestCase {
 
     func testUnpairedShowsPairingAndTryItEntersTheApp() {
         launch("unpaired")
-        waitFor(app.staticTexts["Pair with your Mac"].firstMatch)
+        waitFor(app.staticTexts["pairing.scan.title"])
         let tryIt = app.buttons["Try the demo"]
         waitFor(tryIt)
         tryIt.tap()

@@ -89,6 +89,7 @@ private struct UnreachableBanner: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("connection.banner")
     }
 }
 
