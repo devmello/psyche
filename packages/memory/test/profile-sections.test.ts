@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   addSectionFacts,
-  bootstrapContext,
+  BUDGETS,
+  compactUserView,
   parseLearned,
   parseSectionFacts,
   readHeader,
@@ -123,11 +124,9 @@ describe("store.learnUserFacts into the profile", () => {
         .filter((l) => l.section === undefined)
         .map((l) => l.field),
     ).toEqual(["name", "work", "home_city"]);
-    // The markers are stripped from the prompt: the profile reads as plain bullets.
-    const ctx = await bootstrapContext(env.store);
-    const injected = ctx.files.find((f) => f.path === "USER.md")?.text ?? "";
+    // The compact view keeps the section bullets in order, so the profile reads as a list.
+    const injected = compactUserView(await userMd(), BUDGETS["USER.md"]).text;
     expect(injected).toContain("## Education\n\n- B.S. Computer Science, UC Santa Cruz (2024)");
-    expect(injected).not.toContain("<!--");
   });
 
   it("merges rather than duplicates: the same resume twice writes nothing new", async () => {

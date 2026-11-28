@@ -138,10 +138,14 @@ describe("what the clients write is never refused", () => {
     const seeds = [...src.matchAll(/accent\("[a-z]+",\s*("[^"]+"|[A-Z_]+)\)/g)].map((m) =>
       m[1] === "DEFAULT_ACCENT_SEED" ? "#2c5aa0" : (m[1] as string).slice(1, -1),
     );
-    expect(seeds.length).toBe(8);
-    expect(seeds.filter((s) => s.startsWith("oklch(")).length).toBe(6);
+    expect(seeds.length).toBe(4);
+    expect(seeds.filter((s) => s.startsWith("oklch(")).length).toBe(3);
     for (const seed of seeds) {
       expect(() => reg().validate("appearance.accentSeed", seed), seed).not.toThrow();
+    }
+    // A value saved before the picker dropped swatches and the custom field still validates.
+    for (const old of ["oklch(0.6 0.19 255)", "oklch(0.62 0.2 25)", "#7c3aed", "#123abc"]) {
+      expect(() => reg().validate("appearance.accentSeed", old), old).not.toThrow();
     }
   });
 

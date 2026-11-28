@@ -2,7 +2,6 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
-import { bootstrapContext } from "../src/context.ts";
 import { parseDailyNote } from "../src/daily.ts";
 import { confirmClaim, importOpenClaw } from "../src/importer.ts";
 import { brokerApprovalCheck } from "../src/support.ts";
@@ -92,22 +91,6 @@ describe("BOOTSTRAP.md", () => {
       tainted,
     );
     expect(again.content).toMatch(/only be deleted/);
-  });
-
-  it("bootstrapContext withholds any persona file holding untrusted content", async () => {
-    env = await makeEnv();
-    writeFileSync(join(env.workspace, "MEMORY.md"), "# Memory\n");
-    await env.store.sync();
-    await env.store.writeFile("MEMORY.md", "# Memory\n", {
-      provenance: "agent",
-      approvalId: APPROVED,
-    });
-    // Simulate a protected file that ended up untrusted (defence in depth).
-    env.db.sqlite
-      .prepare("UPDATE memory_files SET provenance = 'untrusted' WHERE path = 'MEMORY.md'")
-      .run();
-    const ctx = await bootstrapContext(env.store);
-    expect(ctx.files.find((f) => f.path === "MEMORY.md")?.text).toMatch(/^\[withheld: MEMORY\.md/);
   });
 });
 

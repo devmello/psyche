@@ -134,6 +134,7 @@ struct HomeView: View {
                     }
                     .padding(.vertical, 2)
                 }
+                .accessibilityIdentifier("home.running.row")
                 .swipeActions(edge: .trailing) {
                     if !watching { watchButton(task).tint(.accentColor) }
                 }

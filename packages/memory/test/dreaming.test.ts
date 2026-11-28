@@ -2,7 +2,6 @@ import { createDbSessionResolver, createDeliverer, SqliteScheduler } from "@psyc
 import { FakeClock, FakeNotifier } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  dreamingDue,
   factKey,
   formatBullet,
   parseMemoryBullets,
@@ -48,14 +47,6 @@ describe("helpers", () => {
     expect(sectionFor("Runs every morning at 6")).toBe("Routines");
     expect(sectionFor("Working on a robotics project")).toBe("Projects and goals");
     expect(sectionFor("Owns a blue bicycle")).toBe("Notes");
-  });
-
-  it("is due once a day after 03:00 local", () => {
-    const at = (iso: string) => Date.parse(iso);
-    expect(dreamingDue(at("2026-10-19T02:59:00Z"), undefined, "UTC")).toBe(false);
-    expect(dreamingDue(at("2026-10-19T03:00:00Z"), undefined, "UTC")).toBe(true);
-    expect(dreamingDue(at("2026-10-19T09:00:00Z"), at("2026-10-19T03:05:00Z"), "UTC")).toBe(false);
-    expect(dreamingDue(at("2026-10-20T03:01:00Z"), at("2026-10-19T03:05:00Z"), "UTC")).toBe(true);
   });
 });
 

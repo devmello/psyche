@@ -351,22 +351,6 @@ export async function answerFromSources(call: {
   };
 }
 
-/** Facts only, as before: the reply is kept only if it cites at least one offered fact. */
-export async function answerFromFacts(call: {
-  provider: ModelProvider;
-  model: ModelRef;
-  question: string;
-  hits: readonly LifeFactHit[];
-  signal?: AbortSignal;
-  /** Facts that must not be used (sensitive classes). */
-  exclude?: ReadonlySet<string>;
-}): Promise<LifeAnswer> {
-  const r = await answerFromSources(call);
-  return r.answer === null
-    ? { answer: null, facts: [], reason: r.reason }
-    : { answer: r.answer, facts: r.facts, reason: null };
-}
-
 const fail = (reason: LifeAnswerFailure): SourcesAnswer => ({
   answer: null,
   facts: [],

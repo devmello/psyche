@@ -34,7 +34,7 @@ describe("speech helpers under srt", () => {
       allowAppleEvents: boolean;
       enableWeakerNetworkIsolation: boolean;
     };
-    for (const d of ["vault", "state", "audit", "security", "browser", "library"]) {
+    for (const d of ["vault", "state", "audit", "security", "browser", "library", "run"]) {
       expect(s.filesystem.denyRead).toContain(join("/h/.psyche", d));
     }
     expect(s.filesystem.denyRead).toContain(join(homedir(), ".ssh"));

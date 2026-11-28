@@ -75,12 +75,7 @@ export * from "./support.ts";
 export * from "./teaching/forget.ts";
 export * from "./teaching/index.ts";
 export * from "./tools/index.ts";
-export {
-  type Embedder,
-  type ProviderEmbedderOptions,
-  providerEmbedder,
-  type VectorMode,
-} from "./vector.ts";
+export type { Embedder } from "./vector.ts";
 
 /**
  * Opens the memory store on the main database and the workspace folder and runs first-run
