@@ -299,6 +299,26 @@ describe("context budgets (C2)", () => {
     });
   });
 
+  it("withholds a persona file that holds untrusted content, never injecting its text", async () => {
+    // Defence in depth (security §8): writes to persona files are approval-gated, so this should
+    // not happen, but if it does the file is withheld, not trimmed. Moved from the memory package.
+    const memory = new FakeMemoryStore({ clock, files: { "USER.md": "# About\nOwner text\n" } });
+    memory.setProvenance("USER.md", "untrusted");
+    const { sections } = await assembleContext({
+      basePrompt: "base",
+      memory,
+      tools: [],
+      permissionMode: "balanced",
+      runMode: "attended",
+      now: clock.now(),
+      timeZone: "UTC",
+      budgets: DEFAULT_CONTEXT_BUDGETS,
+    });
+    const user = sections.find((s) => s.id === "persona:USER.md");
+    expect(user?.text).toMatch(/^\[withheld: USER\.md contains untrusted content/);
+    expect(JSON.stringify(sections)).not.toContain("Owner text");
+  });
+
   it("over-budget files are truncated with a marker: per file, USER.md and the 60k total", async () => {
     const memory = new FakeMemoryStore({
       clock,

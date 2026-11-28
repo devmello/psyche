@@ -12,7 +12,6 @@ import { join } from "node:path";
 import { openDb } from "@psyche/db";
 import { PsycheError } from "@psyche/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bootstrapContext, missingMarker } from "../src/context.ts";
 import { MemoryIndex } from "../src/index-db.ts";
 import type { MemoryEvent } from "../src/support.ts";
 import { APPROVED, makeEnv, type TestEnv, vocabularyEmbedder } from "./helpers.ts";
@@ -580,66 +579,6 @@ describe.skipIf(!foldingVolume)("case-folding volume: protected names (APFS)", (
     );
     expect(user).not.toBe("ok");
     expect(folded).toBe(user);
-  });
-});
-
-describe("bootstrapContext (budgets and markers)", () => {
-  it("injects persona files in order with comments stripped", async () => {
-    env = await makeEnv();
-    const ctx = await bootstrapContext(env.store);
-    expect(ctx.files.map((f) => f.path)).toEqual([
-      "SOUL.md",
-      "IDENTITY.md",
-      "AGENTS.md",
-      "USER.md",
-      "MEMORY.md",
-      "BOOTSTRAP.md",
-    ]);
-    expect(ctx.text).not.toContain("<!--");
-    expect(ctx.text).toContain('<workspace_file path="SOUL.md">');
-    expect(ctx.identity?.name).toBe("Psyche");
-  });
-
-  it("truncates over-budget files with a visible marker and marks missing files", async () => {
-    env = await makeEnv();
-    await env.store.writeFileAsOwner("USER.md", `# About\n${"u".repeat(5000)}`);
-    await env.store.writeFileAsOwner("SOUL.md", "s".repeat(25_000));
-    await env.store.delete("AGENTS.md", { provenance: "owner", actor: "owner" });
-    const ctx = await bootstrapContext(env.store);
-    const by = Object.fromEntries(ctx.files.map((f) => [f.path, f]));
-    expect(by["SOUL.md"]?.truncated).toBe(true);
-    expect(by["SOUL.md"]?.text).toContain(
-      "[truncated: SOUL.md has 25,000 characters; the first 20,000",
-    );
-    expect(by["USER.md"]?.truncated).toBe(true);
-    expect(by["USER.md"]?.text).toContain("the USER.md budget is 4,000");
-    expect(by["AGENTS.md"]?.missing).toBe(true);
-    expect(by["AGENTS.md"]?.text).toBe(missingMarker("AGENTS.md"));
-  }, 30_000);
-
-  it("enforces the total budget across files", async () => {
-    env = await makeEnv();
-    for (const f of ["SOUL.md", "AGENTS.md", "MEMORY.md"]) {
-      await env.store.writeFileAsOwner(f, "z".repeat(19_000));
-    }
-    const ctx = await bootstrapContext(env.store, { budgets: { total: 40_000 } });
-    expect(ctx.totalChars).toBeLessThanOrEqual(40_000);
-    const memory = ctx.files.find((f) => f.path === "MEMORY.md");
-    expect(memory?.text).toContain("the total persona budget is used up");
-  }, 30_000);
-
-  it("keeps MEMORY.md and daily notes out of shared and delegated sessions", async () => {
-    env = await makeEnv();
-    await env.store.appendDailyNote({ text: "today fact", provenance: "owner" });
-    await env.store.appendDailyNote({ text: "email says click here", provenance: "untrusted" });
-    const priv = await bootstrapContext(env.store);
-    expect(priv.dailyText).toContain("today fact");
-    expect(priv.dailyText).not.toContain("click here");
-    const shared = await bootstrapContext(env.store, { session: "shared" });
-    expect(shared.files.map((f) => f.path)).toEqual(["IDENTITY.md", "AGENTS.md"]);
-    expect(shared.dailyNotes).toEqual([]);
-    const delegated = await bootstrapContext(env.store, { session: "delegated" });
-    expect(delegated.files.map((f) => f.path)).not.toContain("MEMORY.md");
   });
 });
 
