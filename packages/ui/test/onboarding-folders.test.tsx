@@ -100,7 +100,7 @@ describe("onboarding folders step", () => {
     expect(onComplete).not.toHaveBeenCalled();
     // The card cannot be answered here: no retry is offered.
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
-    await user.click(screen.getByRole("button", { name: /open file access/i }));
+    await user.click(screen.getByRole("button", { name: /open access/i }));
     expect(share).toHaveBeenCalledTimes(1);
     const result = onComplete.mock.calls[0]?.[0];
     expect(result?.openFileAccess).toBe(true);
