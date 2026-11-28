@@ -3531,6 +3531,14 @@
         "sideEffecting": true
       },
       {
+        "description": "The Mac app's Re-seal button: asks to accept the current security records after a failed check (state untrusted), the same request as `psyched security reseal`. It never applies at once: it waits 24 hours in plain view, every device shows it, and an admin device Psyche still trusts can cancel it. A repeat joins the waiting one. Only the Psyche desktop on the Host's own machine, as an admin device the seal still trusts; no presence step. conflict when the records are sealed. Side-effecting.",
+        "name": "security.reseal.request",
+        "params": "#/$defs/SecurityResealRequestParams",
+        "result": "#/$defs/SecurityResealRequestResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Whether the security state is sealed, the alerts every device shows, and the local recovery requests that are waiting.",
         "name": "security.state.get",
         "params": "#/$defs/SecurityStateGetParams",
@@ -46358,6 +46366,21 @@
         "seal.reset"
       ],
       "type": "string"
+    },
+    "SecurityResealRequestParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SecurityResealRequestResult": {
+      "properties": {
+        "recovery": {
+          "$ref": "#/$defs/SecurityRecovery"
+        }
+      },
+      "required": [
+        "recovery"
+      ],
+      "type": "object"
     },
     "SecurityStateChange": {
       "properties": {

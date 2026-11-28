@@ -326,7 +326,7 @@ function alertNoticeEnglish(alert: SecurityAlert): { title: string; body: string
     case "state_untrusted":
       return {
         title: "Psyche cannot trust its security records",
-        body: "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours).",
+        body: "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then press Re-seal in Psyche on the Mac (it applies after 24 hours).",
       };
     case "state_first_seal":
       return {

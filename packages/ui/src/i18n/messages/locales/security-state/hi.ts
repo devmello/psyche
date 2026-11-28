@@ -16,7 +16,7 @@ export const securityState: Partial<Catalogue> = {
   "web.security.alert.changed":
     "इस Mac पर एक प्रोग्राम ने Psyche के बिना {count, plural, one {1 सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} बदल दिए। Psyche ने {count, plural, one {उसे} other {उन्हें}} वापस पहले जैसा कर दिया। अगर यह आपने नहीं किया, तो Mac में अनचाहे सॉफ़्टवेयर की जाँच करें।",
   "web.security.alert.untrusted":
-    "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही। नए डिवाइस, सुरक्षा सेटिंग्स और Touch ID अनुमोदन रोक दिए गए हैं। सेटिंग्ज़ → डिवाइस में अपने डिवाइस देखें, फिर “देखा गया चिह्नित करें” पर टैप करें। अगर Psyche मौजूदा रिकॉर्ड स्वीकार करने को कहे, तो “अभी मंज़ूरी दें” पर टैप करें; यह 24 घंटे बाद लागू होता है।",
+    "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही। नए डिवाइस, सुरक्षा सेटिंग्स और Touch ID अनुमोदन रोक दिए गए हैं। अपने डिवाइस देखें, फिर Mac पर Psyche में “फिर से सील करें” दबाएँ; यह 24 घंटे बाद लागू होता है।",
   "web.security.alert.firstSeal":
     "Psyche अब अपने सुरक्षा रिकॉर्ड जाँचता है ({devices, plural, one {1 जोड़ा गया डिवाइस} other {# जोड़े गए डिवाइस}})। Psyche के बाहर किया गया बदलाव वापस लिया जाता है और यहाँ दिखाया जाता है। एक बार अपने डिवाइस देख लें।",
   "web.security.alert.resealed": "Psyche ने अपने सुरक्षा रिकॉर्ड फिर से सील कर दिए।",
@@ -40,6 +40,9 @@ export const securityState: Partial<Catalogue> = {
   "web.security.ack": "देखा गया चिह्नित करें",
   "web.security.approveNow": "अभी मंज़ूरी दें",
   "web.security.cancel": "अनुरोध रद्द करें",
+  "web.security.reseal": "फिर से सील करें",
+  "web.security.resealHelp":
+    "अपने डिवाइस देख लेने के बाद मौजूदा रिकॉर्ड स्वीकार करता है। रद्द न करने पर यह 24 घंटे बाद लागू होता है।",
   "web.security.needsApprovalPresence": "Touch ID या पासकी से कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   "web.security.needsApproval": "कार्ड को मंज़ूरी दें, फिर बटन दोबारा दबाएँ।",
   "web.security.failed": "यह काम नहीं किया: {message}",

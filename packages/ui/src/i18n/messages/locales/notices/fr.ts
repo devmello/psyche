@@ -14,7 +14,7 @@ export const notices: Partial<Catalogue> = {
     "Un programme de ce Mac a modifié {count, plural, =1 {# enregistrement de sécurité} other {# enregistrements de sécurité}} (appareils, clés, autorisations ou réglages) sans passer par Psyche{times, plural, =0 {} =1 {} other {, # fois jusqu’ici}}. Psyche les a rétablis. Si ce n’était pas vous, vérifiez que le Mac n’a pas de logiciel indésirable.",
   "notice.security.untrusted.title": "Psyche ne peut pas se fier à ses enregistrements de sécurité",
   "notice.security.untrusted.body":
-    "La vérification des enregistrements de sécurité de Psyche a échoué : les modifications de sécurité, les nouveaux appareils et les approbations par Touch ID sont bloqués. Vérifiez vos appareils, puis lancez `psyched security reseal` sur le Mac (effectif après 24 heures).",
+    "La vérification des enregistrements de sécurité de Psyche a échoué : les modifications de sécurité, les nouveaux appareils et les approbations par Touch ID sont bloqués. Vérifiez vos appareils, puis appuyez sur « Sceller à nouveau » dans Psyche sur le Mac ; cela s’applique après 24 heures.",
   "notice.security.firstSeal.title": "Psyche vérifie désormais ses enregistrements de sécurité",
   "notice.security.firstSeal.body":
     "Psyche a scellé {devices, plural, =1 {# appareil associé} other {# appareils associés}} et ses réglages de sécurité. Désormais, une modification faite en dehors de Psyche est annulée et signalée ici. Vérifiez vos appareils une fois.",

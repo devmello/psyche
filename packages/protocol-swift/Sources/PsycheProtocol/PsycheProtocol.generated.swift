@@ -1505,6 +1505,8 @@
 //   let securityRecoveriesCancelResult = try? JSONDecoder().decode(SecurityRecoveriesCancelResult.self, from: jsonData)
 //   let securityRecovery = try? JSONDecoder().decode(SecurityRecovery.self, from: jsonData)
 //   let securityRecoveryOp = try? JSONDecoder().decode(SecurityRecoveryOp.self, from: jsonData)
+//   let securityResealRequestParams = try? JSONDecoder().decode(SecurityResealRequestParams.self, from: jsonData)
+//   let securityResealRequestResult = try? JSONDecoder().decode(SecurityResealRequestResult.self, from: jsonData)
 //   let securityStateChange = try? JSONDecoder().decode(SecurityStateChange.self, from: jsonData)
 //   let securityStateChangedPayload = try? JSONDecoder().decode(SecurityStateChangedPayload.self, from: jsonData)
 //   let securityStateGetParams = try? JSONDecoder().decode(SecurityStateGetParams.self, from: jsonData)
@@ -35019,6 +35021,19 @@ public struct SecurityRecoveriesCancelResult: Codable, Sendable {
     }
 }
 
+// MARK: - SecurityResealRequestResult
+public struct SecurityResealRequestResult: Codable, Sendable {
+    public let recovery: SecurityRecovery
+
+    public enum CodingKeys: String, CodingKey {
+        case recovery = "recovery"
+    }
+
+    public init(recovery: SecurityRecovery) {
+        self.recovery = recovery
+    }
+}
+
 // MARK: - SecurityStateChangedPayload
 public struct SecurityStateChangedPayload: Codable, Sendable {
     public let openAlerts: Int
@@ -44748,6 +44763,7 @@ public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
 public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
+public typealias SecurityResealRequestParams = [String: JSONAny]
 public typealias SecurityStateGetParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpacesMigrationDismissParams = [String: JSONAny]

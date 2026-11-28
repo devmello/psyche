@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "这台 Mac 上有程序绕过 Psyche 更改了 {count, plural, =1 {# 条安全记录} other {# 条安全记录}}（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，目前已发生 # 次}}。Psyche 已将它们恢复。如果不是你做的，请检查 Mac 上是否有不明软件。",
   "notice.security.untrusted.title": "Psyche 无法信任它的安全记录",
   "notice.security.untrusted.body":
-    "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上运行 `psyched security reseal`（24 小时后生效）。",
+    "Psyche 对安全记录的检查未通过，因此安全更改、新设备和 Touch ID 批准都已被阻止。请检查你的设备，然后在 Mac 上的 Psyche 中点按“重新封存”（24 小时后生效）。",
   "notice.security.firstSeal.title": "Psyche 现在会检查它的安全记录",
   "notice.security.firstSeal.body":
     "Psyche 已封存 {devices, plural, =1 {# 台已配对设备} other {# 台已配对设备}}及其安全设置。从现在起，在 Psyche 之外所做的更改会被撤销并显示在这里。请检查一次你的设备。",

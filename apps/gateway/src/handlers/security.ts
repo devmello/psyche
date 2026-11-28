@@ -67,6 +67,34 @@ export const securityHandlers: Record<string, HandlerDef> = {
       };
     },
   },
+  "security.reseal.request": {
+    run(call: Call): MethodResult<"security.reseal.request"> {
+      const { recoveries } = parts(call);
+      // Host only (design note §7.2): the CLI route is local to the Mac, and so is this one. Every
+      // part comes from the connection: the desktop shell's proof (loopback, no Origin, the
+      // per-launch handshake secret). A paired phone or remote Mac cannot ask, even as admin.
+      const { identity, conn } = call;
+      if (
+        identity.desktopShell !== true ||
+        !conn.peer.remoteLoopback ||
+        conn.peer.origin !== null ||
+        conn.peer.lan === true
+      ) {
+        throw new PsycheError(
+          "forbidden",
+          "Only the Psyche app on the Mac itself can ask for a re-seal",
+        );
+      }
+      // `identity.scopes` are what the seal still trusts this device with (untrusted: narrowed).
+      if (!identity.scopes.includes("operator.admin")) {
+        throw new PsycheError(
+          "forbidden",
+          "Psyche can no longer vouch for this device as an admin. Run `psyched security reseal` in a terminal on the Mac",
+        );
+      }
+      return { recovery: recoveries.requestReseal(identity.deviceId) };
+    },
+  },
   "security.recoveries.approve": {
     async run(
       call: Call,

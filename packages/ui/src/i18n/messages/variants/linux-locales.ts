@@ -16,7 +16,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "غيّر برنامج على هذا الكمبيوتر {count, plural, =1 {سجل أمان واحدًا} other {# سجل أمان}} (الأجهزة والمفاتيح والصلاحيات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرة حتى الآن}}. أعاد Psyche ما تغيّر كما كان. إن لم تكن أنت من فعل ذلك، فافحص الكمبيوتر بحثًا عن برامج غير مرغوب فيها.",
       "notice.security.untrusted.body":
-        "فشل فحص سجلات الأمان في Psyche، لذلك تُحظر تغييرات الأمان والأجهزة الجديدة وموافقات كلمة المرور. راجع أجهزتك ثم شغّل psyched security reseal على هذا الكمبيوتر؛ يُطبَّق ذلك بعد 24 ساعة.",
+        "فشل فحص سجلات الأمان في Psyche، لذلك تُحظر تغييرات الأمان والأجهزة الجديدة وموافقات كلمة المرور. راجع أجهزتك، ثم اضغط «إعادة الختم» في Psyche على هذا الكمبيوتر؛ يسري ذلك بعد 24 ساعة.",
       "notice.security.firstAdmin.title": "أمر على هذا الكمبيوتر جعل أول جهاز مسؤول",
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
@@ -374,7 +374,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "غيّر برنامج على هذا الكمبيوتر {count, plural, one {سجل أمان واحدًا} two {سجلَّي أمان} few {# سجلات أمان} many {# سجل أمان} other {# سجل أمان}} دون المرور عبر Psyche. أعاد Psyche ما تغيّر كما كان. إن لم تكن أنت من فعل ذلك، فافحص الكمبيوتر بحثًا عن برامج غير مرغوب فيها.",
       "web.security.alert.untrusted":
-        "فشل فحص سجلات الأمان في Psyche. الأجهزة الجديدة وإعدادات الأمان والموافقات بكلمة المرور محظورة. راجع أجهزتك ثم شغّل psyched security reseal على الكمبيوتر؛ يُطبَّق ذلك بعد 24 ساعة.",
+        "فشل فحص سجلات الأمان في Psyche. الأجهزة الجديدة وإعدادات الأمان والموافقات بكلمة المرور محظورة. راجع أجهزتك، ثم اضغط «إعادة الختم» في Psyche على هذا الكمبيوتر؛ يسري ذلك بعد 24 ساعة.",
       "web.security.alert.firstAdmin":
         "جعل أمر على هذا الكمبيوتر الجهاز {name} أول جهاز مسؤول. إن لم تكن أنت، فألغِه من الأجهزة.",
       "web.security.alert.requested": "طُلب على هذا الكمبيوتر: {action} يُطبَّق في {when}.",
@@ -390,7 +390,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "Ein Programm auf diesem Computer hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) an Psyche vorbei geändert{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat {count, plural, =1 {ihn} other {sie}} wiederhergestellt. Wenn du das nicht warst, prüfe den Computer auf unerwünschte Software.",
       "notice.security.untrusted.body":
-        "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen, daher sind Sicherheitsänderungen, neue Geräte und Passwort-Freigaben gesperrt. Prüfe deine Geräte und führe dann auf diesem Computer psyched security reseal aus; das gilt nach 24 Stunden.",
+        "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen, daher sind Sicherheitsänderungen, neue Geräte und Passwort-Freigaben gesperrt. Prüfe deine Geräte und wähle dann in Psyche auf diesem Computer „Neu versiegeln“; das gilt nach 24 Stunden.",
       "notice.security.firstAdmin.title":
         "Ein Befehl auf diesem Computer hat das erste Admin-Gerät gemacht",
       "notice.security.firstAdmin.body":
@@ -771,7 +771,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "Ein Programm auf diesem Computer hat {count, plural, one {1 Sicherheitseintrag} other {# Sicherheitseinträge}} an Psyche vorbei geändert. Psyche hat {count, plural, one {ihn} other {sie}} wiederhergestellt. Wenn du das nicht warst, prüfe den Computer auf unerwünschte Software.",
       "web.security.alert.untrusted":
-        "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Neue Geräte, Sicherheitseinstellungen und Passwort-Freigaben sind gesperrt. Prüfe deine Geräte und führe dann auf dem Computer psyched security reseal aus; das gilt nach 24 Stunden.",
+        "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Neue Geräte, Sicherheitseinstellungen und Passwort-Freigaben sind gesperrt. Prüfe deine Geräte und wähle dann in Psyche auf diesem Computer „Neu versiegeln“; das gilt nach 24 Stunden.",
       "web.security.alert.firstAdmin":
         "Ein Befehl auf diesem Computer hat {name} zum ersten Admin-Gerät gemacht. Wenn du das nicht warst, widerrufe es unter Geräte.",
       "web.security.alert.requested": "Auf diesem Computer angefordert: {action} Gilt ab {when}.",
@@ -787,7 +787,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "Un programa de este ordenador cambió {count, plural, =1 {# registro de seguridad} other {# registros de seguridad}} (dispositivos, claves, permisos o ajustes) sin pasar por Psyche{times, plural, =0 {} =1 {} other {, # veces hasta ahora}}. Psyche {count, plural, =1 {lo restauró} other {los restauró}}. Si no fuiste tú, revisa el ordenador en busca de software no deseado.",
       "notice.security.untrusted.body":
-        "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con contraseña están bloqueados. Revisa tus dispositivos y luego ejecuta psyched security reseal en este ordenador; se aplica a las 24 horas.",
+        "La comprobación de los registros de seguridad de Psyche falló, así que los cambios de seguridad, los dispositivos nuevos y las aprobaciones con contraseña están bloqueados. Revisa tus dispositivos y pulsa «Volver a sellar» en Psyche en este ordenador; se aplica pasadas 24 horas.",
       "notice.security.firstAdmin.title":
         "Un comando en este ordenador creó el primer dispositivo administrador",
       "notice.security.firstAdmin.body":
@@ -1172,7 +1172,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "Un programa de este ordenador cambió {count, plural, one {1 registro de seguridad} other {# registros de seguridad}} sin pasar por Psyche. Psyche {count, plural, one {lo restauró} other {los restauró}}. Si no fuiste tú, revisa el ordenador en busca de software no deseado.",
       "web.security.alert.untrusted":
-        "La comprobación de los registros de seguridad de Psyche falló. Los dispositivos nuevos, los ajustes de seguridad y las aprobaciones con contraseña están bloqueados. Revisa tus dispositivos y luego ejecuta psyched security reseal en el ordenador; se aplica a las 24 horas.",
+        "La comprobación de los registros de seguridad de Psyche falló. Los dispositivos nuevos, los ajustes de seguridad y las aprobaciones con contraseña están bloqueados. Revisa tus dispositivos y pulsa «Volver a sellar» en Psyche en este ordenador; se aplica pasadas 24 horas.",
       "web.security.alert.firstAdmin":
         "Un comando en este ordenador convirtió {name} en el primer dispositivo administrador. Si no fuiste tú, revócalo en Dispositivos.",
       "web.security.alert.requested": "Pedido en este ordenador: {action} Se aplica el {when}.",
@@ -1188,7 +1188,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "Un programme de cet ordinateur a modifié {count, plural, =1 {# donnée de sécurité} other {# données de sécurité}} (appareils, clés, autorisations ou réglages) sans passer par Psyche{times, plural, =0 {} =1 {} other {, # fois jusqu’ici}}. Psyche {count, plural, =1 {l’a rétablie} other {les a rétablies}}. Si ce n’était pas vous, recherchez un logiciel indésirable sur cet ordinateur.",
       "notice.security.untrusted.body":
-        "La vérification des données de sécurité de Psyche a échoué, donc les modifications de sécurité, les nouveaux appareils et les approbations par mot de passe sont bloqués. Vérifiez vos appareils, puis exécutez psyched security reseal sur cet ordinateur ; cela s’applique après 24 heures.",
+        "La vérification des données de sécurité de Psyche a échoué, donc les modifications de sécurité, les nouveaux appareils et les approbations par mot de passe sont bloqués. Vérifiez vos appareils, puis appuyez sur « Sceller à nouveau » dans Psyche sur cet ordinateur ; cela s’applique après 24 heures.",
       "notice.security.firstAdmin.title":
         "Une commande sur cet ordinateur a créé le premier appareil administrateur",
       "notice.security.firstAdmin.body":
@@ -1575,7 +1575,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "Un programme de cet ordinateur a modifié {count, plural, one {1 donnée de sécurité} other {# données de sécurité}} sans passer par Psyche. Psyche {count, plural, one {l’a rétablie} other {les a rétablies}}. Si ce n’était pas vous, recherchez un logiciel indésirable sur cet ordinateur.",
       "web.security.alert.untrusted":
-        "La vérification des données de sécurité de Psyche a échoué. Les nouveaux appareils, les réglages de sécurité et les approbations par mot de passe sont bloqués. Vérifiez vos appareils, puis exécutez psyched security reseal sur l’ordinateur ; cela s’applique après 24 heures.",
+        "La vérification des données de sécurité de Psyche a échoué. Les nouveaux appareils, les réglages de sécurité et les approbations par mot de passe sont bloqués. Vérifiez vos appareils, puis appuyez sur « Sceller à nouveau » dans Psyche sur cet ordinateur ; cela s’applique après 24 heures.",
       "web.security.alert.firstAdmin":
         "Une commande sur cet ordinateur a fait de {name} le premier appareil administrateur. Si ce n’était pas vous, révoquez-le dans Appareils.",
       "web.security.alert.requested": "Demandé sur cet ordinateur : {action} S’applique le {when}.",
@@ -1590,7 +1590,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "इस कंप्यूटर पर एक प्रोग्राम ने Psyche के बिना {count, plural, =1 {# सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} बदल दिए (डिवाइस, कुंजियाँ, अनुमतियाँ या सेटिंग्स){times, plural, =0 {} =1 {} other {, अब तक # बार}}। Psyche ने {count, plural, =1 {उसे} other {उन्हें}} वापस पहले जैसा कर दिया। अगर यह आपने नहीं किया, तो कंप्यूटर में अनचाहे सॉफ़्टवेयर की जाँच करें।",
       "notice.security.untrusted.body":
-        "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और पासवर्ड से मंज़ूरी रोक दी गई हैं। अपने डिवाइस देखें, फिर इस कंप्यूटर पर psyched security reseal चलाएँ; यह 24 घंटे बाद लागू होता है।",
+        "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही, इसलिए सुरक्षा बदलाव, नए डिवाइस और पासवर्ड से मंज़ूरी रोक दी गई हैं। अपने डिवाइस देखें, फिर इस कंप्यूटर पर Psyche में “फिर से सील करें” दबाएँ; यह 24 घंटे बाद लागू होता है।",
       "notice.security.firstAdmin.title": "इस कंप्यूटर पर एक कमांड ने पहला एडमिन डिवाइस बना दिया",
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस कंप्यूटर पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
@@ -1946,7 +1946,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "इस कंप्यूटर पर एक प्रोग्राम ने Psyche के बिना {count, plural, one {1 सुरक्षा रिकॉर्ड} other {# सुरक्षा रिकॉर्ड}} बदल दिए। Psyche ने {count, plural, one {उसे} other {उन्हें}} वापस पहले जैसा कर दिया। अगर यह आपने नहीं किया, तो कंप्यूटर में अनचाहे सॉफ़्टवेयर की जाँच करें।",
       "web.security.alert.untrusted":
-        "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही। नए डिवाइस, सुरक्षा सेटिंग्स और पासवर्ड से मंज़ूरी रोक दी गई हैं। अपने डिवाइस देखें, फिर कंप्यूटर पर psyched security reseal चलाएँ; यह 24 घंटे बाद लागू होता है।",
+        "Psyche के सुरक्षा रिकॉर्ड की जाँच विफल रही। नए डिवाइस, सुरक्षा सेटिंग्स और पासवर्ड से मंज़ूरी रोक दी गई हैं। अपने डिवाइस देखें, फिर इस कंप्यूटर पर Psyche में “फिर से सील करें” दबाएँ; यह 24 घंटे बाद लागू होता है।",
       "web.security.alert.firstAdmin":
         "इस कंप्यूटर पर एक कमांड ने {name} को पहला एडमिन डिवाइस बना दिया। अगर यह आपने नहीं किया, तो उसे डिवाइस में रद्द करें।",
       "web.security.alert.requested": "इस कंप्यूटर पर माँगा गया: {action} {when} को लागू होगा।",
@@ -1961,7 +1961,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "Un programma su questo computer ha modificato {count, plural, =1 {# dato di sicurezza} other {# dati di sicurezza}} (dispositivi, chiavi, autorizzazioni o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, # volte finora}}. Psyche {count, plural, =1 {l’ha ripristinato} other {li ha ripristinati}}. Se non sei stato tu, controlla il computer per software indesiderato.",
       "notice.security.untrusted.body":
-        "Il controllo dei dati di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con password sono bloccati. Controlla i tuoi dispositivi, poi esegui psyched security reseal su questo computer; si applica dopo 24 ore.",
+        "Il controllo dei dati di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con password sono bloccati. Controlla i tuoi dispositivi, poi premi «Sigilla di nuovo» in Psyche su questo computer; vale dopo 24 ore.",
       "notice.security.firstAdmin.title":
         "Un comando su questo computer ha creato il primo dispositivo amministratore",
       "notice.security.firstAdmin.body":
@@ -2341,7 +2341,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "Un programma su questo computer ha modificato {count, plural, one {1 dato di sicurezza} other {# dati di sicurezza}} senza passare da Psyche. Psyche {count, plural, one {l’ha ripristinato} other {li ha ripristinati}}. Se non sei stato tu, controlla il computer per software indesiderato.",
       "web.security.alert.untrusted":
-        "Il controllo dei dati di sicurezza di Psyche non è riuscito. Nuovi dispositivi, impostazioni di sicurezza e approvazioni con password sono bloccati. Controlla i tuoi dispositivi, poi esegui psyched security reseal sul computer; si applica dopo 24 ore.",
+        "Il controllo dei dati di sicurezza di Psyche non è riuscito. Nuovi dispositivi, impostazioni di sicurezza e approvazioni con password sono bloccati. Controlla i tuoi dispositivi, poi premi «Sigilla di nuovo» in Psyche su questo computer; vale dopo 24 ore.",
       "web.security.alert.firstAdmin":
         "Un comando su questo computer ha reso {name} il primo dispositivo amministratore. Se non sei stato tu, revocalo in Dispositivi.",
       "web.security.alert.requested":
@@ -2357,7 +2357,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "このコンピュータ上のプログラムが Psyche を通さずに、セキュリティ記録（デバイス、キー、権限または設定）を {count, plural, other {# 件}}変更しました{times, plural, =0 {} =1 {} other {（これまでに # 回）}}。Psyche は元に戻しました。心当たりがない場合は、コンピュータに不要なソフトウェアがないか確認してください。",
       "notice.security.untrusted.body":
-        "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、パスワードによる承認はブロックされています。デバイスを確認してから、このコンピュータで psyched security reseal を実行してください。24 時間後に適用されます。",
+        "Psyche のセキュリティ記録の確認に失敗したため、セキュリティ変更、新しいデバイス、パスワードによる承認はブロックされています。デバイスを確認してから、このコンピュータの Psyche で「再封印」を押してください（24 時間後に適用されます）。",
       "notice.security.firstAdmin.title":
         "このコンピュータのコマンドにより、最初の管理者デバイスが作成されました",
       "notice.security.firstAdmin.body":
@@ -2737,7 +2737,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "このコンピュータ上のプログラムが Psyche を通さずにセキュリティ記録を {count, plural, other {# 件}}変更しました。Psyche は元に戻しました。心当たりがない場合は、コンピュータに不要なソフトウェアがないか確認してください。",
       "web.security.alert.untrusted":
-        "Psyche のセキュリティ記録の確認に失敗しました。新しいデバイス、セキュリティ設定、パスワードによる承認はブロックされています。デバイスを確認してから、コンピュータで psyched security reseal を実行してください。24 時間後に適用されます。",
+        "Psyche のセキュリティ記録の確認に失敗しました。新しいデバイス、セキュリティ設定、パスワードによる承認はブロックされています。デバイスを確認してから、このコンピュータの Psyche で「再封印」を押してください（24 時間後に適用されます）。",
       "web.security.alert.firstAdmin":
         "このコンピュータのコマンドにより、{name} が最初の管理者デバイスになりました。心当たりがない場合は、デバイスで取り消してください。",
       "web.security.alert.requested": "このコンピュータで要求: {action} {when} に適用されます。",
@@ -2752,7 +2752,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "이 컴퓨터의 프로그램이 Psyche를 거치지 않고 보안 기록(기기, 키, 권한 또는 설정) {count}건을 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 #회)}}. Psyche가 원래대로 되돌렸습니다. 본인이 한 일이 아니라면 컴퓨터에 원치 않는 소프트웨어가 있는지 확인하세요.",
       "notice.security.untrusted.body":
-        "Psyche 보안 기록 확인에 실패해 보안 변경, 새 기기, 비밀번호 승인이 차단됩니다. 기기를 확인한 다음 이 컴퓨터에서 psyched security reseal을 실행하세요. 24시간 후에 적용됩니다.",
+        "Psyche 보안 기록 확인에 실패해 보안 변경, 새 기기, 비밀번호 승인이 차단됩니다. 기기를 확인한 다음 이 컴퓨터의 Psyche에서 “다시 봉인” 버튼을 누르세요(24시간 후에 적용됩니다).",
       "notice.security.firstAdmin.title": "이 컴퓨터의 명령으로 첫 관리자 기기가 만들어졌습니다",
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 컴퓨터의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
@@ -3114,7 +3114,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "이 컴퓨터의 프로그램이 Psyche를 거치지 않고 보안 기록 {count}건을 변경했습니다. Psyche가 원래대로 되돌렸습니다. 본인이 한 일이 아니라면 컴퓨터에 원치 않는 소프트웨어가 있는지 확인하세요.",
       "web.security.alert.untrusted":
-        "Psyche 보안 기록 확인에 실패했습니다. 새 기기, 보안 설정, 암호 승인이 차단됩니다. 기기를 확인한 다음 컴퓨터에서 psyched security reseal을 실행하세요. 24시간 후에 적용됩니다.",
+        "Psyche 보안 기록 확인에 실패했습니다. 새 기기, 보안 설정, 암호 승인이 차단됩니다. 기기를 확인한 다음 이 컴퓨터의 Psyche에서 “다시 봉인” 버튼을 누르세요(24시간 후에 적용됩니다).",
       "web.security.alert.firstAdmin":
         "이 컴퓨터의 명령으로 {name}이(가) 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 기기에서 취소하세요.",
       "web.security.alert.requested": "이 컴퓨터에서 요청됨: {action} {when}에 적용됩니다.",
@@ -3129,7 +3129,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "Um programa neste computador alterou {count, plural, =1 {# registro de segurança} other {# registros de segurança}} (dispositivos, chaves, permissões ou configurações) sem passar pelo Psyche{times, plural, =0 {} =1 {} other {, # vezes até agora}}. O Psyche os restaurou. Se não foi você, verifique se há software indesejado no computador.",
       "notice.security.untrusted.body":
-        "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações por senha estão bloqueados. Revise seus dispositivos e depois execute psyched security reseal neste computador; isso é aplicado após 24 horas.",
+        "A verificação dos registros de segurança do Psyche falhou, então alterações de segurança, novos dispositivos e aprovações por senha estão bloqueados. Revise seus dispositivos e toque em “Selar de novo” no Psyche deste computador; vale após 24 horas.",
       "notice.security.firstAdmin.title":
         "Um comando neste computador criou o primeiro dispositivo administrador",
       "notice.security.firstAdmin.body":
@@ -3503,7 +3503,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "Um programa neste computador alterou {count, plural, one {1 registro de segurança} other {# registros de segurança}} sem passar pelo Psyche. O Psyche {count, plural, one {o restaurou} other {os restaurou}}. Se não foi você, verifique se há software indesejado no computador.",
       "web.security.alert.untrusted":
-        "A verificação dos registros de segurança do Psyche falhou. Novos dispositivos, configurações de segurança e aprovações por senha estão bloqueados. Revise seus dispositivos e depois execute psyched security reseal no computador; isso é aplicado após 24 horas.",
+        "A verificação dos registros de segurança do Psyche falhou. Novos dispositivos, configurações de segurança e aprovações por senha estão bloqueados. Revise seus dispositivos e toque em “Selar de novo” no Psyche deste computador; vale após 24 horas.",
       "web.security.alert.firstAdmin":
         "Um comando neste computador tornou {name} o primeiro dispositivo administrador. Se não foi você, revogue-o em Dispositivos.",
       "web.security.alert.requested": "Pedido neste computador: {action} Será aplicado em {when}.",
@@ -3518,7 +3518,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.changed.body":
         "这台电脑上的某个程序绕过 Psyche 更改了 {count} 条安全记录（设备、密钥、授权或设置）{times, plural, =0 {} =1 {} other {，累计 # 次}}。Psyche 已将其恢复。如果不是你做的，请检查这台电脑上是否有不需要的软件。",
       "notice.security.untrusted.body":
-        "Psyche 的安全记录检查失败，因此安全更改、新设备和密码批准已被阻止。请检查你的设备，然后在这台电脑上运行 psyched security reseal；它将在 24 小时后生效。",
+        "Psyche 的安全记录检查失败，因此安全更改、新设备和密码批准已被阻止。请检查你的设备，然后在这台电脑上的 Psyche 中点按“重新封存”（24 小时后生效）。",
       "notice.security.firstAdmin.title": "这台电脑上的一条命令创建了第一台管理员设备",
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台电脑上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
@@ -3850,7 +3850,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "web.security.alert.changed":
         "这台电脑上的某个程序绕过 Psyche 更改了 {count} 条安全记录。Psyche 已将其恢复。如果不是你做的，请检查这台电脑上是否有不需要的软件。",
       "web.security.alert.untrusted":
-        "Psyche 的安全记录检查失败。新设备、安全设置和密码批准已被阻止。请检查你的设备，然后在电脑上运行 psyched security reseal；它将在 24 小时后生效。",
+        "Psyche 的安全记录检查失败。新设备、安全设置和密码批准已被阻止。请检查你的设备，然后在这台电脑上的 Psyche 中点按“重新封存”（24 小时后生效）。",
       "web.security.alert.firstAdmin":
         "这台电脑上的一条命令将 {name} 设为第一台管理员设备。如果不是你做的，请在“设备”中撤销它。",
       "web.security.alert.requested": "在这台电脑上请求：{action} 将于 {when} 生效。",

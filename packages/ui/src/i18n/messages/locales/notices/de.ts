@@ -14,7 +14,7 @@ export const notices: Partial<Catalogue> = {
     "Ein Programm auf diesem Mac hat {count, plural, =1 {# Sicherheitseintrag} other {# Sicherheitseinträge}} (Geräte, Schlüssel, Freigaben oder Einstellungen) geändert, ohne über Psyche zu gehen{times, plural, =0 {} =1 {} other {, bisher # Mal}}. Psyche hat sie wiederhergestellt. Wenn du das nicht warst, prüfe den Mac auf unerwünschte Software.",
   "notice.security.untrusted.title": "Psyche kann seinen Sicherheitsdaten nicht vertrauen",
   "notice.security.untrusted.body":
-    "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und führe dann auf dem Mac `psyched security reseal` aus (es gilt nach 24 Stunden).",
+    "Die Prüfung von Psyches Sicherheitsdaten ist fehlgeschlagen. Sicherheitsänderungen, neue Geräte und Touch-ID-Freigaben sind deshalb gesperrt. Prüfe deine Geräte und wähle dann in Psyche auf dem Mac „Neu versiegeln“; das gilt nach 24 Stunden.",
   "notice.security.firstSeal.title": "Psyche prüft jetzt seine Sicherheitsdaten",
   "notice.security.firstSeal.body":
     "Psyche hat {devices, plural, =1 {# gekoppeltes Gerät} other {# gekoppelte Geräte}} und seine Sicherheitseinstellungen versiegelt. Ab jetzt wird eine Änderung außerhalb von Psyche rückgängig gemacht und hier angezeigt. Prüfe deine Geräte einmal.",

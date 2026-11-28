@@ -14,7 +14,7 @@ export const notices: Partial<Catalogue> = {
     "Un programma su questo Mac ha modificato {count, plural, =1 {# registro di sicurezza} other {# registri di sicurezza}} (dispositivi, chiavi, permessi o impostazioni) senza passare da Psyche{times, plural, =0 {} =1 {} other {, finora # volte}}. Psyche li ha ripristinati. Se non sei stato tu, controlla che il Mac non abbia software indesiderato.",
   "notice.security.untrusted.title": "Psyche non può fidarsi dei suoi registri di sicurezza",
   "notice.security.untrusted.body":
-    "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi esegui `psyched security reseal` sul Mac (vale dopo 24 ore).",
+    "Il controllo dei registri di sicurezza di Psyche non è riuscito, quindi le modifiche di sicurezza, i nuovi dispositivi e le approvazioni con Touch ID sono bloccati. Controlla i tuoi dispositivi, poi premi «Sigilla di nuovo» in Psyche sul Mac; vale dopo 24 ore.",
   "notice.security.firstSeal.title": "Psyche ora controlla i suoi registri di sicurezza",
   "notice.security.firstSeal.body":
     "Psyche ha sigillato {devices, plural, =1 {# dispositivo associato} other {# dispositivi associati}} e le sue impostazioni di sicurezza. D’ora in poi una modifica fatta fuori da Psyche viene annullata e mostrata qui. Controlla i tuoi dispositivi una volta.",

@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDevice, insertDevice, openDb, setSetting } from "@psyche/db";
+import { getDevice, insertDevice, openDb, setSetting, updateDevice } from "@psyche/db";
 import type { SecurityStateStatus } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../src/cli.ts";
@@ -9,9 +9,11 @@ import { PRESENCE_ENROLLED_SETTING } from "../src/presence-gate.ts";
 import {
   adminClient,
   TestClient as Client,
+  desktopClient,
   handshake,
   ik,
   newDeviceKey,
+  remoteClient,
   startTestGateway,
   type TestClient,
   type TestGateway,
@@ -377,5 +379,121 @@ describe("the seal in a running Gateway", () => {
     offsetMs = DAY + 1000;
     gw.gateway.context.securityRecoveries?.applyDue();
     expect((await state(admin)).status).toBe("sealed");
+  });
+});
+
+describe("security.reseal.request (the Mac app's Re-seal button)", () => {
+  async function untrustedGateway() {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    return { gw, admin };
+  }
+
+  it("queues a waiting seal.reset 24 hours out, joins a repeat, and never re-seals early", async () => {
+    const { gw, admin } = await untrustedGateway();
+    const first = await admin.call<{
+      recovery: { id: string; op: string; status: string; requestedAt: string; notBefore: string };
+    }>("security.reseal.request", {}, ik());
+    const r = first.recovery;
+    expect(r).toMatchObject({ op: "seal.reset", status: "waiting" });
+    expect(Date.parse(r.notBefore) - Date.parse(r.requestedAt)).toBe(DAY);
+    const s = await state(admin);
+    expect(s.status).toBe("untrusted");
+    const alert = s.alerts.find((a) => a.kind === "recovery_requested");
+    expect(alert?.details).toMatchObject({ op: "seal.reset", via: "desktop", recoveryId: r.id });
+
+    // A repeat (and the CLI) join the one that waits; its time does not move.
+    const again = await admin.call<{ recovery: { id: string; notBefore: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    expect(again.recovery).toMatchObject({ id: r.id, notBefore: r.notBefore });
+    expect((await cli(["security", "reseal"])).lines[0]).toMatch(/already waits/);
+    expect((await state(admin)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(1);
+
+    // Not before its time.
+    offsetMs = DAY - 60_000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect((await state(admin)).status).toBe("untrusted");
+    offsetMs = DAY + 60_000;
+    gw.gateway.context.securityRecoveries?.applyDue();
+    expect((await state(admin)).status).toBe("sealed");
+  });
+
+  it("approve still refuses it, and a trusted admin can cancel it", async () => {
+    const { admin } = await untrustedGateway();
+    const { recovery } = await admin.call<{ recovery: { id: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    expect(
+      await admin.request("security.recoveries.approve", { id: recovery.id }, ik()),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const cancelled = await admin.call<{ recovery: { status: string } }>(
+      "security.recoveries.cancel",
+      { id: recovery.id },
+      ik(),
+    );
+    expect(cancelled.recovery.status).toBe("cancelled");
+  });
+
+  it("is refused while the records are sealed", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    expect(await admin.request("security.reseal.request", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "conflict" },
+    });
+    expect((await state(admin)).recoveries).toHaveLength(0);
+  });
+
+  it("is refused for a non-admin app, a remote admin device and a device the seal cannot vouch for", async () => {
+    const { gw } = await untrustedGateway();
+    // The desktop app without admin.
+    const plain = await desktopClient(gw.gateway);
+    open.push(plain);
+    expect(await plain.request("security.reseal.request", {}, ik())).toMatchObject({ ok: false });
+    // An admin device that is not the app on this Mac (a paired phone or a remote Mac).
+    const remoteKey = newDeviceKey();
+    (await remoteClient(gw.gateway, remoteKey, "remote-admin")).close();
+    updateDevice(gw.gateway.context.db, "remote-admin", {
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+    });
+    const remote = await remoteClient(gw.gateway, remoteKey, "remote-admin");
+    open.push(remote);
+    expect(await remote.request("security.reseal.request", {}, ik())).toMatchObject({
+      ok: false,
+    });
+    // A device row planted outside Psyche, with admin, connecting with the app's secret.
+    const plantedKey = newDeviceKey();
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    insertDevice(other, {
+      id: "planted",
+      name: "planted",
+      platform: "macos",
+      role: "client",
+      publicKey: plantedKey.publicKey,
+      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+      pairedAt: other.now(),
+    });
+    other.close();
+    const c = await Client.open(wsUrlOf(gw.gateway));
+    open.push(c);
+    await handshake(c, gw.gateway.origin, {
+      key: plantedKey,
+      deviceId: "planted",
+      handshakeSecret: gw.gateway.handshakeSecret,
+    });
+    expect(await c.request("security.reseal.request", {}, ik())).toMatchObject({ ok: false });
+    const waiting = gw.gateway.context.securityRecoveries?.list() ?? [];
+    expect(waiting.filter((x) => x.status === "waiting")).toHaveLength(0);
   });
 });
