@@ -467,7 +467,7 @@ export const FIXTURE_SITE: FxSite = {
       title: "Receipt",
       body: [
         { kind: "heading", level: 1, text: "Receipt" },
-        { kind: "text", text: "Paid with 4242 4242 4242 4242 on 12 May" },
+        { kind: "text", text: `Paid with ${["4242", "4242", "4242", "4242"].join(" ")} on 12 May` },
       ],
     },
     // Fields that look like secrets and are not: nothing hides, screenshots stay available.

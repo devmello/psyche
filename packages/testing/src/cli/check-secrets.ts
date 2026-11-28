@@ -49,6 +49,43 @@ export const REPO_ALLOW: { path: string; kinds: "all" | PatternKind[]; why: stri
     kinds: ["card"],
     why: "the public 4111 test card, to check that extraction classes it as an account number",
   },
+  ...(
+    [
+      ["apps/gateway/test/memory-chunks.test.ts", ["card"]],
+      ["apps/gateway/test/points-plan.test.ts", ["card", "iban", "us_ssn"]],
+      ["apps/gateway/test/points-steps.test.ts", ["us_ssn"]],
+      ["apps/gateway/test/points.test.ts", ["us_ssn"]],
+      ["apps/gateway/test/promise-lane.test.ts", ["card", "us_ssn"]],
+      ["packages/agent-core/test/untrusted-input-parts.test.ts", ["card"]],
+      ["packages/browser/test/secure-field.test.ts", ["card"]],
+      ["packages/memory/test/flush-lines.test.ts", ["card"]],
+      ["packages/memory/test/formats.test.ts", ["card"]],
+      ["packages/permissions/test/full-access.test.ts", ["card"]],
+      ["packages/protocol/test/points-rules.test.ts", ["card", "iban", "us_ssn"]],
+      ["packages/protocol/test/fixtures/points-sensitive.json", ["card", "iban", "us_ssn"]],
+      ["packages/audit/test/outbound-detectors.test.ts", ["passport", "us_bank_account"]],
+      [
+        "apps/mac-helper/Tests/PsycheHelperCoreTests/PointsLookReview2Tests.swift",
+        ["card", "iban", "us_ssn"],
+      ],
+      ["apps/mac-helper/Tests/PsycheHelperCoreTests/PointsLookReviewTests.swift", ["card"]],
+      ["apps/mac-helper/Tests/PsycheHelperCoreTests/PointsMaskFramesTests.swift", ["us_ssn"]],
+      [
+        "apps/mac-helper/Tests/PsycheHelperCoreTests/PointsPerceptionTests.swift",
+        ["card", "us_ssn"],
+      ],
+      ["apps/mac-helper/Tests/PsycheHelperCoreTests/PointsReviewTests.swift", ["card", "iban"]],
+      [
+        "apps/mac-helper/Tests/PsycheHelperPointsTests/PointsOverlayTests.swift",
+        ["card", "us_ssn"],
+      ],
+      ["apps/mac-helper/docs/manual-test-plan.md", ["card"]],
+    ] as [string, PatternKind[]][]
+  ).map(([path, kinds]) => ({
+    path,
+    kinds,
+    why: "sensitive-value detector tests: the public 4111 and 4242 test cards, the SSA sample SSN, the IBAN and Amex examples from the standards, which the Points and memory rules must catch",
+  })),
   ...[
     "tests/fixtures/everything-memory/redteam/B07-account-numbers.json",
     "tests/fixtures/everything-memory/redteam-recordings/cloud.json",

@@ -1,3 +1,4 @@
+import { fixtureSecret } from "@psyche/testing";
 import { describe, expect, it, vi } from "vitest";
 import type { AXNode, CaptureSnapshotResult } from "../src/cdp/types.ts";
 import { redactUrl } from "../src/origin/redact-url.ts";
@@ -569,7 +570,7 @@ describe("value backstop: disguised secrets and card numbers", () => {
     ["slashes", "4242/4242/4242/4242"],
     ["dashes", "4242-4242-4242-4242"],
     ["fullwidth", "４２４２ ４２４２ ４２４２ ４２４２"],
-    ["one block after a hash", "Order #4242424242424242"],
+    ["one block after a hash", `Order #${fixtureSecret("link-virtual-card")}`],
     ["Amex 4-6-5", "3782 822463 10005"],
     ["after a short number", "row 5 4242 4242 4242 4242"],
   ];

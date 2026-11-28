@@ -1,5 +1,5 @@
 import type { ModelEvent, PointsDigest, PointsField } from "@psyche/protocol";
-import { FakeModelProvider } from "@psyche/testing";
+import { FakeModelProvider, fixtureSecret } from "@psyche/testing";
 import { SecretRedactor } from "@psyche/vault";
 import { describe, expect, it } from "vitest";
 import {
@@ -515,7 +515,7 @@ describe("checking the model's plan", () => {
             fieldId: "f1",
             kind: "fill",
             note: "Enter your Visa, it starts with 4",
-            value: "4242424242424242",
+            value: fixtureSecret("link-virtual-card"),
             sources: ["goal"],
           },
           { fieldId: "f2", kind: "fill", note: "The expiry is on the card front" },

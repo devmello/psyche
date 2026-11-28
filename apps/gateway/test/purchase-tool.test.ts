@@ -6,7 +6,7 @@ import { parseMoney, readOrder } from "@psyche/browser";
 import { createPermissionBroker } from "@psyche/permissions";
 import { PsycheError } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
-import { FakeClock, FakeNotifier } from "@psyche/testing";
+import { FakeClock, FakeNotifier, fixtureSecret } from "@psyche/testing";
 import { type LinkWallet, PaymentBroker, SecretRedactor, type SpendRequest } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -16,7 +16,7 @@ import {
   toMinor,
 } from "../src/compose/purchase-tool.ts";
 
-const PAN = "4242424242424242";
+const PAN = fixtureSecret("link-virtual-card");
 const CVC = "737";
 const ORIGIN = "https://shop.example";
 const dirs: string[] = [];
