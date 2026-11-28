@@ -8,15 +8,14 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 
 ## Public API (`src/index.ts`)
 
-- `createMemoryStore({ db, workspaceDir, … })` → `SqliteMemoryStore` (runs `init()`: first-run templates, initial index). Options: `clock`, `timeZone` (daily-note dates; default the system zone), `embedder` (see `providerEmbedder`), `sqliteVec` (default on), `approvals` (`ApprovalCheck`; `brokerApprovalCheck(broker)` adapts the Permission Broker; default denies), `templatesDir` / `templateValues` (onboarding answers for `{{name}}` etc.), `onEvent` (`memory.file.changed`, `memory.job.updated`), `audit`, `flush` (`{ provider, model }` utility model).
+- `createMemoryStore({ db, workspaceDir, … })` → `SqliteMemoryStore` (runs `init()`: first-run templates, initial index). Options: `clock`, `timeZone` (daily-note dates; default the system zone), `embedder` (an `Embedder`, see `setEmbedder`), `sqliteVec` (default on), `approvals` (`ApprovalCheck`; `brokerApprovalCheck(broker)` adapts the Permission Broker; default denies), `templatesDir` / `templateValues` (onboarding answers for `{{name}}` etc.), `onEvent` (`memory.file.changed`, `memory.job.updated`), `audit`, `flush` (`{ provider, model }` utility model).
 - `SqliteMemoryStore` — the contract (`readFile`, `writeFile`, `listFiles`, `search`, `appendDailyNote`, `addClaim`, `listClaims`, `explain`, `forget`, `flush`) plus `writeFileAsOwner`, `delete`, `rename`, `listFileInfo`, `sync()` / `watch()` / `unwatch()`, `setPaused` / `paused`, `status()`, `reset({ dryRun })`, `startJob` / `finishJob` / `listJobs`, `idle()`, `close()`.
-- `bootstrapContext(store, { session: "private" | "delegated" | "shared" })` → persona files under budgets with markers, today's and yesterday's notes, parsed identity.
 - Tools: `memoryToolSpecs`, `MemoryTools#execute(name, input, ctx)` for `memory` (Anthropic `memory_20250818`), `memory_search`, `memory_explain`, `forget`, `remember`, `sessions_search`; `classifyMemoryCommand(input)` tells the broker the side effect and whether a `memory_protected_write` approval is needed.
 - Gateway: `createMemoryHandlers(store, { persona? })` for every `memory.*` method; `MEMORY_METHODS`.
 - Persona (H9): `readPersona`, `applyPersonaChange(store, change, { actor, approvalId?, etag? })`, `interpretPersonaInstruction(model, words, current)`; the `persona_update` tool; `classifyMemoryCall(name, input)` classifies every memory tool for the broker.
 - Git sync (H10): `WorkspaceGit(store)` with `init()`, `setRemote(url)`, `sync({ remote?, branch?, localOnly? })`; `validateRemoteUrl`, `GITIGNORE`.
-- Import / export: `importMemory` (ChatGPT, Claude, free text), `importOpenClaw` + `readWorkspaceFolder`, `confirmClaim`, `exportMemory` (zip).
-- Jobs: `flushMemory` (also `store.flush`); `runDreaming(store, options)`, `dreamingDue`; `ensureDreamingAutomation(scheduler, { timezone })` and `withDreaming(store, launcher)` for the nightly run through `@psyche/scheduler`; `store.recordRecall` / `recallStats` (fed by `memory_search`).
+- Import / export: `importMemory` (ChatGPT, Claude, free text), `importOpenClaw`, `confirmClaim`, `exportMemory` (zip).
+- Jobs: `flushMemory` (also `store.flush`); `runDreaming(store, options)`; `ensureDreamingAutomation(scheduler, { timezone })` and `withDreaming(store, launcher)` for the nightly run through `@psyche/scheduler`; `store.recordRecall` / `recallStats` (fed by `memory_search`).
 - Formats: `parseDailyNote`, `applyDailyWrite`, `formatEntry`, `parseIdentity` / `serializeIdentity`, `parseDirectives` / `addDirective` / `activeDirectives`, `substituteTokens`, `chunkText`, `detectSensitive` / `blockingKinds` / `looksLikeInstruction`.
 
 ## Workspace layout
@@ -138,7 +137,7 @@ Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `c
 
 ## Sessions
 
-`bootstrapContext` follows `templates/README.md`: private sessions get `SOUL, IDENTITY, AGENTS, USER, MEMORY` (+ `BOOTSTRAP` while it exists) and today's/yesterday's notes; delegated sessions `SOUL, IDENTITY, AGENTS`; shared (group) sessions `IDENTITY, AGENTS`. Budgets: 20,000 characters per file, 4,000 for `USER.md`, 60,000 total; overflow is cut with `[truncated: …]`, a missing file becomes `[missing file: …]`, and a file holding untrusted content becomes `[withheld: …]` (defence in depth; the write rules already prevent it).
+Prompt assembly (which persona files are injected, the 20,000 / 4,000 / 60,000 character budgets, the `[truncated: …]`, `[missing: …]` and `[withheld: …]` markers, and the daily notes) lives in `@psyche/agent-core` (`assembleContext`). This package supplies the files and their provenance (`contentProvenance`); it does not build the prompt.
 
 ## What is stubbed
 

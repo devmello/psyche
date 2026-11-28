@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { bootstrapContext } from "../src/context.ts";
-import { TEMPLATE_FILES } from "../src/layout.ts";
+import { stripComments } from "../src/chunker.ts";
+import { BUDGETS, TEMPLATE_FILES } from "../src/layout.ts";
 import { activeDirectives, addDirective, parseIdentity } from "../src/persona.ts";
 import { DEFAULT_TEMPLATES_DIR } from "../src/store.ts";
 import { makeEnv, type TestEnv } from "./helpers.ts";
@@ -37,10 +37,17 @@ describe.skipIf(!present)("the shipped templates", () => {
 
   it("fit the prompt budgets without truncation", async () => {
     env = await makeEnv({ templatesDir: DEFAULT_TEMPLATES_DIR });
-    const ctx = await bootstrapContext(env.store);
-    expect(ctx.files.filter((f) => f.truncated || f.missing)).toEqual([]);
-    expect(ctx.totalChars).toBeLessThan(60_000);
-    expect(ctx.text).not.toContain("<!--");
+    let total = 0;
+    for (const path of ["SOUL.md", "IDENTITY.md", "AGENTS.md", "USER.md"]) {
+      const file = await env.store.readFile(path);
+      expect(file, path).toBeDefined();
+      const body = stripComments(file?.content ?? "").trim();
+      expect(body.length, path).toBeLessThanOrEqual(
+        path === "USER.md" ? BUDGETS["USER.md"] : BUDGETS.perFile,
+      );
+      total += body.length;
+    }
+    expect(total).toBeLessThan(BUDGETS.total);
   });
 
   it("USER.md accepts dated directives in its Directives section", async () => {

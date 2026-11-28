@@ -4,7 +4,7 @@ import { blockingKinds } from "./filters.ts";
 import { guessKind } from "./importer.ts";
 import { dailyNoteDate } from "./layout.ts";
 import type { SqliteMemoryStore } from "./store.ts";
-import { localDateTime, previousDate, sha256Hex } from "./support.ts";
+import { previousDate, sha256Hex } from "./support.ts";
 
 /**
  * Nightly dreaming (feature H6; architecture §4.8; security §8 "One writer"). The only writer of
@@ -28,7 +28,6 @@ import { localDateTime, previousDate, sha256Hex } from "./support.ts";
  *    promoted.
  */
 
-export const DREAMING_HOUR = 3;
 export const DREAMING_PROMPT_MARKER = "@psyche/memory:dreaming";
 const LEDGER_KEY = "dreaming.ledger";
 const SIMILAR = 0.6;
@@ -72,19 +71,6 @@ export interface DreamingReport {
   };
   /** Set when removals were skipped by the loss guard. */
   guarded?: string;
-}
-
-/** True when a run is due: it is past 03:00 local and the last run was before today's 03:00. */
-export function dreamingDue(
-  nowMs: number,
-  lastRunMs: number | undefined,
-  timeZone: string,
-): boolean {
-  const now = localDateTime(nowMs, timeZone);
-  if (Number(now.time.slice(0, 2)) < DREAMING_HOUR) return false;
-  if (lastRunMs === undefined) return true;
-  const last = localDateTime(lastRunMs, timeZone);
-  return last.date < now.date || Number(last.time.slice(0, 2)) < DREAMING_HOUR;
 }
 
 // --- text helpers ------------------------------------------------------------------------------
