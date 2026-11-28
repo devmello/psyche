@@ -255,6 +255,34 @@ export function isDesktopShell(
   );
 }
 
+/**
+ * Whether a connected caller is the Psyche desktop app on the Host's own machine, for the methods
+ * marked `hostOnly` in the protocol. Every part is set by the server from the connection: the
+ * desktop shell's handshake proof (`identity.desktopShell`), a loopback peer with no `Origin`, and
+ * not the LAN listener. Scope is deliberately not part of it (the app is read-only after a restart
+ * into an untrusted state).
+ */
+export function isHostDesktopApp(
+  identity: { desktopShell?: boolean | undefined },
+  peer: Pick<PeerInfo, "remoteLoopback" | "origin" | "lan">,
+): boolean {
+  return (
+    identity.desktopShell === true &&
+    peer.remoteLoopback === true &&
+    peer.origin === null &&
+    peer.lan !== true
+  );
+}
+
+/** What a refused caller of a `hostOnly` method is told to do instead (a terminal on the Mac). */
+export function hostOnlyRefusal(method: string): string {
+  const hint =
+    method === "security.reseal.request"
+      ? ". In a terminal on the Mac, run `psyched security reseal`"
+      : "";
+  return `Only the Psyche app on the Mac itself can call ${method}${hint}`;
+}
+
 /** The Host CLI's connection proof: the desktop shell's, for the `cli` family. */
 export function isLocalHostCli(
   params: ConnectParams,

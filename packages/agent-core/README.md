@@ -197,7 +197,6 @@ When a run with a `taskId` would end `final` and the task has receipts, the loop
 ## What is stubbed or deferred
 
 - No concrete harness adapter ships yet: the Claude Code / Codex / pi adapters are plugins built on this seam.
-- `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
 - The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads. Until it supplies a durable store, a Gateway restart loses the model transcript and with it the thread's saved taint sources (the `tool_calls` rows keep per-call taint).
 - The SQLite task engine (S04) persists `taint` but not yet `taintSources`; the fake keeps both.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.

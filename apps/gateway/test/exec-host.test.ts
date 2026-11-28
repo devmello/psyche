@@ -437,6 +437,10 @@ describe.skipIf(!posixHost)("exec_host: running", () => {
     ]) {
       expect(fs.denyRead).toContain(p);
     }
+    // The desktop shell's handshake secret is what `security.reseal.request` trusts as "the app on
+    // this Mac": an exec_host command must not be able to read it.
+    const secret = join(psycheHome, "run", "handshake.secret");
+    expect(fs.denyRead.some((r) => secret === r || secret.startsWith(`${r}/`))).toBe(true);
     expect(fs.allowWrite).toContain(project);
     expect(s?.settings).toMatchObject({
       network: { allowedDomains: [], allowLocalBinding: false },

@@ -152,4 +152,13 @@ export const SecurityMethods = {
     description:
       "Applies a waiting local recovery request now. Needs an approval card (approval_required, then retry with approvalId): a tap for a device approval or grant, Touch ID or a passkey for a presence reset; refused while the state is untrusted and for a re-seal. Side-effecting.",
   }),
+  "security.reseal.request": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ recovery: SecurityRecovery }),
+    scope: "operator.read",
+    sideEffecting: true,
+    hostOnly: true,
+    description:
+      "The Mac app's Re-seal button: asks to accept the current security records after a failed check (state untrusted), the same request as `psyched security reseal`. It never applies at once: it waits 24 hours in plain view, every device shows it, and an admin device Psyche still trusts can cancel it. A repeat joins the waiting one. Only the Psyche desktop on the Host's own machine (the scope is operator.read because the owner's app is read-only after a restart into an untrusted state; the Host check is in the handler and the reach is the CLI's); no presence step. conflict when the records are sealed. Side-effecting.",
+  }),
 } as const;

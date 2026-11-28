@@ -53,8 +53,6 @@ export const MemoryInput = Type.Union([
     insert_line: Type.Integer({ minimum: 0 }),
     insert_text: Type.String(),
   }),
-  Type.Object({ command: Type.Literal("delete"), path: Path }),
-  Type.Object({ command: Type.Literal("rename"), old_path: Path, new_path: Path }),
 ]);
 export type MemoryInput = Static<typeof MemoryInput>;
 
@@ -81,8 +79,8 @@ function viewProvenance(path: string, content: string): "trusted" | "untrusted" 
  */
 export function describeMemoryCall(p: MemoryInput): ToolCallDescription {
   if (p.command === "view") return { summary: `Read ${workspacePath(p.path) || "the workspace"}` };
-  const path = workspacePath(p.command === "rename" ? p.new_path : p.path);
-  const source = p.command === "rename" ? workspacePath(p.old_path) : path;
+  const path = workspacePath(p.path);
+  const source = path;
   const summary = `Memory ${p.command} ${path}`;
   if (!isProtectedPath(path) && !isProtectedPath(source)) return { summary };
   const content =
@@ -122,7 +120,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
   return defineTool({
     name: "memory",
     description:
-      'Your workspace memory (view, create, str_replace, insert, delete, rename). Daily notes (memory/YYYY-MM-DD.md) are append-only; your own notes go in memory/agent/<topic>.md. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner\'s approval. What the owner tells you about themselves is picked up for USER.md by a separate pass after the turn, which may skip it (a daily limit), so it is not saved yet: say "I\'ll remember that", never "saved" or "noted", unless a memory call in this turn wrote it. Do not ask to edit USER.md for that.',
+      'Your workspace memory (view, create, str_replace, insert). Daily notes (memory/YYYY-MM-DD.md) are append-only; your own notes go in memory/agent/<topic>.md. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner\'s approval. What the owner tells you about themselves is picked up for USER.md by a separate pass after the turn, which may skip it (a daily limit), so it is not saved yet: say "I\'ll remember that", never "saved" or "noted", unless a memory call in this turn wrote it. Do not ask to edit USER.md for that.',
     input: MemoryInput,
     sideEffect: "none",
     targetKind: "path",
@@ -130,12 +128,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
     run: async (p, ctx) => {
       // A tainted turn can never write as the agent: its notes are quoted data (security §3.6).
       const provenance = ctx.taint ? "untrusted" : "agent";
-      const touched =
-        p.command === "view"
-          ? []
-          : p.command === "rename"
-            ? [workspacePath(p.old_path), workspacePath(p.new_path)]
-            : [workspacePath(p.path)];
+      const touched = p.command === "view" ? [] : [workspacePath(p.path)];
       const guarded = touched.find(isProtectedPath);
       if (ctx.taint && guarded !== undefined) {
         // Untrusted-derived writes go only to the daily note (security §3.6, §8).
@@ -249,12 +242,6 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           );
           return { output: { replaced: path }, provenance: "trusted" };
         }
-        case "delete":
-        case "rename":
-          throw new PsycheError(
-            "not_implemented",
-            `memory ${p.command} needs MemoryStore support (requested from S07); use str_replace instead`,
-          );
       }
     },
   });

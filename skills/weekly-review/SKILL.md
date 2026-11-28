@@ -20,7 +20,7 @@ A short, honest look back and a few concrete moves forward. It should take the o
 
 - `memory_search` and the week's daily notes (`memory view memory/`), `sessions_search` if enabled
 - `goal.list`, `goal.get` (milestones, check-in cadence), `idea.propose`
-- `waiting_on` (open loops: `direction: waiting_on` and `i_owe`), `project_brief` (projects the week touched); without People & projects, `email.search` for unanswered threads to real people
+- `waiting_on` (open loops: `direction: waiting_on` and `i_owe`), `project_brief` (projects the week touched); without People & projects, your mail search (`mail_search` or `gmail_search_threads`) for unanswered threads to real people
 - `calendar.list` (last week and next week)
 - Task history (`task.list` for the week: done, failed, waiting)
 - `artifact.create`, `schedule`, `ask_user`

@@ -171,9 +171,9 @@ describe("tool registry (C3)", () => {
       target: { value: "SOUL.md" },
     });
     expect(a.bindingFields).not.toEqual(b.bindingFields);
-    expect(
-      describeMemoryCall({ command: "rename", old_path: "AGENTS.md", new_path: "x.md" }).kind,
-    ).toBe("memory_protected_write");
+    expect(describeMemoryCall({ command: "create", path: "AGENTS.md", file_text: "x" }).kind).toBe(
+      "memory_protected_write",
+    );
     expect(
       describeMemoryCall({ command: "create", path: "notes/a.md", file_text: "x" }).sideEffect,
     ).toBeUndefined();

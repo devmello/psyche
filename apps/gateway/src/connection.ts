@@ -16,6 +16,8 @@ import {
   validateParams,
 } from "@psyche/protocol";
 import {
+  hostOnlyRefusal,
+  isHostDesktopApp,
   issueChallenge,
   type PairedIdentity,
   type PeerInfo,
@@ -358,6 +360,11 @@ export class Connection implements LiveConnection {
       this.#ctx.nodes.isPhoneConnection(this);
     if (scope !== "none" && !phoneAnswer && !have.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
+    }
+    // A method the protocol limits to the desktop app on this Mac (`hostOnly`) is refused for every
+    // other caller before its handler runs; its scope alone (read-only) would let any device in.
+    if (spec.hostOnly === true && !isHostDesktopApp(identity, this.peer)) {
+      throw new PsycheError("forbidden", hostOnlyRefusal(method));
     }
     this.#rateLimit(identity, method, spec.sideEffecting, params);
     // Counted only when the call is about to run (after params, scope, presence and the replay

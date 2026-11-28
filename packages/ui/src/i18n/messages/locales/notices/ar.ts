@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "غيّر برنامج على هذا الـ Mac {count, plural, =1 {سجل أمان واحدًا} other {# من سجلات الأمان}} (الأجهزة أو المفاتيح أو الأذونات أو الإعدادات) دون المرور عبر Psyche{times, plural, =0 {} =1 {} other {، # مرات حتى الآن}}. أعاد Psyche كل شيء كما كان. إن لم تكن أنت من فعل ذلك، فافحص الـ Mac بحثًا عن برامج غير مرغوب فيها.",
   "notice.security.untrusted.title": "لا يستطيع Psyche الوثوق بسجلات الأمان لديه",
   "notice.security.untrusted.body":
-    "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم شغّل `psyched security reseal` على الـ Mac (يسري بعد 24 ساعة).",
+    "فشل فحص سجلات الأمان في Psyche، لذلك حُظرت التغييرات الأمنية والأجهزة الجديدة وموافقات Touch ID. راجع أجهزتك، ثم اضغط «إعادة الختم» في Psyche على الـ Mac؛ يسري ذلك بعد 24 ساعة.",
   "notice.security.firstSeal.title": "أصبح Psyche يفحص سجلات الأمان لديه الآن",
   "notice.security.firstSeal.body":
     "ختم Psyche {devices, plural, =1 {جهازًا مقترنًا واحدًا} other {# أجهزة مقترنة}} وإعدادات الأمان فيه. من الآن، يُلغى أي تغيير يجري خارج Psyche ويظهر هنا. راجع أجهزتك مرة واحدة.",
@@ -24,6 +24,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "أنشأ أمر على هذا الـ Mac أول جهاز مسؤول",
   "notice.security.firstAdmin.body":
     "أصبح {device}{key, select, none {} other { (المفتاح {key})}} أول جهاز مسؤول على هذا الـ Mac {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}}. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
+  "notice.security.resealRequested.title": "طلبتَ إعادة الختم في Psyche",
   "notice.security.recovery.title":
     "{state, select, requested {طلب أمر على هذا الـ Mac تغييرًا أمنيًا} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}",
   "notice.security.recovery.body":

@@ -12011,6 +12011,10 @@ export interface SecurityRecoveriesCancelResult {
     recovery: SecurityRecovery;
 }
 
+export interface SecurityResealRequestResult {
+    recovery: SecurityRecovery;
+}
+
 export interface SecurityStateChangedPayload {
     openAlerts:        number;
     status:            SecurityStateChangedPayloadStatus;

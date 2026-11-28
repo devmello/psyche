@@ -13,7 +13,7 @@ export const notices: Partial<Catalogue> = {
     "이 Mac의 프로그램이 Psyche를 거치지 않고 보안 기록 {count, plural, =1 {# 개} other {# 개}}(기기, 키, 권한, 설정)를 변경했습니다{times, plural, =0 {} =1 {} other {(지금까지 # 번)}}. Psyche가 되돌려 놓았습니다. 직접 하신 일이 아니라면 Mac에 원치 않는 소프트웨어가 없는지 확인하세요.",
   "notice.security.untrusted.title": "Psyche가 보안 기록을 신뢰할 수 없습니다",
   "notice.security.untrusted.body":
-    "Psyche의 보안 기록 확인에 실패해서 보안 변경, 새 기기, Touch ID 승인이 차단되었습니다. 기기를 확인한 다음 Mac에서 `psyched security reseal`을 실행하세요(24시간 후에 적용됩니다).",
+    "Psyche의 보안 기록 확인에 실패해서 보안 변경, 새 기기, Touch ID 승인이 차단되었습니다. 기기를 확인한 다음 Mac의 Psyche에서 “다시 봉인” 버튼을 누르세요(24시간 후에 적용됩니다).",
   "notice.security.firstSeal.title": "Psyche가 이제 보안 기록을 확인합니다",
   "notice.security.firstSeal.body":
     "Psyche가 페어링된 기기 {devices, plural, =1 {# 대} other {# 대}}와 보안 설정을 봉인했습니다. 이제부터 Psyche 밖에서 이루어진 변경은 되돌려지고 여기에 표시됩니다. 기기를 한 번 확인하세요.",
@@ -24,6 +24,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "이 Mac의 명령으로 첫 관리자 기기가 만들어졌습니다",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other {(키 {key})}}가 이 Mac에서 {via, select, desktop {Psyche 앱을 통해} other {`psyched`를 통해}} 첫 관리자 기기가 되었습니다. 직접 하신 일이 아니라면 설정 → 기기에서 해제하세요.",
+  "notice.security.resealRequested.title": "Psyche에서 다시 봉인을 요청했습니다",
   "notice.security.recovery.title":
     "{state, select, requested {이 Mac의 명령이 보안 변경을 요청했습니다} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}",
   "notice.security.recovery.body":

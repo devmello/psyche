@@ -18,10 +18,10 @@ Turn "please fill this out and send it back" into a reviewed, filled form and a 
 
 ## Tools
 
-- `email.read`, `email.attachment_save` (get the form into the Library)
+- Your mail read tool (`mail_read` or `gmail_read_thread`) and attachment save (`mail_save_attachment` or `gmail_save_attachment`) to get the form into the Library
 - `pdf.read` (text with page references), `pdf.fields` (AcroForm field names, types, options, current values), `pdf.fill` (writes values into a copy), `pdf.flatten` (locks values for sending), `pdf.ocr` (scanned forms)
 - `memory_search` (names, addresses, emergency contacts the owner has given you), `ask_user`
-- `email.draft`, `email.send` (via `reply-drafting`)
+- Your mail draft tool (`mail_draft` or `gmail_create_draft`) and send tool (`mail_send` or `gmail_send`) (via `reply-drafting`)
 
 ## Approvals you should expect
 

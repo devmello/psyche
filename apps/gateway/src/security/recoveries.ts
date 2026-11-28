@@ -268,12 +268,14 @@ export class SecurityRecoveries {
       (
         this.#d.db.sqlite
           .prepare(
-            "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC LIMIT ?",
+            "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC",
           )
-          .all(limit) as RecoveryRow[]
+          .all() as RecoveryRow[]
       )
         // Untrusted: a planted "waiting" recovery is not shown as if the Mac had asked for it.
+        // Filter before the limit, so planted rows cannot push a real waiting one out of view.
         .filter((r) => this.#d.seal.genuine("security_recoveries", r.id))
+        .slice(0, limit)
         .map((r) => this.#view(r))
     );
   }
@@ -310,6 +312,26 @@ export class SecurityRecoveries {
         ...(Array.isArray(p.scopes) ? { scopes: p.scopes.map(String) } : {}),
       },
     };
+  }
+
+  /**
+   * The Mac app's "Re-seal" button: the same `seal.reset` recovery `psyched security reseal`
+   * queues, through the same intake path (24 hours counted from now, a repeat joins the waiting
+   * one, the same audit entry and alerts, `via: "desktop"`). It never applies a re-seal: only
+   * {@link applyDue} does, when the delay is over. The handler checked who asks.
+   */
+  requestReseal(byDeviceId: string): SecurityRecovery {
+    if (this.#d.seal.untrusted() === null) {
+      throw new PsycheError(
+        "conflict",
+        "The security records are sealed; there is nothing to re-seal",
+      );
+    }
+    const res = this.#queue("seal.reset", {}, { via: "desktop", byDeviceId });
+    if (res.status !== "waiting") throw new PsycheError("internal", "the re-seal was not queued");
+    const rec = this.get(res.recoveryId);
+    if (rec === undefined) throw new PsycheError("internal", "the re-seal was not recorded");
+    return rec;
   }
 
   /**
@@ -585,7 +607,11 @@ export class SecurityRecoveries {
     }
   }
 
-  #queue(op: SecurityRecoveryOp, params: RecoveryParams): Intake {
+  #queue(
+    op: SecurityRecoveryOp,
+    params: RecoveryParams,
+    origin: { via: "mac" | "desktop"; byDeviceId?: string } = { via: "mac" },
+  ): Intake {
     const { db } = this.#d;
     // Only rows the Gateway committed, as it committed them: a planted row is never joined (the
     // owner's request would then wait on a row the seal removes) and never counts toward the cap.
@@ -629,7 +655,13 @@ export class SecurityRecoveries {
          VALUES (?, ?, ?, 'waiting', ?, ?, ?, ?)`,
       )
       .run(id, op, JSON.stringify(params), at, notBefore, at, at);
-    this.#audit("security.recovery.requested", { recoveryId: id, op, notBefore });
+    this.#audit("security.recovery.requested", {
+      recoveryId: id,
+      op,
+      notBefore,
+      ...(origin.via === "desktop" ? { via: "desktop" } : {}),
+      ...(origin.byDeviceId === undefined ? {} : { byDeviceId: origin.byDeviceId }),
+    });
     this.#d.seal.alerts.add("recovery_requested", {
       recoveryId: id,
       op,
@@ -637,7 +669,7 @@ export class SecurityRecoveries {
       ...(params.deviceName === undefined ? {} : { deviceName: params.deviceName }),
       ...(typeof params.fingerprint === "string" ? { deviceFingerprint: params.fingerprint } : {}),
       ...(params.scopes === undefined ? {} : { scopes: params.scopes }),
-      via: "mac",
+      via: origin.via,
     });
     return {
       status: "waiting",

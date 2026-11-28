@@ -17,7 +17,7 @@ export const notices = {
     "A program on this Mac changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the Mac for unwanted software.",
   "notice.security.untrusted.title": "Psyche cannot trust its security records",
   "notice.security.untrusted.body":
-    "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then run `psyched security reseal` on the Mac (it applies after 24 hours).",
+    "Psyche's check of its security records failed, so security changes, new devices and Touch ID approvals are blocked. Review your devices, then press Re-seal in Psyche on the Mac (it applies after 24 hours).",
   "notice.security.firstSeal.title": "Psyche now checks its security records",
   "notice.security.firstSeal.body":
     "Psyche sealed {devices, plural, =1 {# paired device} other {# paired devices}} and its security settings. From now on a change made outside Psyche is undone and shown here. Review your devices once.",
@@ -28,6 +28,7 @@ export const notices = {
   "notice.security.firstAdmin.title": "A command on this Mac made the first admin device",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this Mac. If that was not you, revoke it in Settings → Devices.",
+  "notice.security.resealRequested.title": "You asked for a re-seal in Psyche",
   "notice.security.recovery.title":
     "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}",
   "notice.security.recovery.body":
