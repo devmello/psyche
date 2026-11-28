@@ -70,9 +70,14 @@ export const securityHandlers: Record<string, HandlerDef> = {
   "security.reseal.request": {
     run(call: Call): MethodResult<"security.reseal.request"> {
       const { recoveries } = parts(call);
-      // Host only (design note §7.2): the CLI route is local to the Mac, and so is this one. Every
-      // part comes from the connection: the desktop shell's proof (loopback, no Origin, the
-      // per-launch handshake secret). A paired phone or remote Mac cannot ask, even as admin.
+      // Host only (design note §7.2), with the same reach as `psyched security reseal`: any
+      // same-user program can already queue `seal.reset` through the `security_requests` inbox, so
+      // this does not ask for admin (after a restart into an untrusted state the owner's own app
+      // is read-only, and the button must still work). The protection is the 24-hour wait in plain
+      // view, which a trusted admin can cancel. Every part of the proof comes from the connection:
+      // the desktop shell (loopback, no Origin, not the LAN listener, the per-launch handshake
+      // secret in `$PSYCHE_HOME/run`, which the exec sandbox and file tools deny). A paired phone
+      // or remote Mac cannot ask, even as a trusted admin.
       const { identity, conn } = call;
       if (
         identity.desktopShell !== true ||
@@ -82,14 +87,7 @@ export const securityHandlers: Record<string, HandlerDef> = {
       ) {
         throw new PsycheError(
           "forbidden",
-          "Only the Psyche app on the Mac itself can ask for a re-seal",
-        );
-      }
-      // `identity.scopes` are what the seal still trusts this device with (untrusted: narrowed).
-      if (!identity.scopes.includes("operator.admin")) {
-        throw new PsycheError(
-          "forbidden",
-          "Psyche can no longer vouch for this device as an admin. Run `psyched security reseal` in a terminal on the Mac",
+          "Only the Psyche app on the Mac itself can ask for a re-seal. In a terminal on the Mac, run `psyched security reseal`",
         );
       }
       return { recovery: recoveries.requestReseal(identity.deviceId) };

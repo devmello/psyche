@@ -26,7 +26,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (chave {key})}} virou o primeiro dispositivo administrador {via, select, desktop {pelo app do Psyche} other {por meio do `psyched`}} neste Mac. Se não foi você, revogue-o em Ajustes → Dispositivos.",
   "notice.security.recovery.title":
-    "{state, select, requested {Um comando neste Mac pediu uma alteração de segurança} applied {Uma alteração de segurança deste Mac foi aplicada} cancelled {Uma alteração de segurança deste Mac foi cancelada} other {Uma alteração de segurança deste Mac não pôde ser aplicada}}",
+    "{state, select, requested {{via, select, desktop {Você pediu para selar de novo no Psyche} other {Um comando neste Mac pediu uma alteração de segurança}}} applied {Uma alteração de segurança deste Mac foi aplicada} cancelled {Uma alteração de segurança deste Mac foi cancelada} other {Uma alteração de segurança deste Mac não pôde ser aplicada}}",
   "notice.security.recovery.body":
     "{op, select, approve {Aprovar o dispositivo {device}{key, select, none {} other { (chave {key})}} com {scopes}.} grant {Dar a {device}{key, select, none {} other { (chave {key})}} {scopes}.} presence {Apagar a chave que protege os pagamentos até que uma nova seja registrada.} seal {Aceitar os registros de segurança atuais como estão.} other {Uma alteração de segurança.}}{state, select, requested { Ela vale {when, select, none {em 24 horas} other {em {when}}} a menos que você a cancele no Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "O Psyche está controlando seu Chrome",

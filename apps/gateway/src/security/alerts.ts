@@ -303,6 +303,7 @@ export function alertMessage(alert: SecurityAlert): NoticeMessage {
         bodyKey: "notice.security.recovery.body",
         params: {
           state: stateOf(alert.kind),
+          via: d.via === "desktop" ? "desktop" : "cli",
           op,
           device,
           key: key ?? "none",
@@ -349,7 +350,10 @@ function alertNoticeEnglish(alert: SecurityAlert): { title: string; body: string
       };
     case "recovery_requested":
       return {
-        title: "A command on this Mac asked for a security change",
+        title:
+          d.via === "desktop"
+            ? "You asked for a re-seal in Psyche"
+            : "A command on this Mac asked for a security change",
         body: `${recoveryText(d)} It applies ${when === "" ? "in 24 hours" : `on ${when}`} unless you cancel it in Psyche.`,
       };
     case "recovery_applied":

@@ -374,7 +374,7 @@ export const linux: Partial<Record<MessageId, string>> = {
   "web.security.alert.changed":
     "A program on this computer changed {count, plural, one {1 security record} other {# security records}} without going through Psyche. Psyche put {count, plural, one {it} other {them}} back. If you did not do this, check the computer for unwanted software.",
   "web.security.alert.untrusted":
-    "The check of Psyche's security records failed. New devices, security settings and password approvals are blocked. Review your devices, then press Re-seal in Psyche on this computer (it applies after 24 hours).",
+    "The check of Psyche's security records failed. New devices, security settings and password approvals are blocked. Review your devices, then run psyched security reseal on the computer; it applies after 24 hours.",
   "web.security.alert.firstAdmin":
     "A command on this computer made {name} the first admin device. If that was not you, revoke it in Devices.",
   "web.security.alert.requested": "Asked for on this computer: {action} Applies on {when}.",
@@ -383,10 +383,10 @@ export const linux: Partial<Record<MessageId, string>> = {
   "notice.security.changed.body":
     "A program on this computer changed {count, plural, =1 {# security record} other {# security records}} (devices, keys, grants or settings) without going through Psyche{times, plural, =0 {} =1 {} other {, # times so far}}. Psyche put them back. If you did not do this, check the computer for unwanted software.",
   "notice.security.untrusted.body":
-    "The check of Psyche's security records failed, so security changes, new devices and password approvals are blocked. Review your devices, then press Re-seal in Psyche on this computer (it applies after 24 hours).",
+    "The check of Psyche's security records failed, so security changes, new devices and password approvals are blocked. Review your devices, then run psyched security reseal on this computer (it applies after 24 hours).",
   "notice.security.firstAdmin.title": "A command on this computer made the first admin device",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this computer. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
-    "{state, select, requested {A command on this computer asked for a security change} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
+    "{state, select, requested {{via, select, desktop {You asked for a re-seal in Psyche} other {A command on this computer asked for a security change}}} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
 };

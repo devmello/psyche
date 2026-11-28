@@ -264,6 +264,16 @@ describe("SecurityStateBanner", () => {
       expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
     });
 
+    it("is hidden when the app talks to a Gateway on another computer", async () => {
+      const g = platform({ "security.state.get": () => untrusted([]) });
+      // Positive control: the same state with a local Gateway shows it (first test above).
+      render(<SecurityStateBanner platform={{ ...g.p, remote: { hostName: "Studio" } }} />);
+      await screen.findByTestId("security-banner");
+      fireEvent.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByTestId("security-alert")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Re-seal" })).toBeNull();
+    });
+
     it("is hidden while a re-seal waits, while sealed and for a sealed state with an alert", async () => {
       const waiting = platform({ "security.state.get": () => untrusted([waitingReseal]) });
       render(<SecurityStateBanner platform={waiting.p} />);

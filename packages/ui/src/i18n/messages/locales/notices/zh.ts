@@ -25,7 +25,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other {（密钥 {key}）}}已在这台 Mac 上{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}成为第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销。",
   "notice.security.recovery.title":
-    "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}",
+    "{state, select, requested {{via, select, desktop {你在 Psyche 中请求了重新封存} other {这台 Mac 上的命令请求了一项安全更改}}} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}",
   "notice.security.recovery.body":
     "{op, select, approve {以 {scopes} 权限批准设备 {device}{key, select, none {} other {（密钥 {key}）}}。} grant {授予 {device}{key, select, none {} other {（密钥 {key}）}} {scopes} 权限。} presence {清除保护付款的密钥，直到注册新密钥为止。} seal {按现状接受当前的安全记录。} other {一项安全更改。}}{state, select, requested {将{when, select, none {在 24 小时后} other {于 {when}}}生效，除非你在 Psyche 中取消。} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche 正在操作你的 Chrome",

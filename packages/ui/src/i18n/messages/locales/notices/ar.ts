@@ -25,7 +25,7 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.body":
     "أصبح {device}{key, select, none {} other { (المفتاح {key})}} أول جهاز مسؤول على هذا الـ Mac {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}}. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
   "notice.security.recovery.title":
-    "{state, select, requested {طلب أمر على هذا الـ Mac تغييرًا أمنيًا} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}",
+    "{state, select, requested {{via, select, desktop {طلبتَ إعادة الختم في Psyche} other {طلب أمر على هذا الـ Mac تغييرًا أمنيًا}}} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}",
   "notice.security.recovery.body":
     "{op, select, approve {الموافقة على الجهاز {device}{key, select, none {} other { (المفتاح {key})}} بالأذونات {scopes}.} grant {منح {device}{key, select, none {} other { (المفتاح {key})}} الأذونات {scopes}.} presence {مسح المفتاح الذي يحمي المدفوعات إلى أن يُسجَّل مفتاح جديد.} seal {قبول سجلات الأمان الحالية كما هي.} other {تغيير أمني.}}{state, select, requested { سيُطبَّق {when, select, none {بعد 24 ساعة} other {في {when}}} ما لم تلغِه في Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche يتحكم في Chrome لديك",

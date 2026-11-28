@@ -29,7 +29,7 @@ export const notices = {
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this Mac. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
-    "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}",
+    "{state, select, requested {{via, select, desktop {You asked for a re-seal in Psyche} other {A command on this Mac asked for a security change}}} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}",
   "notice.security.recovery.body":
     "{op, select, approve {Approve the device {device}{key, select, none {} other { (key {key})}} with {scopes}.} grant {Give {device}{key, select, none {} other { (key {key})}} {scopes}.} presence {Clear the key that protects payments until a new one is registered.} seal {Accept the current security records as they are.} other {A security change.}}{state, select, requested { It applies {when, select, none {in 24 hours} other {on {when}}} unless you cancel it in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche is driving your Chrome",

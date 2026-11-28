@@ -268,12 +268,14 @@ export class SecurityRecoveries {
       (
         this.#d.db.sqlite
           .prepare(
-            "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC LIMIT ?",
+            "SELECT * FROM security_recoveries ORDER BY status = 'waiting' DESC, seen_at DESC, id DESC",
           )
-          .all(limit) as RecoveryRow[]
+          .all() as RecoveryRow[]
       )
         // Untrusted: a planted "waiting" recovery is not shown as if the Mac had asked for it.
+        // Filter before the limit, so planted rows cannot push a real waiting one out of view.
         .filter((r) => this.#d.seal.genuine("security_recoveries", r.id))
+        .slice(0, limit)
         .map((r) => this.#view(r))
     );
   }

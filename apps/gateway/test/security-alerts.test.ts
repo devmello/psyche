@@ -111,4 +111,27 @@ describe("alertNotifyDecision", () => {
     const again = new AlertBook(db, () => new Date());
     expect(again.notifiedAt(a.id)).toBe("2026-11-05T10:00:00.000Z");
   });
+
+  it("a re-seal asked for in the app is worded as the owner's own request, not a command", () => {
+    const book = new AlertBook(db, () => new Date("2026-11-05T10:00:00.000Z"));
+    const fromApp = alertNotice(
+      book.add("recovery_requested", {
+        op: "seal.reset",
+        notBefore: "2026-11-06T10:00:00.000Z",
+        via: "desktop",
+      }),
+    );
+    expect(fromApp.title).toBe("You asked for a re-seal in Psyche");
+    expect(fromApp.message.params).toMatchObject({ state: "requested", via: "desktop" });
+    // Positive control: the same alert from `psyched` keeps the command wording.
+    const fromCli = alertNotice(
+      book.add("recovery_requested", {
+        op: "seal.reset",
+        notBefore: "2026-11-06T10:00:00.000Z",
+        via: "mac",
+      }),
+    );
+    expect(fromCli.title).toBe("A command on this Mac asked for a security change");
+    expect(fromCli.message.params).toMatchObject({ state: "requested", via: "cli" });
+  });
 });

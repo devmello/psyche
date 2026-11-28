@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDevice, insertDevice, openDb, setSetting, updateDevice } from "@psyche/db";
@@ -455,24 +455,50 @@ describe("security.reseal.request (the Mac app's Re-seal button)", () => {
     expect((await state(admin)).recoveries).toHaveLength(0);
   });
 
-  it("is refused for a non-admin app, a remote admin device and a device the seal cannot vouch for", async () => {
-    const { gw } = await untrustedGateway();
-    // The desktop app without admin.
-    const plain = await desktopClient(gw.gateway);
-    open.push(plain);
-    expect(await plain.request("security.reseal.request", {}, ik())).toMatchObject({ ok: false });
-    // An admin device that is not the app on this Mac (a paired phone or a remote Mac).
+  const ADMIN_SCOPES = [
+    "operator.read",
+    "operator.write",
+    "operator.approvals",
+    "operator.admin",
+  ] as const;
+
+  it("is Host only: a remote device is refused, admin or not, with the terminal command named", async () => {
+    const gw = await boot();
+    const admin = await adminClient(gw.gateway);
+    open.push(admin);
+    // Made admin while the records were sealed, so the seal vouches for it afterwards: the Host
+    // check is the only guard that can fire.
     const remoteKey = newDeviceKey();
     (await remoteClient(gw.gateway, remoteKey, "remote-admin")).close();
-    updateDevice(gw.gateway.context.db, "remote-admin", {
-      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
-    });
+    updateDevice(gw.gateway.context.db, "remote-admin", { scopes: [...ADMIN_SCOPES] });
     const remote = await remoteClient(gw.gateway, remoteKey, "remote-admin");
     open.push(remote);
-    expect(await remote.request("security.reseal.request", {}, ik())).toMatchObject({
-      ok: false,
-    });
-    // A device row planted outside Psyche, with admin, connecting with the app's secret.
+    const plain = await remoteClient(gw.gateway);
+    open.push(plain);
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+    other.close();
+    expect((await state(admin)).status).toBe("untrusted");
+    for (const c of [remote, plain]) {
+      const res = await c.request("security.reseal.request", {}, ik());
+      expect(res).toMatchObject({
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: expect.stringMatching(
+            /Only the Psyche app on the Mac itself.*psyched security reseal/,
+          ),
+        },
+      });
+    }
+    expect((await state(admin)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(0);
+    // Positive control: the same untrusted state accepts the request from the app on this Mac.
+    expect(await admin.request("security.reseal.request", {}, ik())).toMatchObject({ ok: true });
+  });
+
+  it("a read-only app, or a device row planted with admin, is a Host app like any other: it asks only as the app", async () => {
+    const { gw } = await untrustedGateway();
+    // A device row planted outside Psyche, connecting without the app's secret: not the app.
     const plantedKey = newDeviceKey();
     const other = openDb(gw.gateway.context.db.path, { migrate: false });
     insertDevice(other, {
@@ -481,19 +507,101 @@ describe("security.reseal.request (the Mac app's Re-seal button)", () => {
       platform: "macos",
       role: "client",
       publicKey: plantedKey.publicKey,
-      scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+      scopes: [...ADMIN_SCOPES],
       pairedAt: other.now(),
     });
     other.close();
     const c = await Client.open(wsUrlOf(gw.gateway));
     open.push(c);
-    await handshake(c, gw.gateway.origin, {
-      key: plantedKey,
-      deviceId: "planted",
-      handshakeSecret: gw.gateway.handshakeSecret,
+    await handshake(c, gw.gateway.origin, { key: plantedKey, deviceId: "planted" });
+    expect(await c.request("security.reseal.request", {}, ik())).toMatchObject({
+      ok: false,
+      error: { code: "forbidden", message: expect.stringMatching(/Mac itself/) },
     });
-    expect(await c.request("security.reseal.request", {}, ik())).toMatchObject({ ok: false });
-    const waiting = gw.gateway.context.securityRecoveries?.list() ?? [];
-    expect(waiting.filter((x) => x.status === "waiting")).toHaveLength(0);
+    expect(gw.gateway.context.securityRecoveries?.list() ?? []).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "an aggregate tamper",
+      (_home: string, dbPath: string) => {
+        const other = openDb(dbPath, { migrate: false });
+        other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
+        other.close();
+      },
+    ],
+    [
+      "a missing key file",
+      (home: string) => rmSync(join(home, "security", "state-seal-key.json"), { force: true }),
+    ],
+  ])(
+    "after a restart into an untrusted state (%s) the read-only Host app can still ask",
+    async (_n, tamper) => {
+      const home = mkdtempSync(join(tmpdir(), "psyche-rec-"));
+      const dbPath = join(home, "state", "psyche.sqlite");
+      const opts = {
+        home,
+        config: { dbPath },
+        now: () => new Date(Date.now() + offsetMs),
+        security: { pollMs: 20 },
+        broker: tapBroker(),
+      };
+      const first = await startTestGateway(opts);
+      const key = newDeviceKey();
+      (await desktopClient(first.gateway, key, "owner-desktop")).close();
+      updateDevice(first.gateway.context.db, "owner-desktop", { scopes: [...ADMIN_SCOPES] });
+      await first.gateway.stop("test");
+      tamper(home, dbPath);
+      t = await startTestGateway(opts);
+      const desktop = await desktopClient(t.gateway, key, "owner-desktop");
+      open.push(desktop);
+      expect((await state(desktop)).status).toBe("untrusted");
+      // The app is read-only now (the seal vouches for nothing after a restart): an admin method
+      // fails on scope, which is what made the old admin requirement unusable.
+      expect(
+        await desktop.request("security.recoveries.cancel", { id: "none" }, ik()),
+      ).toMatchObject({
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: expect.stringMatching(/requires scope operator.admin/),
+        },
+      });
+      const res = await desktop.call<{
+        recovery: { op: string; status: string; requestedAt: string; notBefore: string };
+      }>("security.reseal.request", {}, ik());
+      expect(res.recovery).toMatchObject({ op: "seal.reset", status: "waiting" });
+      expect(Date.parse(res.recovery.notBefore) - Date.parse(res.recovery.requestedAt)).toBe(DAY);
+      expect((await state(desktop)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(
+        1,
+      );
+      offsetMs = DAY + 60_000;
+      t.gateway.context.securityRecoveries?.applyDue();
+      // Read from the Gateway itself: a re-seal revokes a device it cannot vouch for, this app too.
+      expect(t.gateway.context.securityState?.status().status).toBe("sealed");
+    },
+  );
+
+  it("planted recovery rows cannot push the real waiting re-seal out of the list", async () => {
+    const { gw, admin } = await untrustedGateway();
+    const { recovery } = await admin.call<{ recovery: { id: string } }>(
+      "security.reseal.request",
+      {},
+      ik(),
+    );
+    // 25 newer rows planted outside Psyche (waiting, so they sort ahead of everything else).
+    const other = openDb(gw.gateway.context.db.path, { migrate: false });
+    const at = new Date(Date.now() + 3600_000).toISOString();
+    for (let i = 0; i < 25; i++) {
+      other.sqlite
+        .prepare(
+          `INSERT INTO security_recoveries (id, op, params, status, seen_at, not_before, created_at, updated_at)
+           VALUES (?, 'devices.grant', '{}', 'waiting', ?, ?, ?, ?)`,
+        )
+        .run(`planted-${i}`, at, at, at, at);
+    }
+    other.close();
+    const listed = gw.gateway.context.securityRecoveries?.list() ?? [];
+    expect(listed.map((r) => r.id)).toEqual([recovery.id]);
   });
 });
