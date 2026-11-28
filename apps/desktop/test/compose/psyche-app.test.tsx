@@ -471,12 +471,12 @@ describe("the composed app on the web host (A8)", () => {
       health: "ok",
       attempt: 1,
     });
-    act(() => emit(st("disconnected")));
+    act(() => emit?.(st("disconnected")));
     await waitFor(() => expect(screen.queryByTestId("gate-loading")).toBeNull());
     const shell = view.container.querySelector("[data-testid]:not([data-testid^='gate'])");
     expect(shell).not.toBeNull();
     for (const phase of ["connecting", "challenge", "verifying", "disconnected", "connecting"]) {
-      act(() => emit(st(phase as GatewayStatus["phase"])));
+      act(() => emit?.(st(phase as GatewayStatus["phase"])));
       expect(screen.queryByTestId("gate-loading")).toBeNull();
       expect(shell?.isConnected).toBe(true);
     }
