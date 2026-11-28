@@ -84,6 +84,7 @@ export function speechSrtSettings(
     "workspace",
     "backups",
     "mcp",
+    "run", // the desktop handshake secret (run/handshake.secret)
   ].map((d) => join(home, d));
   return {
     filesystem: {

@@ -509,11 +509,15 @@ export async function resolvePsyched(s: SupervisorEnv, flag?: string): Promise<s
  * beside the newest for a while; the newest wins.
  */
 export function installedPsychedWin32(env: NodeJS.ProcessEnv): string | null {
-  const root = env.LOCALAPPDATA ? win32.join(env.LOCALAPPDATA, "Psyche") : null;
-  if (!root || !existsSync(root)) return null;
+  // Read the disk with the host's own path rules (a no-op on Windows, the only place this runs
+  // for real), and return the Windows form of the path.
+  const local = env.LOCALAPPDATA;
+  const root = local ? win32.join(local, "Psyche") : null;
+  const diskRoot = local ? join(local, "Psyche") : null;
+  if (!root || !diskRoot || !existsSync(diskRoot)) return null;
   let names: string[];
   try {
-    names = readdirSync(root).filter((n) => /^app-\d+\.\d+\.\d+/.test(n));
+    names = readdirSync(diskRoot).filter((n) => /^app-\d+\.\d+\.\d+/.test(n));
   } catch {
     return null;
   }
@@ -532,8 +536,9 @@ export function installedPsychedWin32(env: NodeJS.ProcessEnv): string | null {
     return 0;
   });
   for (const n of names) {
-    const p = win32.join(root, n, "resources", "psyched", "psyched.cmd");
-    if (existsSync(p)) return p;
+    if (existsSync(join(diskRoot, n, "resources", "psyched", "psyched.cmd"))) {
+      return win32.join(root, n, "resources", "psyched", "psyched.cmd");
+    }
   }
   return null;
 }
