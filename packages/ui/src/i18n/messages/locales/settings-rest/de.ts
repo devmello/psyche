@@ -1364,12 +1364,12 @@ export const settingsRest: Partial<Catalogue> = {
     "Änderung an {name} nicht genehmigt. Er bleibt gestoppt, bis du eine genehmigst.",
   "settings.deviceAccess.files.title": "Dateien auf diesem Mac",
   "settings.deviceAccess.files.hint":
-    "Die Ordner, die {persona} lesen und, wo du es erlaubst, bearbeiten darf. Du teilst sie unter Berechtigungen → Zugriff.",
+    "Die Ordner, die {persona} lesen und, wo du es erlaubst, bearbeiten darf. Du teilst sie unter Datenschutz & Sicherheit → Dateizugriff.",
   "settings.deviceAccess.files.more": "{count, plural, one {und 1 weiterer} other {und # weitere}}",
   "settings.deviceAccess.open": "Zugriff öffnen",
   "settings.deviceAccess.terminal.title": "Terminal",
   "settings.deviceAccess.terminal.hint":
-    "{persona} kann Terminalbefehle auf diesem Mac ausführen, wenn unter Berechtigungen → Zugriff „Befehle auf diesem Mac ausführen“ an ist.",
+    "{persona} kann Terminalbefehle auf diesem Mac ausführen, wenn unter Datenschutz & Sicherheit → Dateizugriff „Befehle auf diesem Mac ausführen“ an ist.",
   "settings.deviceAccess.terminal.where":
     "Befehle laufen auf deinem Mac, in den Ordnern, die du geteilt hast, und dürfen nur in einen Ordner schreiben, den du mit Lesen und Schreiben geteilt hast.",
   "settings.deviceAccess.terminal.asks":

@@ -60,8 +60,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.remind.dayOfHint": "朝の概要のあとに2回目の通知: 「今日が期限: …」。",
   "memoryWork.remind.needsWrapup":
     "夕方のまとめがオフのため、何も送信されません。オンにするとこの通知が届きます。",
-  "memoryWork.remind.needsBrief":
-    "朝の概要がオフのため、何も送信されません。オンにするとこの通知が届きます。",
   "memoryWork.remind.turnOnWrapup": "まとめをオンにする",
   "memoryWork.remind.turnOnBrief": "概要をオンにする",
 };

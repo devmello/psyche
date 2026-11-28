@@ -4,8 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const automationChatRest: Partial<Catalogue> = {
   "automationChat.label": "{title}의 실행",
   "automationChat.runs": "{n, plural, other {실행 #회}}",
-  "automationChat.runs.aria": "{title}, {n, plural, other {실행 #회}}, 마지막 실행: {status}",
-  "automationChat.schedule": "예약됨",
   "automationChat.runNow": "지금 실행",
   "automationChat.runStarted": "실행을 시작했습니다.",
   "automationChat.empty": "아직 실행되지 않았습니다. 이 자동화가 실행될 때마다 여기에 표시됩니다.",
@@ -26,5 +24,4 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.result": "결과",
   "automationChat.openScheduled": "예약됨에서 열기",
   "automationChat.row.runs": "{n, plural, other {실행 #회}}",
-  "automationChat.row.last": "마지막 실행: {status}",
 };

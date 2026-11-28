@@ -84,7 +84,6 @@ export const memorySettings: Partial<Catalogue> = {
   "memoryWork.remind.dayOf": "أخبرني أيضًا صباحًا بما يستحق اليوم",
   "memoryWork.remind.dayOfHint": "إشعار ثانٍ بعد موجز الصباح: «المستحق اليوم: …».",
   "memoryWork.remind.needsWrapup": "خلاصة المساء متوقفة، لذا لن يُرسل شيء. فعّلها لتحصل على هذا.",
-  "memoryWork.remind.needsBrief": "موجز الصباح متوقف، لذا لن يُرسل شيء. فعّله لتحصل على هذا.",
   "memoryWork.remind.turnOnWrapup": "تفعيل الخلاصة",
   "memoryWork.remind.turnOnBrief": "تفعيل الموجز",
   "memorySurfaces.title": "أين تظهر الذاكرة",

@@ -65,8 +65,6 @@ export const workA: Partial<Catalogue> = {
     "Una segunda notificación tras el resumen de la mañana: «Vence hoy: …».",
   "memoryWork.remind.needsWrapup":
     "El cierre de la tarde está desactivado, así que no se enviará nada. Actívalo para recibir esto.",
-  "memoryWork.remind.needsBrief":
-    "El resumen de la mañana está desactivado, así que no se enviará nada. Actívalo para recibir esto.",
   "memoryWork.remind.turnOnWrapup": "Activar el cierre",
   "memoryWork.remind.turnOnBrief": "Activar el resumen",
   "memorySurfaces.title": "Dónde aparece la memoria",

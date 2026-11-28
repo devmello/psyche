@@ -300,7 +300,7 @@ export const windows: Partial<Record<MessageId, string>> = {
   "settings.computerUse.macPermissionsHint": "What Windows allows.",
   "settings.deviceAccess.files.title": "Files on this PC",
   "settings.deviceAccess.terminal.hint":
-    "{persona} can run terminal commands on this PC when Run commands on this PC is on in Permissions → Access.",
+    "{persona} can run terminal commands on this PC when Run commands on this PC is on in Privacy & security → Access.",
   "settings.deviceAccess.terminal.where":
     "Commands run on your PC, in the folders you shared, and can write only to a folder you shared read and write.",
   "settings.mcp.needs.title": "What this needs on your PC",

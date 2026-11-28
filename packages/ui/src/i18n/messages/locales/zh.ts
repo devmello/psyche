@@ -1098,8 +1098,8 @@ export const zh: Partial<Catalogue> = {
   "shell.usage.subscriptionLine": "今天 {turns, plural, other {# 个轮次}} · 约 {tokens} 个 Token",
   "shell.usage.none": "今天没有用量",
   "shell.usage.turnsOnly": "今天 {turns, plural, other {# 个轮次}}",
-  "shell.usage.label": "{line}。用量详情；打开“设置 → 用量”",
-  "shell.usage.labelNamed": "{name}：{line}。用量详情；打开“设置 → 用量”",
+  "shell.usage.label": "{line}。用量详情；打开“设置 → 模型 → 用量”",
+  "shell.usage.labelNamed": "{name}：{line}。用量详情；打开“设置 → 模型 → 用量”",
   "shell.usage.week": "本周按模型统计",
   "shell.usage.turnsTokens": "{turns, plural, other {# 个轮次}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1107,7 +1107,7 @@ export const zh: Partial<Catalogue> = {
   "shell.usage.month": "本月 {cost}",
   "shell.usage.window": "已用去套餐额度窗口的 {pct} · {when}重置",
   "shell.usage.noWindow": "此 CLI 无法提供套餐的额度窗口。",
-  "shell.usage.openHint": "点按打开“设置 → 用量”。",
+  "shell.usage.openHint": "点按打开“设置 → 模型 → 用量”。",
 
   "settings.shared.needsPresence":
     "更改“{label}”需要你的批准。请在“设置”或 Psyche 通知中批准，然后再次更改。",

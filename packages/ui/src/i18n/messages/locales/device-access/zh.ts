@@ -4,12 +4,12 @@ import type { Catalogue } from "../../index.ts";
 export const deviceAccess: Partial<Catalogue> = {
   "settings.deviceAccess.files.title": "这台 Mac 上的文件",
   "settings.deviceAccess.files.hint":
-    "{persona}可以读取的文件夹，以及你允许时可以编辑的文件夹。你在“权限 → 访问”中共享它们。",
+    "{persona}可以读取的文件夹，以及你允许时可以编辑的文件夹。你在“隐私与安全 → 文件访问”中共享它们。",
   "settings.deviceAccess.files.more": "{count, plural, other {以及另外 # 个}}",
   "settings.deviceAccess.open": "打开访问",
   "settings.deviceAccess.terminal.title": "终端",
   "settings.deviceAccess.terminal.hint":
-    "“权限 → 访问”中开启“在这台 Mac 上运行命令”后，{persona}可以在这台 Mac 上运行终端命令。",
+    "“隐私与安全 → 文件访问”中开启“在这台 Mac 上运行命令”后，{persona}可以在这台 Mac 上运行终端命令。",
   "settings.deviceAccess.terminal.where":
     "命令在你的 Mac 上、在你共享的文件夹中运行，并且只能写入你以读写方式共享的文件夹。",
   "settings.deviceAccess.terminal.asks":

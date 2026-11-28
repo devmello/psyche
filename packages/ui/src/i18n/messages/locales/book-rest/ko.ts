@@ -9,5 +9,4 @@ export const bookRest: Partial<Catalogue> = {
   "book.cell": "셀 {ref}",
   "book.formulaBar": "{ref}의 값 또는 수식",
   "book.hint": "=로 시작하면 수식이 됩니다. 예: =SUM(B2:B9)",
-  "book.cells": "{count, plural, other {셀 #개}}",
 };

@@ -1287,12 +1287,12 @@ export const settingsRest: Partial<Catalogue> = {
     "{name} में बदलाव स्वीकृत नहीं हुआ। जब तक आप कोई स्वीकृत नहीं करते, यह रुका रहता है।",
   "settings.deviceAccess.files.title": "इस Mac पर फ़ाइलें",
   "settings.deviceAccess.files.hint":
-    "वे फ़ोल्डर जिन्हें {persona} पढ़ सकता है, और जहाँ आप अनुमति दें वहाँ संपादित कर सकता है। आप इन्हें अनुमतियाँ → एक्सेस में साझा करते हैं।",
+    "वे फ़ोल्डर जिन्हें {persona} पढ़ सकता है, और जहाँ आप अनुमति दें वहाँ संपादित कर सकता है। आप इन्हें गोपनीयता और सुरक्षा → फ़ाइल ऐक्सेस में साझा करते हैं।",
   "settings.deviceAccess.files.more": "{count, plural, one {और 1} other {और #}}",
   "settings.deviceAccess.open": "एक्सेस खोलें",
   "settings.deviceAccess.terminal.title": "टर्मिनल",
   "settings.deviceAccess.terminal.hint":
-    "जब अनुमतियाँ → एक्सेस में “इस Mac पर कमांड चलाएँ” चालू हो, तो {persona} इस Mac पर टर्मिनल कमांड चला सकता है।",
+    "जब गोपनीयता और सुरक्षा → फ़ाइल ऐक्सेस में “इस Mac पर कमांड चलाएँ” चालू हो, तो {persona} इस Mac पर टर्मिनल कमांड चला सकता है।",
   "settings.deviceAccess.terminal.where":
     "कमांड आपके Mac पर, आपके साझा किए फ़ोल्डर में चलते हैं, और सिर्फ़ उसी फ़ोल्डर में लिख सकते हैं जिसे आपने पढ़ने और लिखने के लिए साझा किया।",
   "settings.deviceAccess.terminal.asks":

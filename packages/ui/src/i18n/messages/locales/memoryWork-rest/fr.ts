@@ -65,8 +65,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
     "Une seconde notification après le résumé du matin : « À rendre aujourd’hui : … ».",
   "memoryWork.remind.needsWrapup":
     "Le bilan du soir est désactivé, rien ne sera donc envoyé. Activez-le pour recevoir ceci.",
-  "memoryWork.remind.needsBrief":
-    "Le résumé du matin est désactivé, rien ne sera donc envoyé. Activez-le pour recevoir ceci.",
   "memoryWork.remind.turnOnWrapup": "Activer le bilan du soir",
   "memoryWork.remind.turnOnBrief": "Activer le résumé du matin",
 };

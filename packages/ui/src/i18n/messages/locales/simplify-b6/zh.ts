@@ -2,7 +2,7 @@ import type { Catalogue } from "../../index.ts";
 
 /** Settings structure, batch B6 (zh); merged into `../zh.ts`. */
 export const simplifyB6: Partial<Catalogue> = {
-  "simplify.b6.nav.server": "设备",
+  "simplify.b6.nav.server": "网络与远程访问",
   "simplify.b6.search.description":
     "打开你希望 Psyche 搜索的位置。除非你在“记忆”中关闭，记忆也会从中学习。",
   "simplify.b6.search.options": "选项",

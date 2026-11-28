@@ -1067,9 +1067,9 @@ export const fr: Partial<Catalogue> = {
     "{turns, plural, one {# tour} other {# tours}} aujourd’hui · ≈ {tokens} jetons",
   "shell.usage.none": "Aucune utilisation aujourd’hui",
   "shell.usage.turnsOnly": "{turns, plural, one {# tour} other {# tours}} aujourd’hui",
-  "shell.usage.label": "{line}. Détails de l’utilisation ; ouvre Réglages → Utilisation",
+  "shell.usage.label": "{line}. Détails de l’utilisation ; ouvre Réglages → Modèles → Utilisation",
   "shell.usage.labelNamed":
-    "{name} : {line}. Détails de l’utilisation ; ouvre Réglages → Utilisation",
+    "{name} : {line}. Détails de l’utilisation ; ouvre Réglages → Modèles → Utilisation",
   "shell.usage.week": "Cette semaine par modèle",
   "shell.usage.turnsTokens": "{turns, plural, one {# tour} other {# tours}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1077,7 +1077,7 @@ export const fr: Partial<Catalogue> = {
   "shell.usage.month": "{cost} ce mois-ci",
   "shell.usage.window": "{pct} de la fenêtre du forfait utilisés · réinitialisation {when}",
   "shell.usage.noWindow": "La fenêtre de limite du forfait n’est pas disponible depuis cette CLI.",
-  "shell.usage.openHint": "Cliquez pour ouvrir Réglages → Utilisation.",
+  "shell.usage.openHint": "Cliquez pour ouvrir Réglages → Modèles → Utilisation.",
 
   "settings.shared.needsPresence":
     "Modifier « {label} » nécessite votre approbation. Approuvez-la dans Réglages ou dans la notification de Psyche, puis modifiez-le de nouveau.",

@@ -240,7 +240,7 @@ export const linux: Partial<Record<MessageId, string>> = {
     "Only Psyche on the computer that runs it can sign a connector.",
   "settings.deviceAccess.files.title": "Files on this computer",
   "settings.deviceAccess.terminal.hint":
-    "{persona} can run terminal commands on this computer when Run commands on this computer is on in Permissions → Access.",
+    "{persona} can run terminal commands on this computer when Run commands on this computer is on in Privacy & security → Access.",
   "settings.deviceAccess.terminal.where":
     "Commands run on your computer, in the folders you shared, and can write only to a folder you shared read and write.",
   "settings.mcp.needs.title": "What this needs on your computer",

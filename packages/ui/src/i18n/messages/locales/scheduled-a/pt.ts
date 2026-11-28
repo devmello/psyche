@@ -94,9 +94,6 @@ export const scheduledA: Partial<Catalogue> = {
     "Uma verificação leve durante o dia para ver se algo precisa da sua atenção.",
   "automationChat.label": "Execuções de {title}",
   "automationChat.runs": "{n, plural, one {# execução} other {# execuções}}",
-  "automationChat.runs.aria":
-    "{title}, {n, plural, one {# execução} other {# execuções}}, última execução {status}",
-  "automationChat.schedule": "Agendado",
   "automationChat.runNow": "Executar agora",
   "automationChat.runStarted": "Execução iniciada.",
   "automationChat.empty":
@@ -118,7 +115,6 @@ export const scheduledA: Partial<Catalogue> = {
   "automationChat.result": "Resultado",
   "automationChat.openScheduled": "Abrir em Agendado",
   "automationChat.row.runs": "{n, plural, one {# execução} other {# execuções}}",
-  "automationChat.row.last": "Última execução: {status}",
   "settings.widgets.title": "Widgets no chat",
   "settings.widgets.privacy":
     "O Psyche pode desenhar pequenos painéis no chat: progresso, listas, tabelas, gráficos e imagens. Um painel pode apontar para uma imagem da web. Permitir isso faz seu Gateway buscar a imagem da web para você (sem cookies, sem referer, nunca direto do seu dispositivo), e só tipos de imagem comuns de até 512 KB. Em um painel criado a partir de conteúdo não confiável, a imagem ainda espera o seu clique.",

@@ -4,7 +4,7 @@
  * other areas.
  */
 export const simplifyB6 = {
-  "simplify.b6.nav.server": "Devices",
+  "simplify.b6.nav.server": "Network & remote access",
   "simplify.b6.search.description":
     "Switch on the places you want Psyche to search. Memory learns from them too, unless you opt out in Memory.",
   "simplify.b6.search.options": "Options",

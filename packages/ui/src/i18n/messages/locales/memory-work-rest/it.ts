@@ -63,8 +63,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
     "Una seconda notifica dopo il riepilogo del mattino: “In scadenza oggi: …”.",
   "memoryWork.remind.needsWrapup":
     "Il riepilogo serale è disattivato, quindi non verrà inviato nulla. Attivalo per riceverlo.",
-  "memoryWork.remind.needsBrief":
-    "Il riepilogo del mattino è disattivato, quindi non verrà inviato nulla. Attivalo per riceverlo.",
   "memoryWork.remind.turnOnWrapup": "Attiva il riepilogo serale",
   "memoryWork.remind.turnOnBrief": "Attiva il riepilogo del mattino",
 };

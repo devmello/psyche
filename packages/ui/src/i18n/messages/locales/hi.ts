@@ -1083,8 +1083,8 @@ export const hi: Partial<Catalogue> = {
   "shell.usage.subscriptionLine": "आज {turns, plural, one {# टर्न} other {# टर्न}} · ≈ {tokens} टोकन",
   "shell.usage.none": "आज कोई उपयोग नहीं",
   "shell.usage.turnsOnly": "आज {turns, plural, one {# टर्न} other {# टर्न}}",
-  "shell.usage.label": "{line}। उपयोग विवरण; सेटिंग्ज़ → उपयोग खोलता है",
-  "shell.usage.labelNamed": "{name}: {line}। उपयोग विवरण; सेटिंग्ज़ → उपयोग खोलता है",
+  "shell.usage.label": "{line}। उपयोग विवरण; सेटिंग्ज़ → मॉडल → उपयोग खोलता है",
+  "shell.usage.labelNamed": "{name}: {line}। उपयोग विवरण; सेटिंग्ज़ → मॉडल → उपयोग खोलता है",
   "shell.usage.week": "इस सप्ताह, मॉडल के अनुसार",
   "shell.usage.turnsTokens": "{turns, plural, one {# टर्न} other {# टर्न}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1092,7 +1092,7 @@ export const hi: Partial<Catalogue> = {
   "shell.usage.month": "इस महीने {cost}",
   "shell.usage.window": "प्लान विंडो का {pct} उपयोग हुआ · {when} रीसेट होगा",
   "shell.usage.noWindow": "प्लान की सीमा विंडो इस CLI से उपलब्ध नहीं है।",
-  "shell.usage.openHint": "सेटिंग्ज़ → उपयोग के लिए क्लिक करें।",
+  "shell.usage.openHint": "सेटिंग्ज़ → मॉडल → उपयोग के लिए क्लिक करें।",
 
   "settings.shared.needsPresence":
     "“{label}” बदलने के लिए आपकी स्वीकृति चाहिए। इसे सेटिंग्ज़ में या Psyche सूचना में स्वीकृत करें, फिर इसे दोबारा बदलें।",

@@ -1039,8 +1039,8 @@ export const pt: Partial<Catalogue> = {
     "{turns, plural, one {# turno} other {# turnos}} hoje · ≈ {tokens} tokens",
   "shell.usage.none": "Nenhum uso hoje",
   "shell.usage.turnsOnly": "{turns, plural, one {# turno} other {# turnos}} hoje",
-  "shell.usage.label": "{line}. Detalhes de uso; abre Ajustes → Uso",
-  "shell.usage.labelNamed": "{name}: {line}. Detalhes de uso; abre Ajustes → Uso",
+  "shell.usage.label": "{line}. Detalhes de uso; abre Ajustes → Modelos → Uso",
+  "shell.usage.labelNamed": "{name}: {line}. Detalhes de uso; abre Ajustes → Modelos → Uso",
   "shell.usage.week": "Esta semana por modelo",
   "shell.usage.turnsTokens": "{turns, plural, one {# turno} other {# turnos}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1048,7 +1048,7 @@ export const pt: Partial<Catalogue> = {
   "shell.usage.month": "{cost} este mês",
   "shell.usage.window": "{pct} da janela do plano usados · redefine {when}",
   "shell.usage.noWindow": "A janela de limite do plano não está disponível nesta CLI.",
-  "shell.usage.openHint": "Clique para abrir Ajustes → Uso.",
+  "shell.usage.openHint": "Clique para abrir Ajustes → Modelos → Uso.",
 
   "settings.shared.needsPresence":
     "Alterar “{label}” precisa da sua aprovação. Aprove nos Ajustes ou na notificação do Psyche e depois altere novamente.",

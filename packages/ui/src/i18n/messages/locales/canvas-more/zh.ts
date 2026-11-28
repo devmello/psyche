@@ -49,5 +49,4 @@ export const canvasMore: Partial<Catalogue> = {
   "book.cell": "单元格 {ref}",
   "book.formulaBar": "{ref} 的值或公式",
   "book.hint": "以 = 开头可输入公式，例如 =SUM(B2:B9)。",
-  "book.cells": "{count, plural, other {# 个单元格}}",
 };

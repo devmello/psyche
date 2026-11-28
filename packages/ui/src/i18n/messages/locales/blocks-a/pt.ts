@@ -234,7 +234,6 @@ export const blocksA: Partial<Catalogue> = {
   "book.cell": "Célula {ref}",
   "book.formulaBar": "Valor ou fórmula de {ref}",
   "book.hint": "Comece com = para uma fórmula, por exemplo =SUM(B2:B9).",
-  "book.cells": "{count, plural, one {# célula} other {# células}}",
   "agent.timeline.title": "Linha do tempo",
   "agent.timeline.label": "Linha do tempo de {title}",
   "agent.timeline.back": "Voltar para Atividade",

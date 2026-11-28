@@ -4,8 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const automationChatRest: Partial<Catalogue> = {
   "automationChat.label": "{title}の実行",
   "automationChat.runs": "{n, plural, other {#回の実行}}",
-  "automationChat.runs.aria": "{title}、{n, plural, other {#回の実行}}、前回の実行: {status}",
-  "automationChat.schedule": "スケジュール",
   "automationChat.runNow": "今すぐ実行",
   "automationChat.runStarted": "実行を開始しました。",
   "automationChat.empty":
@@ -27,5 +25,4 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.result": "結果",
   "automationChat.openScheduled": "スケジュールで開く",
   "automationChat.row.runs": "{n, plural, other {#回の実行}}",
-  "automationChat.row.last": "前回の実行: {status}",
 };

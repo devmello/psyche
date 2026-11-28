@@ -95,8 +95,6 @@ export const memorySettings = {
   "memoryWork.remind.dayOfHint": "A second notification after the morning brief: “Due today: …”.",
   "memoryWork.remind.needsWrapup":
     "The evening wrap-up is off, so nothing will be sent. Turn it on to get this.",
-  "memoryWork.remind.needsBrief":
-    "The morning brief is off, so nothing will be sent. Turn it on to get this.",
   "memoryWork.remind.turnOnWrapup": "Turn on wrap-up",
   "memoryWork.remind.turnOnBrief": "Turn on brief",
 

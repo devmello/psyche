@@ -60,8 +60,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.remind.dayOfHint": '아침 브리핑 뒤에 두 번째 알림: "오늘 기한: …".',
   "memoryWork.remind.needsWrapup":
     "저녁 마무리가 꺼져 있어 아무것도 전송되지 않습니다. 켜면 이 알림을 받을 수 있습니다.",
-  "memoryWork.remind.needsBrief":
-    "아침 브리핑이 꺼져 있어 아무것도 전송되지 않습니다. 켜면 이 알림을 받을 수 있습니다.",
   "memoryWork.remind.turnOnWrapup": "마무리 켜기",
   "memoryWork.remind.turnOnBrief": "브리핑 켜기",
 };

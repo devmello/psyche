@@ -2,8 +2,6 @@
 export const automationChat = {
   "automationChat.label": "Runs of {title}",
   "automationChat.runs": "{n, plural, one {# run} other {# runs}}",
-  "automationChat.runs.aria": "{title}, {n, plural, one {# run} other {# runs}}, last run {status}",
-  "automationChat.schedule": "Scheduled",
   "automationChat.runNow": "Run now",
   "automationChat.runStarted": "Run started.",
   "automationChat.empty": "No runs yet. Each time this automation runs, it shows up here.",
@@ -24,5 +22,4 @@ export const automationChat = {
   "automationChat.result": "Result",
   "automationChat.openScheduled": "Open in Scheduled",
   "automationChat.row.runs": "{n, plural, one {# run} other {# runs}}",
-  "automationChat.row.last": "Last run: {status}",
 } as const;

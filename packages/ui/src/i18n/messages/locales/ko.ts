@@ -1069,8 +1069,8 @@ export const ko: Partial<Catalogue> = {
   "shell.usage.subscriptionLine": "오늘 {turns, plural, other {#턴}} · ≈ {tokens} 토큰",
   "shell.usage.none": "오늘 사용량 없음",
   "shell.usage.turnsOnly": "오늘 {turns, plural, other {#턴}}",
-  "shell.usage.label": "{line}. 사용량 세부사항, 설정 → 사용량 열기",
-  "shell.usage.labelNamed": "{name}: {line}. 사용량 세부사항, 설정 → 사용량 열기",
+  "shell.usage.label": "{line}. 사용량 세부사항, 설정 → 모델 → 사용량 열기",
+  "shell.usage.labelNamed": "{name}: {line}. 사용량 세부사항, 설정 → 모델 → 사용량 열기",
   "shell.usage.week": "이번 주 모델별",
   "shell.usage.turnsTokens": "{turns, plural, other {#턴}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1078,7 +1078,7 @@ export const ko: Partial<Catalogue> = {
   "shell.usage.month": "이번 달 {cost}",
   "shell.usage.window": "요금제 기간의 {pct} 사용 · {when} 재설정",
   "shell.usage.noWindow": "이 CLI에서는 요금제 한도 기간을 확인할 수 없습니다.",
-  "shell.usage.openHint": "클릭하면 설정 → 사용량이 열립니다.",
+  "shell.usage.openHint": "클릭하면 설정 → 모델 → 사용량이 열립니다.",
 
   // settings
   "settings.shared.needsPresence":

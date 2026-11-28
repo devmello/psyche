@@ -198,10 +198,10 @@ export const onboarding = {
   "onboarding.folders.documents": "Documents",
   "onboarding.folders.desktop": "Desktop",
   "onboarding.folders.downloads": "Downloads",
-  "onboarding.folders.hint": "You can change this any time in Settings, under File access.",
+  "onboarding.folders.hint": "You can change this any time in Settings, under Access.",
   "onboarding.folders.shareLater":
     "You can share these folders later in Settings → Privacy & security → Access.",
-  "onboarding.folders.openFileAccess": "Open File access",
+  "onboarding.folders.openFileAccess": "Open Access",
   "onboarding.folders.retry": "Try again",
   "onboarding.folders.continueWithout": "Continue without sharing",
   "onboarding.folders.failed": "Couldn't share these folders: {reason}",
