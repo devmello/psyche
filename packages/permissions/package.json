@@ -30,12 +30,12 @@
     "@psyche/model-router": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
-    "tldts": "7.5.4",
+    "tldts": "7.5.5",
     "ulid": "3.0.2"
   },
   "devDependencies": {
     "@psyche/db": "workspace:*",
     "@psyche/testing": "workspace:*",
-    "fast-check": "4.10.2"
+    "fast-check": "4.11.0"
   }
 }

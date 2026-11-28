@@ -59,7 +59,7 @@
     "ws": "8.23.0"
   },
   "optionalDependencies": {
-    "@napi-rs/canvas": "1.1.1"
+    "@napi-rs/canvas": "1.2.0"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
