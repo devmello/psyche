@@ -388,5 +388,5 @@ export const linux: Partial<Record<MessageId, string>> = {
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (key {key})}} became the first admin device {via, select, desktop {from the Psyche app} other {through `psyched`}} on this computer. If that was not you, revoke it in Settings → Devices.",
   "notice.security.recovery.title":
-    "{state, select, requested {{via, select, desktop {You asked for a re-seal in Psyche} other {A command on this computer asked for a security change}}} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
+    "{state, select, requested {A command on this computer asked for a security change} applied {A security change from this computer was applied} cancelled {A security change from this computer was cancelled} other {A security change from this computer could not be applied}}",
 };

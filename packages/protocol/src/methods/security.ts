@@ -157,6 +157,7 @@ export const SecurityMethods = {
     result: Type.Object({ recovery: SecurityRecovery }),
     scope: "operator.read",
     sideEffecting: true,
+    hostOnly: true,
     description:
       "The Mac app's Re-seal button: asks to accept the current security records after a failed check (state untrusted), the same request as `psyched security reseal`. It never applies at once: it waits 24 hours in plain view, every device shows it, and an admin device Psyche still trusts can cancel it. A repeat joins the waiting one. Only the Psyche desktop on the Host's own machine (the scope is operator.read because the owner's app is read-only after a restart into an untrusted state; the Host check is in the handler and the reach is the CLI's); no presence step. conflict when the records are sealed. Side-effecting.",
   }),

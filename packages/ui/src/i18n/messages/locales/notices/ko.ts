@@ -24,8 +24,9 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "이 Mac의 명령으로 첫 관리자 기기가 만들어졌습니다",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other {(키 {key})}}가 이 Mac에서 {via, select, desktop {Psyche 앱을 통해} other {`psyched`를 통해}} 첫 관리자 기기가 되었습니다. 직접 하신 일이 아니라면 설정 → 기기에서 해제하세요.",
+  "notice.security.resealRequested.title": "Psyche에서 다시 봉인을 요청했습니다",
   "notice.security.recovery.title":
-    "{state, select, requested {{via, select, desktop {Psyche에서 다시 봉인을 요청했습니다} other {이 Mac의 명령이 보안 변경을 요청했습니다}}} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}",
+    "{state, select, requested {이 Mac의 명령이 보안 변경을 요청했습니다} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}",
   "notice.security.recovery.body":
     "{op, select, approve {기기 {device}{key, select, none {} other {(키 {key})}}를 {scopes} 권한으로 승인합니다.} grant {{device}{key, select, none {} other {(키 {key})}}에 {scopes} 권한을 부여합니다.} presence {새 키가 등록될 때까지 결제를 보호하는 키를 지운다.} seal {현재 보안 기록을 그대로 받아들입니다.} other {보안 변경입니다.}}{state, select, requested { {when, select, none {24시간 후에} other {{when}에}} 적용됩니다. Psyche에서 취소할 수 있습니다.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche가 Chrome을 조작하고 있습니다",

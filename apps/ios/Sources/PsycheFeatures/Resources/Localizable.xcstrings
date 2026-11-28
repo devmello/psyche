@@ -7456,73 +7456,144 @@
         }
       }
     },
+    "notice.security.resealRequested.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "طلبتَ إعادة الختم في Psyche"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Du hast in Psyche ein erneutes Versiegeln angefordert"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You asked for a re-seal in Psyche"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pediste volver a sellar en Psyche"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez demandé de sceller à nouveau dans Psyche"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपने Psyche में फिर से सील करने का अनुरोध किया"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai chiesto di sigillare di nuovo in Psyche"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche で再封印を依頼しました"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Psyche에서 다시 봉인을 요청했습니다"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Você pediu para selar de novo no Psyche"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你在 Psyche 中请求了重新封存"
+          }
+        }
+      }
+    },
     "notice.security.recovery.title": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {طلبتَ إعادة الختم في Psyche} other {طلب أمر على هذا الـ Mac تغييرًا أمنيًا}}} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}"
+            "value": "{state, select, requested {طلب أمر على هذا الـ Mac تغييرًا أمنيًا} applied {طُبّق تغيير أمني صادر من هذا الـ Mac} cancelled {أُلغي تغيير أمني صادر من هذا الـ Mac} other {تعذّر تطبيق تغيير أمني صادر من هذا الـ Mac}}"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Du hast in Psyche ein erneutes Versiegeln angefordert} other {Ein Befehl auf diesem Mac hat eine Sicherheitsänderung angefordert}}} applied {Eine Sicherheitsänderung von diesem Mac wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Mac wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Mac konnte nicht angewendet werden}}"
+            "value": "{state, select, requested {Ein Befehl auf diesem Mac hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Mac wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Mac wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Mac konnte nicht angewendet werden}}"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {You asked for a re-seal in Psyche} other {A command on this Mac asked for a security change}}} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}"
+            "value": "{state, select, requested {A command on this Mac asked for a security change} applied {A security change from this Mac was applied} cancelled {A security change from this Mac was cancelled} other {A security change from this Mac could not be applied}}"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Pediste volver a sellar en Psyche} other {Un comando de este Mac pidió un cambio de seguridad}}} applied {Se aplicó un cambio de seguridad de este Mac} cancelled {Se canceló un cambio de seguridad de este Mac} other {No se pudo aplicar un cambio de seguridad de este Mac}}"
+            "value": "{state, select, requested {Un comando de este Mac pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad de este Mac} cancelled {Se canceló un cambio de seguridad de este Mac} other {No se pudo aplicar un cambio de seguridad de este Mac}}"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Vous avez demandé de sceller à nouveau dans Psyche} other {Une commande sur ce Mac a demandé une modification de sécurité}}} applied {Une modification de sécurité venant de ce Mac a été appliquée} cancelled {Une modification de sécurité venant de ce Mac a été annulée} other {Une modification de sécurité venant de ce Mac n’a pas pu être appliquée}}"
+            "value": "{state, select, requested {Une commande sur ce Mac a demandé une modification de sécurité} applied {Une modification de sécurité venant de ce Mac a été appliquée} cancelled {Une modification de sécurité venant de ce Mac a été annulée} other {Une modification de sécurité venant de ce Mac n’a pas pu être appliquée}}"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {आपने Psyche में फिर से सील करने का अनुरोध किया} other {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा}}} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}"
+            "value": "{state, select, requested {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Hai chiesto di sigillare di nuovo in Psyche} other {Un comando su questo Mac ha chiesto una modifica di sicurezza}}} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}"
+            "value": "{state, select, requested {Un comando su questo Mac ha chiesto una modifica di sicurezza} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Psyche で再封印を依頼しました} other {この Mac のコマンドがセキュリティ変更を要求しました}}} applied {この Mac からのセキュリティ変更を適用しました} cancelled {この Mac からのセキュリティ変更を取り消しました} other {この Mac からのセキュリティ変更を適用できませんでした}}"
+            "value": "{state, select, requested {この Mac のコマンドがセキュリティ変更を要求しました} applied {この Mac からのセキュリティ変更を適用しました} cancelled {この Mac からのセキュリティ変更を取り消しました} other {この Mac からのセキュリティ変更を適用できませんでした}}"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Psyche에서 다시 봉인을 요청했습니다} other {이 Mac의 명령이 보안 변경을 요청했습니다}}} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}"
+            "value": "{state, select, requested {이 Mac의 명령이 보안 변경을 요청했습니다} applied {이 Mac에서 요청한 보안 변경이 적용되었습니다} cancelled {이 Mac에서 요청한 보안 변경이 취소되었습니다} other {이 Mac에서 요청한 보안 변경을 적용하지 못했습니다}}"
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {Você pediu para selar de novo no Psyche} other {Um comando neste Mac pediu uma alteração de segurança}}} applied {Uma alteração de segurança deste Mac foi aplicada} cancelled {Uma alteração de segurança deste Mac foi cancelada} other {Uma alteração de segurança deste Mac não pôde ser aplicada}}"
+            "value": "{state, select, requested {Um comando neste Mac pediu uma alteração de segurança} applied {Uma alteração de segurança deste Mac foi aplicada} cancelled {Uma alteração de segurança deste Mac foi cancelada} other {Uma alteração de segurança deste Mac não pôde ser aplicada}}"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "{state, select, requested {{via, select, desktop {你在 Psyche 中请求了重新封存} other {这台 Mac 上的命令请求了一项安全更改}}} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}"
+            "value": "{state, select, requested {这台 Mac 上的命令请求了一项安全更改} applied {来自这台 Mac 的安全更改已应用} cancelled {来自这台 Mac 的安全更改已取消} other {来自这台 Mac 的安全更改无法应用}}"
           }
         }
       }

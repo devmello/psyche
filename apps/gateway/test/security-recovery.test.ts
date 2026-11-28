@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDevice, insertDevice, openDb, setSetting, updateDevice } from "@psyche/db";
 import type { SecurityStateStatus } from "@psyche/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
+import { securityHandlers } from "../src/handlers/security.ts";
 import { PRESENCE_ENROLLED_SETTING } from "../src/presence-gate.ts";
 import {
   adminClient,
@@ -479,8 +480,13 @@ describe("security.reseal.request (the Mac app's Re-seal button)", () => {
     other.sqlite.prepare("UPDATE security_seal SET agg = ?").run("00".repeat(32));
     other.close();
     expect((await state(admin)).status).toBe("untrusted");
+    // The dispatcher refuses a non-app caller before the handler runs (`hostOnly` in the protocol).
+    const handler = securityHandlers["security.reseal.request"];
+    expect(handler).toBeDefined();
+    const ran = vi.spyOn(handler as { run: (...a: never[]) => unknown }, "run");
     for (const c of [remote, plain]) {
       const res = await c.request("security.reseal.request", {}, ik());
+      expect(ran).not.toHaveBeenCalled();
       expect(res).toMatchObject({
         ok: false,
         error: {
@@ -494,6 +500,8 @@ describe("security.reseal.request (the Mac app's Re-seal button)", () => {
     expect((await state(admin)).recoveries.filter((x) => x.status === "waiting")).toHaveLength(0);
     // Positive control: the same untrusted state accepts the request from the app on this Mac.
     expect(await admin.request("security.reseal.request", {}, ik())).toMatchObject({ ok: true });
+    expect(ran).toHaveBeenCalledTimes(1);
+    ran.mockRestore();
   });
 
   it("a read-only app, or a device row planted with admin, is a Host app like any other: it asks only as the app", async () => {

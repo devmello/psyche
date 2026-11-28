@@ -299,11 +299,15 @@ export function alertMessage(alert: SecurityAlert): NoticeMessage {
     case "recovery_cancelled":
     case "recovery_failed":
       return {
-        titleKey: "notice.security.recovery.title",
+        // A re-seal the owner asked for in the app has its own title: a client that does not know
+        // the id shows the English title; the generic id stays as it was for every other origin.
+        titleKey:
+          alert.kind === "recovery_requested" && d.via === "desktop"
+            ? "notice.security.resealRequested.title"
+            : "notice.security.recovery.title",
         bodyKey: "notice.security.recovery.body",
         params: {
           state: stateOf(alert.kind),
-          via: d.via === "desktop" ? "desktop" : "cli",
           op,
           device,
           key: key ?? "none",

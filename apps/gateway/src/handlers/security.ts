@@ -1,4 +1,5 @@
 import { type MethodResult, PsycheError } from "@psyche/protocol";
+import { hostOnlyRefusal } from "../auth.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 
@@ -77,7 +78,8 @@ export const securityHandlers: Record<string, HandlerDef> = {
       // view, which a trusted admin can cancel. Every part of the proof comes from the connection:
       // the desktop shell (loopback, no Origin, not the LAN listener, the per-launch handshake
       // secret in `$PSYCHE_HOME/run`, which the exec sandbox and file tools deny). A paired phone
-      // or remote Mac cannot ask, even as a trusted admin.
+      // or remote Mac cannot ask, even as a trusted admin. The dispatcher refuses first (the
+      // method is `hostOnly` in the protocol); this is the second guard.
       const { identity, conn } = call;
       if (
         identity.desktopShell !== true ||
@@ -85,10 +87,7 @@ export const securityHandlers: Record<string, HandlerDef> = {
         conn.peer.origin !== null ||
         conn.peer.lan === true
       ) {
-        throw new PsycheError(
-          "forbidden",
-          "Only the Psyche app on the Mac itself can ask for a re-seal. In a terminal on the Mac, run `psyched security reseal`",
-        );
+        throw new PsycheError("forbidden", hostOnlyRefusal("security.reseal.request"));
       }
       return { recovery: recoveries.requestReseal(identity.deviceId) };
     },

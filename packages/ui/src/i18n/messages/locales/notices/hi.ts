@@ -24,8 +24,9 @@ export const notices: Partial<Catalogue> = {
   "notice.security.firstAdmin.title": "इस Mac पर एक कमांड ने पहला एडमिन डिवाइस बनाया",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (कुंजी {key})}} इस Mac पर {via, select, desktop {Psyche ऐप से} other {`psyched` के ज़रिए}} पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो इसे सेटिंग → डिवाइस में रद्द करें।",
+  "notice.security.resealRequested.title": "आपने Psyche में फिर से सील करने का अनुरोध किया",
   "notice.security.recovery.title":
-    "{state, select, requested {{via, select, desktop {आपने Psyche में फिर से सील करने का अनुरोध किया} other {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा}}} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}",
+    "{state, select, requested {इस Mac पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस Mac से आया सुरक्षा बदलाव लागू हो गया} cancelled {इस Mac से आया सुरक्षा बदलाव रद्द कर दिया गया} other {इस Mac से आया सुरक्षा बदलाव लागू नहीं हो सका}}",
   "notice.security.recovery.body":
     "{op, select, approve {डिवाइस {device}{key, select, none {} other { (कुंजी {key})}} को {scopes} के साथ मंज़ूरी दें।} grant {{device}{key, select, none {} other { (कुंजी {key})}} को {scopes} दें।} presence {भुगतान की सुरक्षा करने वाली कुंजी तब तक हटाएँ जब तक नई कुंजी पंजीकृत न हो।} seal {मौजूदा सुरक्षा रिकॉर्ड जैसे हैं वैसे ही स्वीकार करें।} other {एक सुरक्षा बदलाव।}}{state, select, requested { यह {when, select, none {24 घंटे में} other {{when} को}} लागू होगा, जब तक आप इसे Psyche में रद्द न करें।} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche आपका Chrome चला रहा है",

@@ -122,7 +122,7 @@ describe("alertNotifyDecision", () => {
       }),
     );
     expect(fromApp.title).toBe("You asked for a re-seal in Psyche");
-    expect(fromApp.message.params).toMatchObject({ state: "requested", via: "desktop" });
+    expect(fromApp.message.titleKey).toBe("notice.security.resealRequested.title");
     // Positive control: the same alert from `psyched` keeps the command wording.
     const fromCli = alertNotice(
       book.add("recovery_requested", {
@@ -132,6 +132,6 @@ describe("alertNotifyDecision", () => {
       }),
     );
     expect(fromCli.title).toBe("A command on this Mac asked for a security change");
-    expect(fromCli.message.params).toMatchObject({ state: "requested", via: "cli" });
+    expect(fromCli.message.titleKey).toBe("notice.security.recovery.title");
   });
 });

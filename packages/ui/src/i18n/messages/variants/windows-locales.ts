@@ -18,7 +18,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {طلبتَ إعادة الختم في Psyche} other {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا}}} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
+      "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
     "screens.library.reveal": "إظهار في المجلد",
     "web.security.banner.recovery":
       "{count, plural, one {تغيير أمان طُلب على هذا الكمبيوتر سيُطبَّق في {when} ما لم تلغه.} two {تغييرا أمان طُلبا على هذا الكمبيوتر ينتظران. التالي يُطبَّق في {when}.} few {# تغييرات أمان طُلبت على هذا الكمبيوتر تنتظر. التالي يُطبَّق في {when}.} many {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.} other {# تغيير أمان طُلب على هذا الكمبيوتر ينتظر. التالي يُطبَّق في {when}.}}",
@@ -45,7 +45,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem PC zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Du hast in Psyche ein erneutes Versiegeln angefordert} other {Ein Befehl auf diesem PC hat eine Sicherheitsänderung angefordert}}} applied {Eine Sicherheitsänderung von diesem PC wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem PC wurde abgebrochen} other {Eine Sicherheitsänderung von diesem PC konnte nicht angewendet werden}}",
+      "{state, select, requested {Ein Befehl auf diesem PC hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem PC wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem PC wurde abgebrochen} other {Eine Sicherheitsänderung von diesem PC konnte nicht angewendet werden}}",
     "screens.library.reveal": "Im Ordner zeigen",
     "web.security.banner.recovery":
       "{count, plural, one {Eine auf diesem PC angeforderte Sicherheitsänderung gilt ab {when}, wenn du sie nicht abbrichst.} other {# auf diesem PC angeforderte Sicherheitsänderungen warten. Die nächste gilt ab {when}.}}",
@@ -72,7 +72,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este PC. Si no fuiste tú, revócalo en Configuración → Dispositivos.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Pediste volver a sellar en Psyche} other {Un comando en este PC pidió un cambio de seguridad}}} applied {Se aplicó un cambio de seguridad desde este PC} cancelled {Se canceló un cambio de seguridad desde este PC} other {No se pudo aplicar un cambio de seguridad desde este PC}}",
+      "{state, select, requested {Un comando en este PC pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este PC} cancelled {Se canceló un cambio de seguridad desde este PC} other {No se pudo aplicar un cambio de seguridad desde este PC}}",
     "screens.library.reveal": "Mostrar en la carpeta",
     "web.security.banner.recovery":
       "{count, plural, one {Un cambio de seguridad pedido en este PC se aplica el {when} salvo que lo canceles.} other {# cambios de seguridad pedidos en este PC están en espera. El siguiente se aplica el {when}.}}",
@@ -99,7 +99,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur ce PC. Si ce n’était pas vous, révoquez-le dans Paramètres → Appareils.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Vous avez demandé de sceller à nouveau dans Psyche} other {Une commande sur ce PC a demandé une modification de sécurité}}} applied {Une modification de sécurité venant de ce PC a été appliquée} cancelled {Une modification de sécurité venant de ce PC a été annulée} other {Une modification de sécurité venant de ce PC n’a pas pu être appliquée}}",
+      "{state, select, requested {Une commande sur ce PC a demandé une modification de sécurité} applied {Une modification de sécurité venant de ce PC a été appliquée} cancelled {Une modification de sécurité venant de ce PC a été annulée} other {Une modification de sécurité venant de ce PC n’a pas pu être appliquée}}",
     "screens.library.reveal": "Afficher dans le dossier",
     "web.security.banner.recovery":
       "{count, plural, one {Une modification de sécurité demandée sur ce PC s’applique le {when}, sauf si vous l’annulez.} other {# modifications de sécurité demandées sur ce PC sont en attente. La prochaine s’applique le {when}.}}",
@@ -124,7 +124,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस PC पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {आपने Psyche में फिर से सील करने का अनुरोध किया} other {इस PC पर एक कमांड ने सुरक्षा बदलाव माँगा}}} applied {इस PC से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस PC से एक सुरक्षा बदलाव रद्द किया गया} other {इस PC से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
+      "{state, select, requested {इस PC पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस PC से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस PC से एक सुरक्षा बदलाव रद्द किया गया} other {इस PC से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
     "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
     "web.security.banner.recovery":
       "{count, plural, one {इस PC पर माँगा गया एक सुरक्षा बदलाव {when} को लागू होगा, जब तक आप इसे रद्द न करें।} other {इस PC पर माँगे गए # सुरक्षा बदलाव प्रतीक्षा में हैं। अगला {when} को लागू होगा।}}",
@@ -151,7 +151,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo PC. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Hai chiesto di sigillare di nuovo in Psyche} other {Un comando su questo PC ha chiesto una modifica di sicurezza}}} applied {È stata applicata una modifica di sicurezza da questo PC} cancelled {È stata annullata una modifica di sicurezza da questo PC} other {Non è stato possibile applicare una modifica di sicurezza da questo PC}}",
+      "{state, select, requested {Un comando su questo PC ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo PC} cancelled {È stata annullata una modifica di sicurezza da questo PC} other {Non è stato possibile applicare una modifica di sicurezza da questo PC}}",
     "screens.library.reveal": "Mostra nella cartella",
     "web.security.banner.recovery":
       "{count, plural, one {Una modifica di sicurezza richiesta su questo PC si applica il {when}, a meno che tu non la annulli.} other {# modifiche di sicurezza richieste su questo PC sono in attesa. La prossima si applica il {when}.}}",
@@ -177,7 +177,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}この PC で最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Psyche で再封印を依頼しました} other {この PC のコマンドがセキュリティ変更を要求しました}}} applied {この PC からのセキュリティ変更が適用されました} cancelled {この PC からのセキュリティ変更が取り消されました} other {この PC からのセキュリティ変更は適用できませんでした}}",
+      "{state, select, requested {この PC のコマンドがセキュリティ変更を要求しました} applied {この PC からのセキュリティ変更が適用されました} cancelled {この PC からのセキュリティ変更が取り消されました} other {この PC からのセキュリティ変更は適用できませんでした}}",
     "screens.library.reveal": "フォルダーで表示",
     "web.security.banner.recovery":
       "{count, plural, other {この PC で要求されたセキュリティ変更が # 件待機中です。次の変更はキャンセルしない限り {when} に適用されます。}}",
@@ -202,7 +202,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 PC의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Psyche에서 다시 봉인을 요청했습니다} other {이 PC의 명령으로 보안 변경이 요청되었습니다}}} applied {이 PC에서 요청한 보안 변경이 적용되었습니다} cancelled {이 PC에서 요청한 보안 변경이 취소되었습니다} other {이 PC에서 요청한 보안 변경을 적용하지 못했습니다}}",
+      "{state, select, requested {이 PC의 명령으로 보안 변경이 요청되었습니다} applied {이 PC에서 요청한 보안 변경이 적용되었습니다} cancelled {이 PC에서 요청한 보안 변경이 취소되었습니다} other {이 PC에서 요청한 보안 변경을 적용하지 못했습니다}}",
     "screens.library.reveal": "폴더에서 보기",
     "web.security.banner.recovery":
       "{count, plural, other {이 PC에서 요청된 보안 변경 #건이 대기 중입니다. 다음 변경은 취소하지 않으면 {when}에 적용됩니다.}}",
@@ -229,7 +229,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste PC. Se não foi você, revogue-o em Configurações → Dispositivos.",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {Você pediu para selar de novo no Psyche} other {Um comando neste PC pediu uma alteração de segurança}}} applied {Uma alteração de segurança deste PC foi aplicada} cancelled {Uma alteração de segurança deste PC foi cancelada} other {Uma alteração de segurança deste PC não pôde ser aplicada}}",
+      "{state, select, requested {Um comando neste PC pediu uma alteração de segurança} applied {Uma alteração de segurança deste PC foi aplicada} cancelled {Uma alteração de segurança deste PC foi cancelada} other {Uma alteração de segurança deste PC não pôde ser aplicada}}",
     "screens.library.reveal": "Mostrar na pasta",
     "web.security.banner.recovery":
       "{count, plural, one {Uma alteração de segurança pedida neste PC será aplicada em {when}, a menos que você a cancele.} other {# alterações de segurança pedidas neste PC estão aguardando. A próxima será aplicada em {when}.}}",
@@ -254,7 +254,7 @@ export const WINDOWS_LOCALES: Readonly<
     "notice.security.firstAdmin.body":
       "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台 PC 上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
     "notice.security.recovery.title":
-      "{state, select, requested {{via, select, desktop {你在 Psyche 中请求了重新封存} other {这台 PC 上的一条命令请求了安全更改}}} applied {这台 PC 发起的安全更改已应用} cancelled {这台 PC 发起的安全更改已取消} other {这台 PC 发起的安全更改无法应用}}",
+      "{state, select, requested {这台 PC 上的一条命令请求了安全更改} applied {这台 PC 发起的安全更改已应用} cancelled {这台 PC 发起的安全更改已取消} other {这台 PC 发起的安全更改无法应用}}",
     "screens.library.reveal": "在文件夹中显示",
     "web.security.banner.recovery":
       "{count, plural, other {在这台 PC 上请求的 # 项安全更改正在等待。除非你取消，下一项将于 {when} 生效。}}",

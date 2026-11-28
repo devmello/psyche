@@ -26,8 +26,9 @@ export const notices: Partial<Catalogue> = {
     "Une commande sur ce Mac a créé le premier appareil administrateur",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’app Psyche} other {via `psyched`}} sur ce Mac. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils.",
+  "notice.security.resealRequested.title": "Vous avez demandé de sceller à nouveau dans Psyche",
   "notice.security.recovery.title":
-    "{state, select, requested {{via, select, desktop {Vous avez demandé de sceller à nouveau dans Psyche} other {Une commande sur ce Mac a demandé une modification de sécurité}}} applied {Une modification de sécurité venant de ce Mac a été appliquée} cancelled {Une modification de sécurité venant de ce Mac a été annulée} other {Une modification de sécurité venant de ce Mac n’a pas pu être appliquée}}",
+    "{state, select, requested {Une commande sur ce Mac a demandé une modification de sécurité} applied {Une modification de sécurité venant de ce Mac a été appliquée} cancelled {Une modification de sécurité venant de ce Mac a été annulée} other {Une modification de sécurité venant de ce Mac n’a pas pu être appliquée}}",
   "notice.security.recovery.body":
     "{op, select, approve {Approuver l’appareil {device}{key, select, none {} other { (clé {key})}} avec {scopes}.} grant {Donner à {device}{key, select, none {} other { (clé {key})}} {scopes}.} presence {Effacer la clé qui protège les paiements jusqu’à l’enregistrement d’une nouvelle.} seal {Accepter les enregistrements de sécurité actuels tels quels.} other {Une modification de sécurité.}}{state, select, requested { Elle s’applique {when, select, none {dans 24 heures} other {le {when}}} sauf si vous l’annulez dans Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche pilote votre Chrome",

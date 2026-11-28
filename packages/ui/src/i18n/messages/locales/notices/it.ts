@@ -26,8 +26,9 @@ export const notices: Partial<Catalogue> = {
     "Un comando su questo Mac ha creato il primo dispositivo amministratore",
   "notice.security.firstAdmin.body":
     "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo Mac. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
+  "notice.security.resealRequested.title": "Hai chiesto di sigillare di nuovo in Psyche",
   "notice.security.recovery.title":
-    "{state, select, requested {{via, select, desktop {Hai chiesto di sigillare di nuovo in Psyche} other {Un comando su questo Mac ha chiesto una modifica di sicurezza}}} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}",
+    "{state, select, requested {Un comando su questo Mac ha chiesto una modifica di sicurezza} applied {Una modifica di sicurezza da questo Mac è stata applicata} cancelled {Una modifica di sicurezza da questo Mac è stata annullata} other {Una modifica di sicurezza da questo Mac non è stata applicata}}",
   "notice.security.recovery.body":
     "{op, select, approve {Approvare il dispositivo {device}{key, select, none {} other { (chiave {key})}} con {scopes}.} grant {Dare a {device}{key, select, none {} other { (chiave {key})}} {scopes}.} presence {Cancellare la chiave che protegge i pagamenti finché non ne viene registrata una nuova.} seal {Accettare i registri di sicurezza attuali così come sono.} other {Una modifica di sicurezza.}}{state, select, requested { Viene applicata {when, select, none {tra 24 ore} other {il {when}}} se non la annulli in Psyche.} failed {{reason, select, none {} other { {reason}}}} other {}}",
   "notice.browser.chrome.title": "Psyche sta usando il tuo Chrome",

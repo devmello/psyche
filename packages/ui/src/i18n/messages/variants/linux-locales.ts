@@ -21,7 +21,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (المفتاح {key})}} أصبح أول جهاز مسؤول {via, select, desktop {من تطبيق Psyche} other {عبر `psyched`}} على هذا الكمبيوتر. إن لم تكن أنت من فعل ذلك، فألغِه من الإعدادات ← الأجهزة.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {طلبتَ إعادة الختم في Psyche} other {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا}}} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
+        "{state, select, requested {طلب أمر على هذا الكمبيوتر تغييرًا أمنيًا} applied {طُبّق تغيير أمني من هذا الكمبيوتر} cancelled {أُلغي تغيير أمني من هذا الكمبيوتر} other {تعذّر تطبيق تغيير أمني من هذا الكمبيوتر}}",
       "screens.library.reveal": "إظهار في المجلد",
       "settings.devices.nodeKind.hostHelper": "مساعد Linux",
       "settings.links.description":
@@ -396,7 +396,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (Schlüssel {key})}} wurde {via, select, desktop {über die Psyche-App} other {über `psyched`}} auf diesem Computer zum ersten Admin-Gerät. Wenn du das nicht warst, widerrufe es unter Einstellungen → Geräte.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Du hast in Psyche ein erneutes Versiegeln angefordert} other {Ein Befehl auf diesem Computer hat eine Sicherheitsänderung angefordert}}} applied {Eine Sicherheitsänderung von diesem Computer wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Computer wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Computer konnte nicht angewendet werden}}",
+        "{state, select, requested {Ein Befehl auf diesem Computer hat eine Sicherheitsänderung angefordert} applied {Eine Sicherheitsänderung von diesem Computer wurde angewendet} cancelled {Eine Sicherheitsänderung von diesem Computer wurde abgebrochen} other {Eine Sicherheitsänderung von diesem Computer konnte nicht angewendet werden}}",
       "screens.library.reveal": "Im Ordner zeigen",
       "settings.devices.nodeKind.hostHelper": "Linux-Helfer",
       "settings.links.description":
@@ -793,7 +793,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (clave {key})}} pasó a ser el primer dispositivo administrador {via, select, desktop {desde la app de Psyche} other {mediante `psyched`}} en este ordenador. Si no fuiste tú, revócalo en Ajustes → Dispositivos.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Pediste volver a sellar en Psyche} other {Un comando en este ordenador pidió un cambio de seguridad}}} applied {Se aplicó un cambio de seguridad desde este ordenador} cancelled {Se canceló un cambio de seguridad desde este ordenador} other {No se pudo aplicar un cambio de seguridad desde este ordenador}}",
+        "{state, select, requested {Un comando en este ordenador pidió un cambio de seguridad} applied {Se aplicó un cambio de seguridad desde este ordenador} cancelled {Se canceló un cambio de seguridad desde este ordenador} other {No se pudo aplicar un cambio de seguridad desde este ordenador}}",
       "screens.library.reveal": "Mostrar en la carpeta",
       "settings.devices.nodeKind.hostHelper": "Asistente de Linux",
       "settings.links.description":
@@ -1194,7 +1194,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (clé {key})}} est devenu le premier appareil administrateur {via, select, desktop {depuis l’application Psyche} other {via `psyched`}} sur cet ordinateur. Si ce n’était pas vous, révoquez-le dans Réglages → Appareils.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Vous avez demandé de sceller à nouveau dans Psyche} other {Une commande sur cet ordinateur a demandé une modification de sécurité}}} applied {Une modification de sécurité venant de cet ordinateur a été appliquée} cancelled {Une modification de sécurité venant de cet ordinateur a été annulée} other {Une modification de sécurité venant de cet ordinateur n’a pas pu être appliquée}}",
+        "{state, select, requested {Une commande sur cet ordinateur a demandé une modification de sécurité} applied {Une modification de sécurité venant de cet ordinateur a été appliquée} cancelled {Une modification de sécurité venant de cet ordinateur a été annulée} other {Une modification de sécurité venant de cet ordinateur n’a pas pu être appliquée}}",
       "screens.library.reveal": "Afficher dans le dossier",
       "settings.devices.nodeKind.hostHelper": "Assistant Linux",
       "settings.links.description":
@@ -1595,7 +1595,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (कुंजी {key})}} {via, select, desktop {Psyche ऐप से} other {`psyched` के जरिए}} इस कंप्यूटर पर पहला एडमिन डिवाइस बन गया। अगर यह आपने नहीं किया, तो सेटिंग्स → डिवाइस में उसे रद्द करें।",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {आपने Psyche में फिर से सील करने का अनुरोध किया} other {इस कंप्यूटर पर एक कमांड ने सुरक्षा बदलाव माँगा}}} applied {इस कंप्यूटर से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस कंप्यूटर से एक सुरक्षा बदलाव रद्द किया गया} other {इस कंप्यूटर से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
+        "{state, select, requested {इस कंप्यूटर पर एक कमांड ने सुरक्षा बदलाव माँगा} applied {इस कंप्यूटर से एक सुरक्षा बदलाव लागू किया गया} cancelled {इस कंप्यूटर से एक सुरक्षा बदलाव रद्द किया गया} other {इस कंप्यूटर से एक सुरक्षा बदलाव लागू नहीं हो सका}}",
       "screens.library.reveal": "फ़ोल्डर में दिखाएँ",
       "settings.devices.nodeKind.hostHelper": "Linux हेल्पर",
       "settings.links.description":
@@ -1967,7 +1967,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (chiave {key})}} è diventato il primo dispositivo amministratore {via, select, desktop {dall’app Psyche} other {tramite `psyched`}} su questo computer. Se non sei stato tu, revocalo in Impostazioni → Dispositivi.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Hai chiesto di sigillare di nuovo in Psyche} other {Un comando su questo computer ha chiesto una modifica di sicurezza}}} applied {È stata applicata una modifica di sicurezza da questo computer} cancelled {È stata annullata una modifica di sicurezza da questo computer} other {Non è stato possibile applicare una modifica di sicurezza da questo computer}}",
+        "{state, select, requested {Un comando su questo computer ha chiesto una modifica di sicurezza} applied {È stata applicata una modifica di sicurezza da questo computer} cancelled {È stata annullata una modifica di sicurezza da questo computer} other {Non è stato possibile applicare una modifica di sicurezza da questo computer}}",
       "screens.library.reveal": "Mostra nella cartella",
       "settings.devices.nodeKind.hostHelper": "Assistente Linux",
       "settings.links.description":
@@ -2363,7 +2363,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other {（キー {key}）}}は、{via, select, desktop {Psyche アプリから} other {`psyched` を通じて}}このコンピュータで最初の管理者デバイスになりました。心当たりがない場合は、設定 → デバイスで取り消してください。",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Psyche で再封印を依頼しました} other {このコンピュータのコマンドがセキュリティ変更を要求しました}}} applied {このコンピュータからのセキュリティ変更が適用されました} cancelled {このコンピュータからのセキュリティ変更が取り消されました} other {このコンピュータからのセキュリティ変更は適用できませんでした}}",
+        "{state, select, requested {このコンピュータのコマンドがセキュリティ変更を要求しました} applied {このコンピュータからのセキュリティ変更が適用されました} cancelled {このコンピュータからのセキュリティ変更が取り消されました} other {このコンピュータからのセキュリティ変更は適用できませんでした}}",
       "screens.library.reveal": "フォルダーで表示",
       "settings.devices.nodeKind.hostHelper": "Linux ヘルパー",
       "settings.links.description":
@@ -2757,7 +2757,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (키 {key})}}이(가) {via, select, desktop {Psyche 앱에서} other {`psyched`를 통해}} 이 컴퓨터의 첫 관리자 기기가 되었습니다. 본인이 한 일이 아니라면 설정 → 기기에서 취소하세요.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Psyche에서 다시 봉인을 요청했습니다} other {이 컴퓨터의 명령으로 보안 변경이 요청되었습니다}}} applied {이 컴퓨터에서 요청한 보안 변경이 적용되었습니다} cancelled {이 컴퓨터에서 요청한 보안 변경이 취소되었습니다} other {이 컴퓨터에서 요청한 보안 변경을 적용하지 못했습니다}}",
+        "{state, select, requested {이 컴퓨터의 명령으로 보안 변경이 요청되었습니다} applied {이 컴퓨터에서 요청한 보안 변경이 적용되었습니다} cancelled {이 컴퓨터에서 요청한 보안 변경이 취소되었습니다} other {이 컴퓨터에서 요청한 보안 변경을 적용하지 못했습니다}}",
       "screens.library.reveal": "폴더에서 보기",
       "settings.devices.nodeKind.hostHelper": "Linux 도우미",
       "settings.links.description":
@@ -3135,7 +3135,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other { (chave {key})}} tornou-se o primeiro dispositivo administrador {via, select, desktop {pelo app Psyche} other {por meio do `psyched`}} neste computador. Se não foi você, revogue-o em Configurações → Dispositivos.",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {Você pediu para selar de novo no Psyche} other {Um comando neste computador pediu uma alteração de segurança}}} applied {Uma alteração de segurança deste computador foi aplicada} cancelled {Uma alteração de segurança deste computador foi cancelada} other {Uma alteração de segurança deste computador não pôde ser aplicada}}",
+        "{state, select, requested {Um comando neste computador pediu uma alteração de segurança} applied {Uma alteração de segurança deste computador foi aplicada} cancelled {Uma alteração de segurança deste computador foi cancelada} other {Uma alteração de segurança deste computador não pôde ser aplicada}}",
       "screens.library.reveal": "Mostrar na pasta",
       "settings.devices.nodeKind.hostHelper": "Assistente do Linux",
       "settings.links.description":
@@ -3523,7 +3523,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
       "notice.security.firstAdmin.body":
         "{device}{key, select, none {} other {（密钥 {key}）}}{via, select, desktop {通过 Psyche 应用} other {通过 `psyched`}}在这台电脑上成为了第一台管理员设备。如果不是你做的，请在“设置 → 设备”中撤销它。",
       "notice.security.recovery.title":
-        "{state, select, requested {{via, select, desktop {你在 Psyche 中请求了重新封存} other {这台电脑上的一条命令请求了安全更改}}} applied {这台电脑发起的安全更改已应用} cancelled {这台电脑发起的安全更改已取消} other {这台电脑发起的安全更改无法应用}}",
+        "{state, select, requested {这台电脑上的一条命令请求了安全更改} applied {这台电脑发起的安全更改已应用} cancelled {这台电脑发起的安全更改已取消} other {这台电脑发起的安全更改无法应用}}",
       "screens.library.reveal": "在文件夹中显示",
       "settings.devices.nodeKind.hostHelper": "Linux 助手",
       "settings.links.description":
