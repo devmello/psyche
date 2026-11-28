@@ -182,7 +182,7 @@ Settings opens from the gear or ⌘, on **General**, the first of seven pages: i
 - **VM mode** (`vm`, a group inside Computer use): run tasks in a separate sandbox Mac.
 - **Privacy & data** (`data`): everything stays on this machine. **How long things are kept** (thinking, task replays), **Maps**, **Widgets in chat** (pictures from the web), **Export everything**, Backups, and last, under **Delete and start over**: Delete threads and **Reset memory…** (type "reset").
 
-**Devices & server** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`: remote access, allowing other computers, passkeys, sandbox health; **Set up** opens the remote-access guide). The address the Gateway listens on is set in the config file, not here.
+**Devices & server** (`devices`): **Devices & nodes** (`devices`) and **Network & remote access** (`server`: remote access, allowing other computers, passkeys, sandbox health; **Set up** opens the remote-access guide). The address the Gateway listens on is set in the config file, not here.
 
 ## Onboarding
 

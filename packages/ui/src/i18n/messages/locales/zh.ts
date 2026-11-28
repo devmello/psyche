@@ -1146,7 +1146,7 @@ export const zh: Partial<Catalogue> = {
   "settings.nav.appearance": "外观",
   "settings.nav.voice": "语音与听写",
   "settings.nav.data": "隐私与数据",
-  "settings.nav.server": "设备",
+  "settings.nav.server": "网络与远程访问",
   "settings.nav.usage": "用量",
   "settings.nav.about": "关于",
 

@@ -1119,7 +1119,7 @@ export const ko: Partial<Catalogue> = {
   "settings.nav.appearance": "화면 모드",
   "settings.nav.voice": "음성 및 받아쓰기",
   "settings.nav.data": "개인정보 및 데이터",
-  "settings.nav.server": "기기",
+  "settings.nav.server": "네트워크 및 원격 접속",
   "settings.nav.usage": "사용량",
   "settings.nav.about": "정보",
   "settings.row.moreFor": "{name} 더 보기",

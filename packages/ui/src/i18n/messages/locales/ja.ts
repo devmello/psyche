@@ -1119,7 +1119,7 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.appearance": "外観",
   "settings.nav.voice": "音声と音声入力",
   "settings.nav.data": "プライバシーとデータ",
-  "settings.nav.server": "デバイス",
+  "settings.nav.server": "ネットワークとリモートアクセス",
   "settings.nav.usage": "使用状況",
   "settings.nav.about": "情報",
   "settings.row.moreFor": "{name}のその他の操作",

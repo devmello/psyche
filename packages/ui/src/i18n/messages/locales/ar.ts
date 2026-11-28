@@ -1176,7 +1176,7 @@ export const ar: Partial<Catalogue> = {
   "settings.nav.appearance": "المظهر",
   "settings.nav.voice": "الصوت والإملاء",
   "settings.nav.data": "الخصوصية والبيانات",
-  "settings.nav.server": "الأجهزة",
+  "settings.nav.server": "الشبكة والوصول عن بُعد",
   "settings.nav.usage": "الاستخدام",
   "settings.nav.about": "حول",
 

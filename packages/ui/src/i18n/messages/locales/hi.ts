@@ -1132,7 +1132,7 @@ export const hi: Partial<Catalogue> = {
   "settings.nav.appearance": "रूप-रंग",
   "settings.nav.voice": "आवाज़ और श्रुतलेख",
   "settings.nav.data": "गोपनीयता और डेटा",
-  "settings.nav.server": "डिवाइस",
+  "settings.nav.server": "नेटवर्क और रिमोट एक्सेस",
   "settings.nav.usage": "उपयोग",
   "settings.nav.about": "बारे में",
 

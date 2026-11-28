@@ -1117,7 +1117,7 @@ export const fr: Partial<Catalogue> = {
   "settings.nav.appearance": "Apparence",
   "settings.nav.voice": "Voix et dictée",
   "settings.nav.data": "Confidentialité et données",
-  "settings.nav.server": "Appareils",
+  "settings.nav.server": "Réseau et accès à distance",
   "settings.nav.usage": "Utilisation",
   "settings.nav.about": "À propos",
   "settings.row.moreFor": "Plus pour {name}",
