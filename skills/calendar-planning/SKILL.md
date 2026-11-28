@@ -22,7 +22,7 @@ Make the owner's time match their priorities, and make every calendar change one
 - `reminders_list`, `reminders_create` (deadlines as reminders on the Mac)
 - `schedule` (reminders and recurring automations), `notify`
 - `memory_search` (routines, focus blocks, preferences), `goal.list` (what the week should serve)
-- `email.read` / `email.draft` (when scheduling with other people), `ask_user`, `artifact.create`
+- Your mail read and draft tools (`mail_read` or `gmail_read_thread`, `mail_draft` or `gmail_create_draft`) when scheduling with other people, `ask_user`, `artifact.create`
 
 ## Approvals you should expect
 

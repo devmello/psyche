@@ -1230,8 +1230,6 @@ describe("staging gate: none and read tools", () => {
       new_str: "x",
     },
     { command: "insert", path: "/memories/agent/payees.md", insert_line: 0, insert_text: "x" },
-    { command: "delete", path: "/memories/agent/payees.md" },
-    { command: "rename", old_path: "/memories/agent/payees.md", new_path: "/memories/agent/x.md" },
   ];
   const memoryHarness = (input: Record<string, unknown>) =>
     harness({

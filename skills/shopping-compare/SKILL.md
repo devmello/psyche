@@ -22,7 +22,7 @@ For a long hunt across many stores, or one the owner doesn't need to watch, star
 
 - `search`, `fetch`, `browser.*` (see `browsing`)
 - `purchase.checkout` (creates a Stripe Link spend request for the exact cart; Psyche fills payment only after the owner approves)
-- `schedule` (price watches), `email.search` (order confirmations and tracking)
+- `schedule` (price watches), your mail search tool (`mail_search` or `gmail_search_threads`) for order confirmations and tracking
 - `memory_search` (sizes, brands, past orders, budget), `ask_user`, `artifact.create`
 
 ## Approvals you should expect
@@ -56,4 +56,4 @@ For a **price watch**, create a scheduled watch with the item URL, the target pr
 
 ## Order tracking
 
-After a purchase, or when the owner asks "where's my order?", find the merchant's confirmation and shipping emails (`email.search`), read order number, items, carrier and tracking status (schema.org `Order` data when the email has it), and report the expected delivery date. Offer a reminder for the delivery day.
+After a purchase, or when the owner asks "where's my order?", find the merchant's confirmation and shipping emails (`mail_search` or `gmail_search_threads`, then `mail_read` or `gmail_read_thread`), read order number, items, carrier and tracking status (schema.org `Order` data when the email has it), and report the expected delivery date. Offer a reminder for the delivery day.

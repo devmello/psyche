@@ -74,14 +74,10 @@ describe("tool input schemas (#414)", () => {
   it("flattens memory's commands the same way", () => {
     const memory = allTools().find((t) => t.spec.name === "memory") as AgentToolRegistration;
     const s = memory.spec.inputSchema as { properties: Record<string, { enum?: string[] }> };
-    expect(s.properties.command?.enum).toEqual([
-      "view",
-      "create",
-      "str_replace",
-      "insert",
-      "delete",
-      "rename",
-    ]);
+    expect(s.properties.command?.enum).toEqual(["view", "create", "str_replace", "insert"]);
+    // delete and rename always failed (no MemoryStore support): the model must not be offered them.
+    expect(memory.spec.description).not.toMatch(/delete|rename/);
+    expect(JSON.stringify(memory.spec.inputSchema)).not.toMatch(/"(delete|rename)"/);
     expect(memory.validate?.({ command: "view", path: "MEMORY.md" })).toBeUndefined();
     expect(memory.validate?.({ command: "create", path: "a.md" })).toMatch(/file_text/);
   });

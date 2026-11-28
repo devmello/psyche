@@ -18,10 +18,10 @@ Show the owner every recurring charge, what it costs per year, and let them canc
 
 ## Tools
 
-- `email.search`, `email.read` (receipts, renewal notices, "your trial ends" mail)
+- Your mail search and read tools (`mail_search` and `mail_read` on Apple Mail, `gmail_search_threads` and `gmail_read_thread` on Gmail): receipts, renewal notices, "your trial ends" mail
 - `sheet.read` / `sheet.query` (bank or card CSVs the owner provides; see `spreadsheet-analysis`)
 - `browser.*` (cancellation pages; see `browsing`), `search` (how to cancel a given service)
-- `email.draft` (cancellation requests by email), `task.start` (one task per cancellation)
+- Your mail draft tool (`mail_draft` on Apple Mail, `gmail_create_draft` on Gmail) for cancellation requests by email, and `task.start` (one task per cancellation)
 - `artifact.create`, `ask_user`, `schedule`
 
 ## Approvals you should expect

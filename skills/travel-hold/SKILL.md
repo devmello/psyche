@@ -20,7 +20,7 @@ Find the trip the owner would pick themselves, get it ready to book, and stop th
 
 - `search`, `fetch`, `browser.*` (airline, hotel and search sites; see `browsing`)
 - `calendar.list` (conflicts, existing plans), `calendar.create` (after booking)
-- `email.search` (existing bookings, loyalty numbers the owner keeps in mail)
+- Your mail search tool (`mail_search` or `gmail_search_threads`) for existing bookings and loyalty numbers the owner keeps in mail
 - `memory_search` (seat, airline, hotel and schedule preferences)
 - `purchase.checkout` (payment hand-off), `schedule` (fare watches), `artifact.create` (itinerary), `ask_user`
 
