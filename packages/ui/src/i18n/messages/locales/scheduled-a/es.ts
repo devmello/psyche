@@ -95,9 +95,6 @@ export const scheduledA: Partial<Catalogue> = {
     "Una revisión ligera durante el día para ver si algo necesita tu atención.",
   "automationChat.label": "Ejecuciones de {title}",
   "automationChat.runs": "{n, plural, one {# ejecución} other {# ejecuciones}}",
-  "automationChat.runs.aria":
-    "{title}, {n, plural, one {# ejecución} other {# ejecuciones}}, última ejecución {status}",
-  "automationChat.schedule": "Programado",
   "automationChat.runNow": "Ejecutar ahora",
   "automationChat.runStarted": "Ejecución iniciada.",
   "automationChat.empty":
@@ -119,7 +116,6 @@ export const scheduledA: Partial<Catalogue> = {
   "automationChat.result": "Resultado",
   "automationChat.openScheduled": "Abrir en Programado",
   "automationChat.row.runs": "{n, plural, one {# ejecución} other {# ejecuciones}}",
-  "automationChat.row.last": "Última ejecución: {status}",
   "settings.widgets.title": "Widgets en el chat",
   "settings.widgets.privacy":
     "Psyche puede dibujar pequeños paneles en el chat: progreso, listas, tablas, gráficos e imágenes. Un panel puede apuntar a una imagen de la web. Permitirlo hace que tu Gateway descargue la imagen de la web por ti (sin cookies, sin referer, nunca directamente desde tu dispositivo), y solo tipos de imagen comunes de hasta 512 KB. En un panel creado a partir de contenido no confiable, la imagen sigue esperando tu clic.",

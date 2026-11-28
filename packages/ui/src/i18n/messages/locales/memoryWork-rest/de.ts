@@ -65,8 +65,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
     "Eine zweite Mitteilung nach der Morgenübersicht: „Heute fällig: …“.",
   "memoryWork.remind.needsWrapup":
     "Der Abendrückblick ist aus, daher wird nichts gesendet. Schalte ihn ein, um das zu erhalten.",
-  "memoryWork.remind.needsBrief":
-    "Die Morgenübersicht ist aus, daher wird nichts gesendet. Schalte sie ein, um das zu erhalten.",
   "memoryWork.remind.turnOnWrapup": "Abendrückblick einschalten",
   "memoryWork.remind.turnOnBrief": "Morgenübersicht einschalten",
 };

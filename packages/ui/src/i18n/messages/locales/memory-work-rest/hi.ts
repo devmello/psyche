@@ -58,8 +58,6 @@ export const memoryWorkRest: Partial<Catalogue> = {
   "memoryWork.remind.dayOfHint": "सुबह की ब्रीफ़ के बाद दूसरा नोटिफ़िकेशन: “आज देय: …”।",
   "memoryWork.remind.needsWrapup":
     "शाम का सारांश बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए सारांश चालू करें।",
-  "memoryWork.remind.needsBrief":
-    "सुबह की ब्रीफ़ बंद है, इसलिए कुछ नहीं भेजा जाएगा। इसे पाने के लिए ब्रीफ़ चालू करें।",
   "memoryWork.remind.turnOnWrapup": "शाम का सारांश चालू करें",
   "memoryWork.remind.turnOnBrief": "सुबह की ब्रीफ़ चालू करें",
 };

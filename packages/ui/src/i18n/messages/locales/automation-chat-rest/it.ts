@@ -4,9 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const automationChatRest: Partial<Catalogue> = {
   "automationChat.label": "Esecuzioni di {title}",
   "automationChat.runs": "{n, plural, one {# esecuzione} other {# esecuzioni}}",
-  "automationChat.runs.aria":
-    "{title}, {n, plural, one {# esecuzione} other {# esecuzioni}}, ultima esecuzione {status}",
-  "automationChat.schedule": "Pianificate",
   "automationChat.runNow": "Esegui ora",
   "automationChat.runStarted": "Esecuzione avviata.",
   "automationChat.empty":
@@ -28,5 +25,4 @@ export const automationChatRest: Partial<Catalogue> = {
   "automationChat.result": "Risultato",
   "automationChat.openScheduled": "Apri in Pianificate",
   "automationChat.row.runs": "{n, plural, one {# esecuzione} other {# esecuzioni}}",
-  "automationChat.row.last": "Ultima esecuzione: {status}",
 };

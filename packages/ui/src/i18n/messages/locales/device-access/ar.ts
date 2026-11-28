@@ -4,13 +4,13 @@ import type { Catalogue } from "../../index.ts";
 export const deviceAccess: Partial<Catalogue> = {
   "settings.deviceAccess.files.title": "الملفات على هذا الـ Mac",
   "settings.deviceAccess.files.hint":
-    "المجلدات التي يجوز لـ {persona} قراءتها، وتعديلها حيثما تسمح. تشاركها من الأذونات ← الوصول.",
+    "المجلدات التي يجوز لـ {persona} قراءتها، وتعديلها حيثما تسمح. تشاركها من الخصوصية والأمان ← الوصول إلى الملفات.",
   "settings.deviceAccess.files.more":
     "{count, plural, zero {} one {وواحد آخر} two {واثنان آخران} few {و# آخرين} many {و# آخر} other {و# آخر}}",
   "settings.deviceAccess.open": "فتح الوصول",
   "settings.deviceAccess.terminal.title": "Terminal",
   "settings.deviceAccess.terminal.hint":
-    "يستطيع {persona} تشغيل أوامر Terminal على هذا الـ Mac عندما يكون «تشغيل الأوامر على هذا الـ Mac» مفعّلًا في الأذونات ← الوصول.",
+    "يستطيع {persona} تشغيل أوامر Terminal على هذا الـ Mac عندما يكون «تشغيل الأوامر على هذا الـ Mac» مفعّلًا في الخصوصية والأمان ← الوصول إلى الملفات.",
   "settings.deviceAccess.terminal.where":
     "تعمل الأوامر على جهاز Mac لديك، في المجلدات التي شاركتها، ولا تكتب إلا في مجلد شاركته للقراءة والكتابة.",
   "settings.deviceAccess.terminal.asks":

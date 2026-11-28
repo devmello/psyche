@@ -1100,8 +1100,9 @@ export const de: Partial<Catalogue> = {
     "{turns, plural, one {# Zug} other {# Züge}} heute · ≈ {tokens} Token",
   "shell.usage.none": "Heute keine Nutzung",
   "shell.usage.turnsOnly": "{turns, plural, one {# Zug} other {# Züge}} heute",
-  "shell.usage.label": "{line}. Nutzungsdetails; öffnet „Einstellungen“ → „Nutzung“",
-  "shell.usage.labelNamed": "{name}: {line}. Nutzungsdetails; öffnet „Einstellungen“ → „Nutzung“",
+  "shell.usage.label": "{line}. Nutzungsdetails; öffnet „Einstellungen“ → „Modelle“ → „Nutzung“",
+  "shell.usage.labelNamed":
+    "{name}: {line}. Nutzungsdetails; öffnet „Einstellungen“ → „Modelle“ → „Nutzung“",
   "shell.usage.week": "Diese Woche nach Modell",
   "shell.usage.turnsTokens": "{turns, plural, one {# Zug} other {# Züge}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1109,7 +1110,7 @@ export const de: Partial<Catalogue> = {
   "shell.usage.month": "{cost} diesen Monat",
   "shell.usage.window": "{pct} des Planfensters verbraucht · wird zurückgesetzt {when}",
   "shell.usage.noWindow": "Das Limitfenster des Plans ist über diese CLI nicht verfügbar.",
-  "shell.usage.openHint": "Klicken für „Einstellungen“ → „Nutzung“.",
+  "shell.usage.openHint": "Klicken für „Einstellungen“ → „Modelle“ → „Nutzung“.",
 
   // settings
   "settings.shared.needsPresence":
@@ -1151,7 +1152,7 @@ export const de: Partial<Catalogue> = {
   "settings.nav.appearance": "Darstellung",
   "settings.nav.voice": "Stimme & Diktat",
   "settings.nav.data": "Datenschutz & Daten",
-  "settings.nav.server": "Geräte",
+  "settings.nav.server": "Netzwerk und Fernzugriff",
   "settings.nav.usage": "Nutzung",
   "settings.nav.about": "Über",
 

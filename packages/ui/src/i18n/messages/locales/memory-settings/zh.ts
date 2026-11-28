@@ -79,7 +79,6 @@ export const memorySettings: Partial<Catalogue> = {
   "memoryWork.remind.dayOf": "早上也告诉我今天有什么到期",
   "memoryWork.remind.dayOfHint": "早间简报之后的第二条通知：“今天到期：……”。",
   "memoryWork.remind.needsWrapup": "晚间总结已关闭，因此不会发送任何内容。开启后才会收到。",
-  "memoryWork.remind.needsBrief": "早间简报已关闭，因此不会发送任何内容。开启后才会收到。",
   "memoryWork.remind.turnOnWrapup": "开启晚间总结",
   "memoryWork.remind.turnOnBrief": "开启早间简报",
   "memorySurfaces.title": "记忆的显示位置",

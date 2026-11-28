@@ -103,7 +103,7 @@ export const settings = {
   "settings.nav.voice": "Voice & dictation",
   "settings.nav.data": "Privacy & data",
   "settings.nav.people": "People and privacy",
-  "settings.nav.server": "Devices",
+  "settings.nav.server": "Network & remote access",
   "settings.nav.usage": "Usage",
   "settings.nav.about": "About",
 

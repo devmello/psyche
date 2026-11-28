@@ -1070,8 +1070,8 @@ export const ja: Partial<Catalogue> = {
   "shell.usage.subscriptionLine": "今日 {turns, plural, other {#ターン}} · 約{tokens}トークン",
   "shell.usage.none": "今日の使用はありません",
   "shell.usage.turnsOnly": "今日 {turns, plural, other {#ターン}}",
-  "shell.usage.label": "{line}。使用状況の詳細。設定 → 使用状況を開きます",
-  "shell.usage.labelNamed": "{name}：{line}。使用状況の詳細。設定 → 使用状況を開きます",
+  "shell.usage.label": "{line}。使用状況の詳細。設定 → モデル → 使用状況を開きます",
+  "shell.usage.labelNamed": "{name}：{line}。使用状況の詳細。設定 → モデル → 使用状況を開きます",
   "shell.usage.week": "今週のモデル別",
   "shell.usage.turnsTokens": "{turns, plural, other {#ターン}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1079,7 +1079,7 @@ export const ja: Partial<Catalogue> = {
   "shell.usage.month": "今月 {cost}",
   "shell.usage.window": "プランの枠の{pct}を使用 · {when}にリセット",
   "shell.usage.noWindow": "このCLIからはプランの制限枠を取得できません。",
-  "shell.usage.openHint": "クリックすると設定 → 使用状況を開きます。",
+  "shell.usage.openHint": "クリックすると設定 → モデル → 使用状況を開きます。",
 
   "settings.shared.needsPresence":
     "「{label}」の変更には承認が必要です。設定またはPsycheの通知で承認してから、もう一度変更してください。",
@@ -1119,7 +1119,7 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.appearance": "外観",
   "settings.nav.voice": "音声と音声入力",
   "settings.nav.data": "プライバシーとデータ",
-  "settings.nav.server": "デバイス",
+  "settings.nav.server": "ネットワークとリモートアクセス",
   "settings.nav.usage": "使用状況",
   "settings.nav.about": "情報",
   "settings.row.moreFor": "{name}のその他の操作",

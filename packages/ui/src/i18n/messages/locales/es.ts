@@ -1073,8 +1073,8 @@ export const es: Partial<Catalogue> = {
     "{turns, plural, one {# turno} other {# turnos}} hoy · ≈ {tokens} tokens",
   "shell.usage.none": "Sin uso hoy",
   "shell.usage.turnsOnly": "{turns, plural, one {# turno} other {# turnos}} hoy",
-  "shell.usage.label": "{line}. Detalles de uso; abre Ajustes → Uso",
-  "shell.usage.labelNamed": "{name}: {line}. Detalles de uso; abre Ajustes → Uso",
+  "shell.usage.label": "{line}. Detalles de uso; abre Ajustes → Modelos → Uso",
+  "shell.usage.labelNamed": "{name}: {line}. Detalles de uso; abre Ajustes → Modelos → Uso",
   "shell.usage.week": "Esta semana por modelo",
   "shell.usage.turnsTokens": "{turns, plural, one {# turno} other {# turnos}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1082,7 +1082,7 @@ export const es: Partial<Catalogue> = {
   "shell.usage.month": "{cost} este mes",
   "shell.usage.window": "{pct} de la ventana del plan usado · se restablece {when}",
   "shell.usage.noWindow": "La ventana de límite del plan no está disponible desde esta CLI.",
-  "shell.usage.openHint": "Haz clic para ir a Ajustes → Uso.",
+  "shell.usage.openHint": "Haz clic para ir a Ajustes → Modelos → Uso.",
 
   "settings.shared.needsPresence":
     "Cambiar «{label}» necesita tu aprobación. Apruébalo en Ajustes o en la notificación de Psyche y vuelve a cambiarlo.",
@@ -1122,7 +1122,7 @@ export const es: Partial<Catalogue> = {
   "settings.nav.appearance": "Aspecto",
   "settings.nav.voice": "Voz y dictado",
   "settings.nav.data": "Privacidad y datos",
-  "settings.nav.server": "Dispositivos",
+  "settings.nav.server": "Red y acceso remoto",
   "settings.nav.usage": "Uso",
   "settings.nav.about": "Acerca de",
 

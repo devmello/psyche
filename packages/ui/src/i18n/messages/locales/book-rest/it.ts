@@ -9,5 +9,4 @@ export const bookRest: Partial<Catalogue> = {
   "book.cell": "Cella {ref}",
   "book.formulaBar": "Valore o formula per {ref}",
   "book.hint": "Inizia con = per una formula, ad esempio =SUM(B2:B9).",
-  "book.cells": "{count, plural, one {# cella} other {# celle}}",
 };

@@ -1309,12 +1309,12 @@ export const settingsRest: Partial<Catalogue> = {
     "{name} 변경이 승인되지 않았습니다. 승인하기 전까지 중지된 상태로 유지됩니다.",
   "settings.deviceAccess.files.title": "이 Mac의 파일",
   "settings.deviceAccess.files.hint":
-    "{persona}가 읽을 수 있고, 허용하면 편집할 수도 있는 폴더입니다. 공유는 권한 → 접근에서 합니다.",
+    "{persona}가 읽을 수 있고, 허용하면 편집할 수도 있는 폴더입니다. 공유는 개인정보 및 보안 → 파일 접근에서 합니다.",
   "settings.deviceAccess.files.more": "{count, plural, other {외 #개}}",
   "settings.deviceAccess.open": "접근 열기",
   "settings.deviceAccess.terminal.title": "터미널",
   "settings.deviceAccess.terminal.hint":
-    "권한 → 접근에서 이 Mac에서 명령 실행이 켜져 있으면 {persona}가 이 Mac에서 터미널 명령을 실행할 수 있습니다.",
+    "개인정보 및 보안 → 파일 접근에서 이 Mac에서 명령 실행이 켜져 있으면 {persona}가 이 Mac에서 터미널 명령을 실행할 수 있습니다.",
   "settings.deviceAccess.terminal.where":
     "명령은 Mac에서 공유한 폴더 안에서 실행되며, 읽기 및 쓰기로 공유한 폴더에만 쓸 수 있습니다.",
   "settings.deviceAccess.terminal.asks":

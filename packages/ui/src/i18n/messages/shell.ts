@@ -148,8 +148,8 @@ export const shell = {
     "{turns, plural, one {# turn} other {# turns}} today · ≈ {tokens} tokens",
   "shell.usage.none": "No usage today",
   "shell.usage.turnsOnly": "{turns, plural, one {# turn} other {# turns}} today",
-  "shell.usage.label": "{line}. Usage details; opens Settings → Usage",
-  "shell.usage.labelNamed": "{name}: {line}. Usage details; opens Settings → Usage",
+  "shell.usage.label": "{line}. Usage details; opens Settings → Models → Usage",
+  "shell.usage.labelNamed": "{name}: {line}. Usage details; opens Settings → Models → Usage",
   "shell.usage.week": "This week by model",
   "shell.usage.turnsTokens": "{turns, plural, one {# turn} other {# turns}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -157,5 +157,5 @@ export const shell = {
   "shell.usage.month": "{cost} this month",
   "shell.usage.window": "{pct} of the plan window used · resets {when}",
   "shell.usage.noWindow": "The plan's limit window isn't available from this CLI.",
-  "shell.usage.openHint": "Click for Settings → Usage.",
+  "shell.usage.openHint": "Click for Settings → Models → Usage.",
 } as const;

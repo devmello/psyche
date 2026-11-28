@@ -79,8 +79,8 @@ describe("VM mode is folded away inside Computer use", () => {
   });
 });
 
-describe("Devices pane label", () => {
-  it("reads Devices", () => {
-    expect(paneById("server")?.label).toBe("Devices");
+describe("Server pane label", () => {
+  it("reads Network & remote access", () => {
+    expect(paneById("server")?.label).toBe("Network & remote access");
   });
 });

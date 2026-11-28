@@ -1335,12 +1335,12 @@ export const settingsRest: Partial<Catalogue> = {
     "{name}への変更は承認されませんでした。承認するまで停止したままです。",
   "settings.deviceAccess.files.title": "このMac上のファイル",
   "settings.deviceAccess.files.hint":
-    "{persona}が読み取れるフォルダと、許可した場合に編集できるフォルダです。共有は「権限 → アクセス」で行います。",
+    "{persona}が読み取れるフォルダと、許可した場合に編集できるフォルダです。共有は「プライバシーとセキュリティ → ファイルアクセス」で行います。",
   "settings.deviceAccess.files.more": "{count, plural, other {ほか#件}}",
   "settings.deviceAccess.open": "アクセスを開く",
   "settings.deviceAccess.terminal.title": "ターミナル",
   "settings.deviceAccess.terminal.hint":
-    "「権限 → アクセス」で「このMacでコマンドを実行」がオンのとき、{persona}はこのMacでターミナルコマンドを実行できます。",
+    "「プライバシーとセキュリティ → ファイルアクセス」で「このMacでコマンドを実行」がオンのとき、{persona}はこのMacでターミナルコマンドを実行できます。",
   "settings.deviceAccess.terminal.where":
     "コマンドはMac上で、共有したフォルダ内で実行され、読み書きで共有したフォルダにのみ書き込めます。",
   "settings.deviceAccess.terminal.asks":

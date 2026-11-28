@@ -16,7 +16,6 @@ export const miscRest: Partial<Catalogue> = {
   "book.cell": "Zelle {ref}",
   "book.formulaBar": "Wert oder Formel für {ref}",
   "book.hint": "Beginne mit = für eine Formel, zum Beispiel =SUMME(B2:B9).",
-  "book.cells": "{count, plural, one {# Zelle} other {# Zellen}}",
   "personData.export": "Alles exportieren …",
   "personData.said": "Vergessen, was die Person gesagt hat …",
   "personData.exclude": "Nichts mehr über die Person lernen …",
@@ -100,9 +99,6 @@ export const miscRest: Partial<Catalogue> = {
   "meetingRecord.notes.failed": "Psyche konnte aus dieser Aufnahme keine Notizen schreiben.",
   "automationChat.label": "Läufe von {title}",
   "automationChat.runs": "{n, plural, one {# Lauf} other {# Läufe}}",
-  "automationChat.runs.aria":
-    "{title}, {n, plural, one {# Lauf} other {# Läufe}}, letzter Lauf {status}",
-  "automationChat.schedule": "Geplant",
   "automationChat.runNow": "Jetzt ausführen",
   "automationChat.runStarted": "Lauf gestartet.",
   "automationChat.empty":
@@ -124,5 +120,4 @@ export const miscRest: Partial<Catalogue> = {
   "automationChat.result": "Ergebnis",
   "automationChat.openScheduled": "Unter „Geplant“ öffnen",
   "automationChat.row.runs": "{n, plural, one {# Lauf} other {# Läufe}}",
-  "automationChat.row.last": "Letzter Lauf: {status}",
 };

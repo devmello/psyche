@@ -1357,12 +1357,12 @@ export const settingsRest: Partial<Catalogue> = {
     "Modifica a {name} non approvata. Resta fermo finché non ne approvi una.",
   "settings.deviceAccess.files.title": "File su questo Mac",
   "settings.deviceAccess.files.hint":
-    "Le cartelle che {persona} può leggere, e modificare dove lo consenti. Le condividi in Permessi → Accesso.",
+    "Le cartelle che {persona} può leggere, e modificare dove lo consenti. Le condividi in Privacy e sicurezza → Accesso ai file.",
   "settings.deviceAccess.files.more": "{count, plural, one {e 1 altra} other {e altre #}}",
   "settings.deviceAccess.open": "Apri Accesso",
   "settings.deviceAccess.terminal.title": "Terminale",
   "settings.deviceAccess.terminal.hint":
-    "{persona} può eseguire comandi di terminale su questo Mac quando “Esegui comandi su questo Mac” è attivo in Permessi → Accesso.",
+    "{persona} può eseguire comandi di terminal su questo Mac quando “Esegui comandi su questo Mac” è attivo in Privacy e sicurezza → Accesso ai file.",
   "settings.deviceAccess.terminal.where":
     "I comandi vengono eseguiti sul tuo Mac, nelle cartelle che hai condiviso, e possono scrivere solo in una cartella condivisa in lettura e scrittura.",
   "settings.deviceAccess.terminal.asks":

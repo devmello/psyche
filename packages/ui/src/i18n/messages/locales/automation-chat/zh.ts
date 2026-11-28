@@ -4,8 +4,6 @@ import type { Catalogue } from "../../index.ts";
 export const automationChat: Partial<Catalogue> = {
   "automationChat.label": "{title}的运行记录",
   "automationChat.runs": "{n, plural, other {# 次运行}}",
-  "automationChat.runs.aria": "{title}，{n, plural, other {# 次运行}}，上次运行{status}",
-  "automationChat.schedule": "计划任务",
   "automationChat.runNow": "立即运行",
   "automationChat.runStarted": "已开始运行。",
   "automationChat.empty": "还没有运行记录。此自动化每次运行都会显示在这里。",
@@ -26,5 +24,4 @@ export const automationChat: Partial<Catalogue> = {
   "automationChat.result": "结果",
   "automationChat.openScheduled": "在“计划任务”中打开",
   "automationChat.row.runs": "{n, plural, other {# 次运行}}",
-  "automationChat.row.last": "上次运行：{status}",
 };

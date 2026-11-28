@@ -50,6 +50,4 @@ export const canvasMore: Partial<Catalogue> = {
   "book.cell": "الخلية {ref}",
   "book.formulaBar": "قيمة أو صيغة للخلية {ref}",
   "book.hint": "ابدأ بـ = لكتابة صيغة، مثل =SUM(B2:B9).",
-  "book.cells":
-    "{count, plural, zero {لا خلايا} one {خلية واحدة} two {خليتان} few {# خلايا} many {# خلية} other {# خلية}}",
 };

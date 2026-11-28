@@ -1126,8 +1126,9 @@ export const ar: Partial<Catalogue> = {
   "shell.usage.none": "لا استخدام اليوم",
   "shell.usage.turnsOnly":
     "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور} zero {# دور}} اليوم",
-  "shell.usage.label": "{line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← الاستخدام",
-  "shell.usage.labelNamed": "{name}: {line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← الاستخدام",
+  "shell.usage.label": "{line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← النماذج ← الاستخدام",
+  "shell.usage.labelNamed":
+    "{name}: {line}. تفاصيل الاستخدام؛ يفتح الإعدادات ← النماذج ← الاستخدام",
   "shell.usage.week": "هذا الأسبوع حسب النموذج",
   "shell.usage.turnsTokens":
     "{turns, plural, one {دور واحد} two {دوران} few {# أدوار} many {# دورًا} other {# دور} zero {# دور}} · {tokens}",
@@ -1136,7 +1137,7 @@ export const ar: Partial<Catalogue> = {
   "shell.usage.month": "{cost} هذا الشهر",
   "shell.usage.window": "استُخدم {pct} من نافذة الخطة · تُعاد في {when}",
   "shell.usage.noWindow": "نافذة حدّ الخطة غير متاحة من واجهة سطر الأوامر هذه.",
-  "shell.usage.openHint": "انقر للانتقال إلى الإعدادات ← الاستخدام.",
+  "shell.usage.openHint": "انقر للانتقال إلى الإعدادات ← النماذج ← الاستخدام.",
 
   "settings.shared.needsPresence":
     "يحتاج تغيير «{label}» إلى موافقتك. وافق عليه في الإعدادات أو في إشعار Psyche، ثم غيّره مرة أخرى.",
@@ -1175,7 +1176,7 @@ export const ar: Partial<Catalogue> = {
   "settings.nav.appearance": "المظهر",
   "settings.nav.voice": "الصوت والإملاء",
   "settings.nav.data": "الخصوصية والبيانات",
-  "settings.nav.server": "الأجهزة",
+  "settings.nav.server": "الشبكة والوصول عن بُعد",
   "settings.nav.usage": "الاستخدام",
   "settings.nav.about": "حول",
 

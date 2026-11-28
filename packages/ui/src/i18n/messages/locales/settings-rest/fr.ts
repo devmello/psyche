@@ -1360,12 +1360,12 @@ export const settingsRest: Partial<Catalogue> = {
     "Modification de {name} non approuvée. Il reste arrêté jusqu’à ce que vous en approuviez une.",
   "settings.deviceAccess.files.title": "Fichiers sur ce Mac",
   "settings.deviceAccess.files.hint":
-    "Les dossiers que {persona} peut lire, et modifier là où vous l’autorisez. Vous les partagez dans Autorisations → Accès.",
+    "Les dossiers que {persona} peut lire, et modifier là où vous l’autorisez. Vous les partagez dans Confidentialité et sécurité → Accès aux fichiers.",
   "settings.deviceAccess.files.more": "{count, plural, one {et 1 autre} other {et # autres}}",
   "settings.deviceAccess.open": "Ouvrir Accès",
   "settings.deviceAccess.terminal.title": "Terminal",
   "settings.deviceAccess.terminal.hint":
-    "{persona} peut exécuter des commandes de terminal sur ce Mac lorsque Exécuter des commandes sur ce Mac est activé dans Autorisations → Accès.",
+    "{persona} peut exécuter des commandes de terminal sur ce Mac lorsque Exécuter des commandes sur ce Mac est activé dans Confidentialité et sécurité → Accès aux fichiers.",
   "settings.deviceAccess.terminal.where":
     "Les commandes s’exécutent sur votre Mac, dans les dossiers que vous avez partagés, et ne peuvent écrire que dans un dossier partagé en lecture et écriture.",
   "settings.deviceAccess.terminal.asks":

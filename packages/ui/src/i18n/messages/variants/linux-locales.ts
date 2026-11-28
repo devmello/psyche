@@ -244,7 +244,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "لا يستطيع توقيع الموصّل إلا Psyche على الكمبيوتر الذي يشغّله.",
       "settings.deviceAccess.files.title": "الملفات على هذا الكمبيوتر",
       "settings.deviceAccess.terminal.hint":
-        "يستطيع {persona} تشغيل أوامر الطرفية على هذا الكمبيوتر عندما يكون «تشغيل الأوامر على هذا الكمبيوتر» مفعّلًا في الأذونات ← الوصول.",
+        "يستطيع {persona} تشغيل أوامر الطرفية على هذا الكمبيوتر عندما يكون «تشغيل الأوامر على هذا الكمبيوتر» مفعّلًا في الخصوصية والأمان ← الوصول إلى الملفات.",
       "settings.deviceAccess.terminal.where":
         "تعمل الأوامر على الكمبيوتر الخاص بك، في المجلدات التي شاركتها، ولا تكتب إلا في مجلد شاركته للقراءة والكتابة.",
       "settings.mcp.needs.title": "ما يحتاج إليه هذا على الكمبيوتر الخاص بك",
@@ -631,7 +631,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Nur Psyche auf dem Computer, auf dem er läuft, kann einen Connector signieren.",
       "settings.deviceAccess.files.title": "Dateien auf diesem Computer",
       "settings.deviceAccess.terminal.hint":
-        "{persona} kann Terminalbefehle auf diesem Computer ausführen, wenn unter Berechtigungen → Zugriff „Befehle auf diesem Computer ausführen“ an ist.",
+        "{persona} kann Terminalbefehle auf diesem Computer ausführen, wenn unter Datenschutz & Sicherheit → Dateizugriff „Befehle auf diesem Computer ausführen“ an ist.",
       "settings.deviceAccess.terminal.where":
         "Befehle laufen auf deinem Computer, in den Ordnern, die du geteilt hast, und dürfen nur in einen Ordner schreiben, den du mit Lesen und Schreiben geteilt hast.",
       "settings.mcp.needs.title": "Was das auf deinem Computer braucht",
@@ -1029,7 +1029,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Solo Psyche en el ordenador que lo ejecuta puede firmar un conector.",
       "settings.deviceAccess.files.title": "Archivos en este ordenador",
       "settings.deviceAccess.terminal.hint":
-        "{persona} puede ejecutar comandos de terminal en este ordenador cuando «Ejecutar comandos en este ordenador» está activado en Permisos → Acceso.",
+        "{persona} puede ejecutar comandos de terminal en este ordenador cuando «Ejecutar comandos en este ordenador» está activado en Privacidad y seguridad → Acceso a archivos.",
       "settings.deviceAccess.terminal.where":
         "Los comandos se ejecutan en tu ordenador, en las carpetas que compartiste, y solo pueden escribir en una carpeta compartida con lectura y escritura.",
       "settings.mcp.needs.title": "Lo que esto necesita en tu ordenador",
@@ -1430,7 +1430,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Seul Psyche sur l’ordinateur qui l’exécute peut signer un connecteur.",
       "settings.deviceAccess.files.title": "Fichiers sur cet ordinateur",
       "settings.deviceAccess.terminal.hint":
-        "{persona} peut exécuter des commandes de terminal sur cet ordinateur lorsque Exécuter des commandes sur cet ordinateur est activé dans Autorisations → Accès.",
+        "{persona} peut exécuter des commandes de terminal sur cet ordinateur lorsque Exécuter des commandes sur cet ordinateur est activé dans Confidentialité et sécurité → Accès aux fichiers.",
       "settings.deviceAccess.terminal.where":
         "Les commandes s’exécutent sur votre ordinateur, dans les dossiers que vous avez partagés, et ne peuvent écrire que dans un dossier partagé en lecture et écriture.",
       "settings.mcp.needs.title": "Ce dont cela a besoin sur votre ordinateur",
@@ -1814,7 +1814,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "कनेक्टर पर हस्ताक्षर केवल उसी कंप्यूटर पर चल रहा Psyche कर सकता है जो उसे चलाता है।",
       "settings.deviceAccess.files.title": "इस कंप्यूटर पर फ़ाइलें",
       "settings.deviceAccess.terminal.hint":
-        "जब अनुमतियाँ → एक्सेस में “इस कंप्यूटर पर कमांड चलाएँ” चालू हो, तो {persona} इस कंप्यूटर पर टर्मिनल कमांड चला सकता है।",
+        "जब गोपनीयता और सुरक्षा → फ़ाइल ऐक्सेस में “इस कंप्यूटर पर कमांड चलाएँ” चालू हो, तो {persona} इस कंप्यूटर पर टर्मिनल कमांड चला सकता है।",
       "settings.deviceAccess.terminal.where":
         "कमांड आपके कंप्यूटर पर, आपके साझा किए फ़ोल्डर में चलते हैं, और सिर्फ़ उसी फ़ोल्डर में लिख सकते हैं जिसे आपने पढ़ने और लिखने के लिए साझा किया।",
       "settings.mcp.needs.title": "आपके कंप्यूटर पर इसे क्या चाहिए",
@@ -2199,7 +2199,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Solo Psyche sul computer che lo esegue può firmare un connettore.",
       "settings.deviceAccess.files.title": "File su questo computer",
       "settings.deviceAccess.terminal.hint":
-        "{persona} può eseguire comandi di terminale su questo computer quando “Esegui comandi su questo computer” è attivo in Permessi → Accesso.",
+        "{persona} può eseguire comandi di terminale su questo computer quando “Esegui comandi su questo computer” è attivo in Privacy e sicurezza → Accesso ai file.",
       "settings.deviceAccess.terminal.where":
         "I comandi vengono eseguiti sul tuo computer, nelle cartelle che hai condiviso, e possono scrivere solo in una cartella condivisa in lettura e scrittura.",
       "settings.mcp.needs.title": "Cosa serve sul tuo computer",
@@ -2598,7 +2598,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "コネクタに署名できるのは、それを実行しているコンピュータ上のPsycheだけです。",
       "settings.deviceAccess.files.title": "このコンピュータ上のファイル",
       "settings.deviceAccess.terminal.hint":
-        "「権限 → アクセス」で「このコンピュータでコマンドを実行」がオンのとき、{persona}はこのコンピュータでターミナルコマンドを実行できます。",
+        "「プライバシーとセキュリティ → ファイルアクセス」で「このコンピュータでコマンドを実行」がオンのとき、{persona}はこのコンピュータでターミナルコマンドを実行できます。",
       "settings.deviceAccess.terminal.where":
         "コマンドはコンピュータ上で、共有したフォルダ内で実行され、読み書きで共有したフォルダにのみ書き込めます。",
       "settings.mcp.needs.title": "このコンピュータで必要なもの",
@@ -2981,7 +2981,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "커넥터에 서명할 수 있는 것은 그 커넥터를 실행하는 컴퓨터의 Psyche뿐입니다.",
       "settings.deviceAccess.files.title": "이 컴퓨터의 파일",
       "settings.deviceAccess.terminal.hint":
-        "권한 → 접근에서 이 컴퓨터에서 명령 실행이 켜져 있으면 {persona}가 이 컴퓨터에서 터미널 명령을 실행할 수 있습니다.",
+        "개인정보 및 보안 → 파일 접근에서 이 컴퓨터에서 명령 실행이 켜져 있으면 {persona}가 이 컴퓨터에서 터미널 명령을 실행할 수 있습니다.",
       "settings.deviceAccess.terminal.where":
         "명령은 컴퓨터에서 공유한 폴더 안에서 실행되며, 읽기 및 쓰기로 공유한 폴더에만 쓸 수 있습니다.",
       "settings.mcp.needs.title": "이 컴퓨터에서 필요한 것",
@@ -3364,7 +3364,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "Só o Psyche no computador que o executa pode assinar um conector.",
       "settings.deviceAccess.files.title": "Arquivos neste computador",
       "settings.deviceAccess.terminal.hint":
-        "{persona} pode executar comandos de terminal neste computador quando “Executar comandos neste computador” está ativado em Permissões → Acesso.",
+        "{persona} pode executar comandos de terminal neste computador quando “Executar comandos neste computador” está ativado em Privacidade e segurança → Acesso a arquivos.",
       "settings.deviceAccess.terminal.where":
         "Os comandos rodam no seu computador, nas pastas que você compartilhou, e só podem gravar em uma pasta compartilhada com leitura e gravação.",
       "settings.mcp.needs.title": "O que isto precisa no seu computador",
@@ -3726,7 +3726,7 @@ export const LINUX_LOCALES: Readonly<Record<string, Readonly<Partial<Record<Mess
         "只有运行该连接器的电脑上的 Psyche 才能为其签名。",
       "settings.deviceAccess.files.title": "这台电脑上的文件",
       "settings.deviceAccess.terminal.hint":
-        "“权限 → 访问”中开启“在这台电脑上运行命令”后，{persona}可以在这台电脑上运行终端命令。",
+        "“隐私与安全 → 文件访问”中开启“在这台电脑上运行命令”后，{persona}可以在这台电脑上运行终端命令。",
       "settings.deviceAccess.terminal.where":
         "命令在你的电脑上、在你共享的文件夹中运行，并且只能写入你以读写方式共享的文件夹。",
       "settings.mcp.needs.title": "这需要你的电脑具备什么",

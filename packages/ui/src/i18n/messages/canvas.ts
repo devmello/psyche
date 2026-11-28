@@ -69,7 +69,6 @@ export const canvas = {
   "book.cell": "Cell {ref}",
   "book.formulaBar": "Value or formula for {ref}",
   "book.hint": "Start with = for a formula, for example =SUM(B2:B9).",
-  "book.cells": "{count, plural, one {# cell} other {# cells}}",
   "map.label": "Map: {title}",
   "map.untitled": "Map",
   "map.list": "Places",

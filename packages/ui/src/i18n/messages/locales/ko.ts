@@ -1069,8 +1069,8 @@ export const ko: Partial<Catalogue> = {
   "shell.usage.subscriptionLine": "오늘 {turns, plural, other {#턴}} · ≈ {tokens} 토큰",
   "shell.usage.none": "오늘 사용량 없음",
   "shell.usage.turnsOnly": "오늘 {turns, plural, other {#턴}}",
-  "shell.usage.label": "{line}. 사용량 세부사항, 설정 → 사용량 열기",
-  "shell.usage.labelNamed": "{name}: {line}. 사용량 세부사항, 설정 → 사용량 열기",
+  "shell.usage.label": "{line}. 사용량 세부사항, 설정 → 모델 → 사용량 열기",
+  "shell.usage.labelNamed": "{name}: {line}. 사용량 세부사항, 설정 → 모델 → 사용량 열기",
   "shell.usage.week": "이번 주 모델별",
   "shell.usage.turnsTokens": "{turns, plural, other {#턴}} · {tokens}",
   "shell.usage.costTokens": "{cost} · {tokens}",
@@ -1078,7 +1078,7 @@ export const ko: Partial<Catalogue> = {
   "shell.usage.month": "이번 달 {cost}",
   "shell.usage.window": "요금제 기간의 {pct} 사용 · {when} 재설정",
   "shell.usage.noWindow": "이 CLI에서는 요금제 한도 기간을 확인할 수 없습니다.",
-  "shell.usage.openHint": "클릭하면 설정 → 사용량이 열립니다.",
+  "shell.usage.openHint": "클릭하면 설정 → 모델 → 사용량이 열립니다.",
 
   // settings
   "settings.shared.needsPresence":
@@ -1119,7 +1119,7 @@ export const ko: Partial<Catalogue> = {
   "settings.nav.appearance": "화면 모드",
   "settings.nav.voice": "음성 및 받아쓰기",
   "settings.nav.data": "개인정보 및 데이터",
-  "settings.nav.server": "기기",
+  "settings.nav.server": "네트워크 및 원격 접속",
   "settings.nav.usage": "사용량",
   "settings.nav.about": "정보",
   "settings.row.moreFor": "{name} 더 보기",

@@ -99,12 +99,12 @@ export const settingsE: Partial<Catalogue> = {
   "blocks.details.connector.suggested": "{persona} sugere este conector do registro",
   "settings.deviceAccess.files.title": "Arquivos neste Mac",
   "settings.deviceAccess.files.hint":
-    "As pastas que {persona} pode ler, e editar onde você permitir. Você as compartilha em Permissões → Acesso.",
+    "As pastas que {persona} pode ler, e editar onde você permitir. Você as compartilha em Privacidade e segurança → Acesso a arquivos.",
   "settings.deviceAccess.files.more": "{count, plural, one {e mais 1} other {e mais #}}",
   "settings.deviceAccess.open": "Abrir Acesso",
   "settings.deviceAccess.terminal.title": "Terminal",
   "settings.deviceAccess.terminal.hint":
-    "{persona} pode executar comandos de terminal neste Mac quando “Executar comandos neste Mac” está ativado em Permissões → Acesso.",
+    "{persona} pode executar comandos de terminal neste Mac quando “Executar comandos neste Mac” está ativado em Privacidade e segurança → Acesso a arquivos.",
   "settings.deviceAccess.terminal.where":
     "Os comandos rodam no seu Mac, nas pastas que você compartilhou, e só podem gravar em uma pasta compartilhada com leitura e gravação.",
   "settings.deviceAccess.terminal.asks":
